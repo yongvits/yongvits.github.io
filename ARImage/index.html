@@ -2,92 +2,45 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>AR Image Tracking + Recorder</title>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+    <title>AR Image Tracking</title>
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      body, html {
-        margin: 0;
-        overflow: hidden;
-        font-family: sans-serif;
-      }
-      #recordControls {
+      body, html { margin: 0; overflow: hidden; }
+      #info {
         position: absolute;
         top: 10px;
         left: 50%;
         transform: translateX(-50%);
-        z-index: 10;
-      }
-      #recordControls button {
-        padding: 10px 20px;
-        font-size: 16px;
-        margin: 0 5px;
+        background: rgba(0,0,0,0.6);
+        color: white;
+        padding: 6px 12px;
+        font-size: 14px;
         border-radius: 6px;
-        border: none;
-        background: #000;
-        color: #fff;
-        cursor: pointer;
+        z-index: 99;
       }
     </style>
   </head>
   <body>
-    <div id="recordControls">
-      <button id="startRecord">⏺️ Start Record</button>
-      <button id="stopRecord" disabled>⏹️ Stop & Save</button>
-    </div>
+    <div id="info">🔍 สแกนภาพ marker เพื่อแสดงโมเดล</div>
 
-    <mindar-image id="ar-viewer" image-target-src="targets.mind" auto-start="true" ui-loading="yes" ui-scanning="yes" ui-error="yes">
-      <mindar-scene>
-        <mindar-camera></mindar-camera>
-        <mindar-image-target targetIndex="0">
-          <a-entity
-            gltf-model="AR.glb"
-            scale="0.5 0.5 0.5"
-            position="0 0 0"
-            rotation="0 0 0"
-          ></a-entity>
-        </mindar-image-target>
-      </mindar-scene>
-    </mindar-image>
+    <a-scene
+      mindar-image="imageTargetSrc: targets.mind; autoStart: true; showStats: false"
+      embedded
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: true"
+    >
+      <a-assets>
+        <a-asset-item id="model" src="AR.glb"></a-asset-item>
+      </a-assets>
 
-    <script>
-      // Recorder setup
-      let mediaRecorder;
-      let recordedChunks = [];
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      const startBtn = document.getElementById("startRecord");
-      const stopBtn = document.getElementById("stopRecord");
-
-      startBtn.onclick = () => {
-        const canvas = document.querySelector("canvas");
-        const stream = canvas.captureStream(30);
-        mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-
-        recordedChunks = [];
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) recordedChunks.push(e.data);
-        };
-
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(recordedChunks, { type: "video/webm" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "recording.webm";
-          a.click();
-        };
-
-        mediaRecorder.start();
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-      };
-
-      stopBtn.onclick = () => {
-        mediaRecorder.stop();
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-      };
-    </script>
+      <a-entity mindar-image-target="targetIndex: 0">
+        <a-gltf-model src="#model" scale="0.5 0.5 0.5" position="0 0 0"></a-gltf-model>
+      </a-entity>
+    </a-scene>
   </body>
 </html>
