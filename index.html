@@ -2,38 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>AR Viewer</title>
+    <title>AR Viewer Centered</title>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <style>
-      .ar-button {
-        border: none;
-        background: none;
-        padding: 0;
-        cursor: pointer;
+      body {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        height: 100vh;
+        background-color: #f8f8f8;
       }
 
-      .ar-button img {
+      model-viewer {
         width: 100%;
         max-width: 400px;
-        border-radius: 10px;
+        height: 400px;
       }
     </style>
   </head>
   <body>
-    <h1>AR on web</h1>
 
     <model-viewer
-      id="ar-model"
       src="AR.glb"
       ios-src="AR.usdz"
       ar
       ar-modes="scene-viewer quick-look webxr"
-      style="display: none;">
+      auto-rotate
+      camera-controls
+      ar-button
+      shadow-intensity="1"
+      alt="โมเดล AR"
+    >
     </model-viewer>
-
-    <button class="ar-button" onclick="document.querySelector('#ar-model').activateAR()">
-      <img src="IMG_7710.jpeg" alt="ดูใน AR">
-    </button>
 
   </body>
 </html>
