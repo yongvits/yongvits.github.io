@@ -15,20 +15,31 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
       flex-direction: column;
+      height: 100vh;
     }
 
     model-viewer {
       width: 100%;
-      max-width: 1200px;
-      height: 1200px;
+      max-width: 600px; /* ปรับขนาดเหลือครึ่งหนึ่ง */
+      height: 600px;
     }
 
     model-viewer::part(ar-button) {
-      transform: scale(3);
+      transform: scale(1.5); /* ปรับปุ่มให้ใหญ่ขึ้นนิดหน่อย */
       transform-origin: bottom right;
-      margin: 30px;
+      margin: 20px;
+    }
+
+    .image-button {
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    .image-button img {
+      width: 200px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
   </style>
 </head>
@@ -44,9 +55,15 @@
     camera-controls
     ar-button
     shadow-intensity="1"
-    alt="Model AR "
+    alt="โมเดล AR"
+    id="ar-model"
   >
   </model-viewer>
+
+  <!-- ปุ่มเปิด AR แบบใช้รูปภาพ -->
+  <div class="image-button" onclick="document.getElementById('ar-model').activateAR()">
+    <img src="IMG_7710.jpeg" alt="เปิด AR">
+  </div>
 
 </body>
 </html>
