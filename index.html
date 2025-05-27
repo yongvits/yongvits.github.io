@@ -2,23 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>AR Viewer Centered</title>
+    <title>AR Viewer Large</title>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <style>
       body {
         margin: 0;
+        background-color: #f2f2f2;
+        height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-direction: column;
-        height: 100vh;
-        background-color: #f8f8f8;
       }
 
       model-viewer {
         width: 100%;
-        max-width: 400px;
-        height: 400px;
+        max-width: 1200px; /* ขยายจาก 400px → 1200px (3 เท่า) */
+        height: 1200px;
+      }
+
+      /* ขยายปุ่ม AR */
+      model-viewer::part(ar-button) {
+        transform: scale(3); /* ปรับขนาดปุ่มให้ใหญ่ขึ้น 3 เท่า */
+        transform-origin: bottom right;
+        margin: 30px;
       }
     </style>
   </head>
@@ -33,7 +40,7 @@
       camera-controls
       ar-button
       shadow-intensity="1"
-      alt="โมเดล AR"
+      alt="โมเดล AR ขนาดใหญ่"
     >
     </model-viewer>
 
