@@ -1,39 +1,87 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>AR เปลี่ยน Texture</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>AR Tracker + Recorder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- A-Frame + MindAR -->
+  <!-- A-Frame & MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    body { margin: 0; font-family: sans-serif; overflow: hidden; }
-    #imageUploader {
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    #ar-scene {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .ui {
       position: absolute;
-      top: 10px; left: 10px;
+      top: 10px;
+      left: 10px;
       z-index: 999;
+    }
+
+    button {
+      padding: 10px 16px;
+      margin-right: 8px;
+      font-size: 16px;
+    }
+
+    video#preview {
+      display: none;
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      max-width: 200px;
+      z-index: 999;
+      border: 2px solid white;
+    }
+
+    a#convertMP4 {
+      display: none;
+      position: absolute;
+      bottom: 10px;
+      left: 220px;
+      font-size: 14px;
       background: white;
-      padding: 5px 10px;
-      border-radius: 5px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      z-index: 999;
+      text-decoration: none;
+      color: black;
     }
   </style>
 </head>
-<body>
 
-  <!-- ปุ่ม Upload -->
-  <input type="file" id="imageUploader" accept="image/*" />
+<body>
+  <!-- UI ปุ่ม -->
+  <div class="ui">
+    <button id="startRecord">🎬 เริ่มบันทึก</button>
+    <button id="stopRecord" disabled>⏹️ หยุดบันทึก</button>
+  </div>
+
+  <!-- ตัวอย่างวิดีโอ -->
+  <video id="preview" controls></video>
+  <a id="convertMP4" href="https://cloudconvert.com/webm-to-mp4" target="_blank">
+    👉 แปลงเป็น MP4
+  </a>
 
   <!-- AR Scene -->
   <a-scene
     mindar-image="imageTargetSrc: Targets.mind"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
-    embedded
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: true"
+    embedded
+    id="ar-scene"
   >
     <a-assets>
       <a-asset-item id="model" src="AR.glb"></a-asset-item>
@@ -41,56 +89,73 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <a-entity mindar-image-target="targetIndex: 0" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
-      <a-gltf-model id="customModel"
+    <!-- โมเดลเกาะกับภาพเป้าหมาย พร้อม smooth -->
+    <a-entity mindar-image-target="targetIndex: 0" 
+              smooth="true" 
+              smoothCount="10" 
+              smoothTolerance="0.01" 
+              smoothThreshold="5">
+      <a-gltf-model
         src="#model"
         position="0 0 0"
         scale="0.5 0.5 0.5"
+        rotation="0 0 0"
       ></a-gltf-model>
     </a-entity>
   </a-scene>
 
+  <!-- JS: Record video -->
   <script>
-    const uploader = document.getElementById('imageUploader');
+    let recorder;
+    let recordedChunks = [];
 
-    uploader.addEventListener('change', function (event) {
-      const file = event.target.files[0];
-      if (!file) return;
+    const startBtn = document.getElementById("startRecord");
+    const stopBtn = document.getElementById("stopRecord");
+    const preview = document.getElementById("preview");
+    const convertLink = document.getElementById("convertMP4");
 
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const img = new Image();
-        img.src = e.target.result;
+    startBtn.onclick = async () => {
+      const canvas = document.querySelector("canvas");
 
-        img.onload = function () {
-          const texture = new THREE.Texture(img);
-          texture.needsUpdate = true;
+      if (!canvas.captureStream) {
+        alert("เบราว์เซอร์ของคุณไม่รองรับการบันทึกหน้าจอ");
+        return;
+      }
 
-          const model = document.querySelector('#customModel');
-          const mesh = model.getObject3D('mesh');
+      const stream = canvas.captureStream(30);
+      recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
 
-          function applyTexture(mesh) {
-            mesh.traverse(function (node) {
-              if (node.isMesh) {
-                node.material.map = texture;
-                node.material.needsUpdate = true;
-              }
-            });
-          }
-
-          if (mesh) {
-            applyTexture(mesh);
-          } else {
-            model.addEventListener('model-loaded', () => {
-              const mesh = model.getObject3D('mesh');
-              applyTexture(mesh);
-            });
-          }
-        };
+      recordedChunks = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
       };
-      reader.readAsDataURL(file);
-    });
-  </script>
 
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+
+        preview.src = url;
+        preview.style.display = "block";
+
+        // ดาวน์โหลดไฟล์อัตโนมัติ
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "ar-recording.webm";
+        a.click();
+
+        convertLink.style.display = "inline-block";
+      };
+
+      recorder.start();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    };
+
+    stopBtn.onclick = () => {
+      recorder.stop();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+  </script>
 </body>
 </html>
