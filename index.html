@@ -1,13 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>AR Viewer</title>
-</head>
-<body>
-  <h1>Sample AR</h1>
-  <a rel="ar" href="AR.usdz">
-    <img src="IMG_7710.jpeg" alt="AR model" width="300">
-  </a>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>AR Viewer</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+      .ar-button {
+        border: none;
+        background: none;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .ar-button img {
+        width: 100%;
+        max-width: 400px;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>แตะเพื่อดูโมเดล AR</h1>
+
+    <model-viewer
+      id="ar-model"
+      src="AR.glb"
+      ios-src="AR.usdz"
+      ar
+      ar-modes="scene-viewer quick-look webxr"
+      style="display: none;">
+    </model-viewer>
+
+    <button class="ar-button" onclick="document.querySelector('#ar-model').activateAR()">
+      <img src="IMG_7710.jpeg" alt="ดูใน AR">
+    </button>
+
+  </body>
 </html>
