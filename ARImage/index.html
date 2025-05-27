@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>AR Image Tracking</title>
+  <title>AR Image Tracking - Top View</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- A-Frame + MindAR -->
@@ -56,7 +56,7 @@
 
 <body>
 
-<!-- ปุ่มเริ่ม AR + รูปตัวอย่าง -->
+<!-- ปุ่มเริ่มต้นพร้อมรูปตัวอย่าง -->
 <div id="overlay">
   <img id="preview-img" src="IMG_7710.jpeg" alt="ตัวอย่างภาพที่ใช้สแกน" />
   <button id="startButton">SCAN AR</button>
@@ -79,11 +79,12 @@
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
   <a-entity mindar-image-target="targetIndex: 0">
+    <!-- โมเดลมุม Top View -->
     <a-gltf-model
       src="#model"
       position="0 0 0"
+      rotation="-90 0 0"
       scale="0.5 0.5 0.5"
-      rotation="0 0 0"
     ></a-gltf-model>
   </a-entity>
 </a-scene>
