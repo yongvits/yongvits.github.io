@@ -2,10 +2,10 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>AR Tracker + Recorder</title>
+  <title>AR Image Tracking with Recording</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- A-Frame & MindAR -->
+  <!-- A-Frame และ MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
@@ -43,35 +43,18 @@
       z-index: 999;
       border: 2px solid white;
     }
-
-    a#convertMP4 {
-      display: none;
-      position: absolute;
-      bottom: 10px;
-      left: 220px;
-      font-size: 14px;
-      background: white;
-      padding: 6px 12px;
-      border-radius: 4px;
-      z-index: 999;
-      text-decoration: none;
-      color: black;
-    }
   </style>
 </head>
 
 <body>
-  <!-- UI ปุ่ม -->
+  <!-- ปุ่มควบคุม -->
   <div class="ui">
     <button id="startRecord">🎬 เริ่มบันทึก</button>
     <button id="stopRecord" disabled>⏹️ หยุดบันทึก</button>
   </div>
 
-  <!-- ตัวอย่างวิดีโอ -->
+  <!-- แสดงตัวอย่างวิดีโอเมื่อบันทึกเสร็จ -->
   <video id="preview" controls></video>
-  <a id="convertMP4" href="https://cloudconvert.com/webm-to-mp4" target="_blank">
-    👉 แปลงเป็น MP4
-  </a>
 
   <!-- AR Scene -->
   <a-scene
@@ -83,18 +66,16 @@
     embedded
     id="ar-scene"
   >
+    <!-- โหลด asset โมเดล -->
     <a-assets>
       <a-asset-item id="model" src="AR.glb"></a-asset-item>
     </a-assets>
 
+    <!-- กล้อง -->
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- โมเดลเกาะกับภาพเป้าหมาย พร้อม smooth -->
-    <a-entity mindar-image-target="targetIndex: 0" 
-              smooth="true" 
-              smoothCount="10" 
-              smoothTolerance="0.01" 
-              smoothThreshold="5">
+    <!-- โมเดลที่จะแสดงเมื่อเจอภาพเป้าหมาย -->
+    <a-entity mindar-image-target="targetIndex: 0">
       <a-gltf-model
         src="#model"
         position="0 0 0"
@@ -104,7 +85,7 @@
     </a-entity>
   </a-scene>
 
-  <!-- JS: Record video -->
+  <!-- JS สำหรับบันทึกหน้าจอ -->
   <script>
     let recorder;
     let recordedChunks = [];
@@ -112,7 +93,6 @@
     const startBtn = document.getElementById("startRecord");
     const stopBtn = document.getElementById("stopRecord");
     const preview = document.getElementById("preview");
-    const convertLink = document.getElementById("convertMP4");
 
     startBtn.onclick = async () => {
       const canvas = document.querySelector("canvas");
@@ -122,7 +102,7 @@
         return;
       }
 
-      const stream = canvas.captureStream(30);
+      const stream = canvas.captureStream(30); // 30 fps
       recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
 
       recordedChunks = [];
@@ -137,13 +117,11 @@
         preview.src = url;
         preview.style.display = "block";
 
-        // ดาวน์โหลดไฟล์อัตโนมัติ
+        // ดาวน์โหลดวิดีโออัตโนมัติ
         const a = document.createElement("a");
         a.href = url;
         a.download = "ar-recording.webm";
         a.click();
-
-        convertLink.style.display = "inline-block";
       };
 
       recorder.start();
