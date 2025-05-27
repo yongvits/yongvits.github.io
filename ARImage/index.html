@@ -6,26 +6,12 @@
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image-aframe.prod.js"></script>
     <style>
-      body, html { margin: 0; overflow: hidden; }
-      #info {
-        position: absolute;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0,0,0,0.6);
-        color: white;
-        padding: 6px 12px;
-        font-size: 14px;
-        border-radius: 6px;
-        z-index: 99;
-      }
+      body, html { margin: 0; overflow: hidden; height: 100%; }
     </style>
   </head>
   <body>
-    <div id="info">🔍 สแกนภาพ marker เพื่อแสดงโมเดล</div>
-
     <a-scene
-      mindar-image="imageTargetSrc: targets.mind; autoStart: true; showStats: false"
+      mindar-image="imageTargetSrc: targets.mind; autoStart: true"
       embedded
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
