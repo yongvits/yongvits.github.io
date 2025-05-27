@@ -1,139 +1,93 @@
 <!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <title>AR Image Tracking with Recording</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- A-Frame และ MindAR -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: sans-serif;
-    }
-
-    #ar-scene {
-      width: 100vw;
-      height: 100vh;
-    }
-
-    .ui {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 999;
-    }
-
-    button {
-      padding: 10px 16px;
-      margin-right: 8px;
-      font-size: 16px;
-    }
-
-    video#preview {
-      display: none;
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      max-width: 200px;
-      z-index: 999;
-      border: 2px solid white;
-    }
-  </style>
-</head>
-
-<body>
-  <!-- ปุ่มควบคุม -->
-  <div class="ui">
-    <button id="startRecord">🔴 REC </button>
-    <button id="stopRecord" disabled> ⏹️STOP</button>
-  </div>
-
-  <!-- แสดงตัวอย่างวิดีโอเมื่อบันทึกเสร็จ -->
-  <video id="preview" controls></video>
-
-  <!-- AR Scene -->
-  <a-scene
-    mindar-image="imageTargetSrc: targets.mind"
-    color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights"
-    vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: true"
-    embedded
-    id="ar-scene"
-  >
-    <!-- โหลด asset โมเดล -->
-    <a-assets>
-      <a-asset-item id="model" src="AR.glb"></a-asset-item>
-    </a-assets>
-
-    <!-- กล้อง -->
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-    <!-- โมเดลที่จะแสดงเมื่อเจอภาพเป้าหมาย -->
-    <a-entity mindar-image-target="targetIndex: 0">
-      <a-gltf-model
-        src="#model"
-        position="0 0 0"
-        scale="0.5 0.5 0.5"
-        rotation="0 0 0"
-      ></a-gltf-model>
-    </a-entity>
-  </a-scene>
-
-  <!-- JS สำหรับบันทึกหน้าจอ -->
-  <script>
-    let recorder;
-    let recordedChunks = [];
-
-    const startBtn = document.getElementById("startRecord");
-    const stopBtn = document.getElementById("stopRecord");
-    const preview = document.getElementById("preview");
-
-    startBtn.onclick = async () => {
-      const canvas = document.querySelector("canvas");
-
-      if (!canvas.captureStream) {
-        alert("เบราว์เซอร์ของคุณไม่รองรับการบันทึกหน้าจอ");
-        return;
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>AR Image Tracking + Recorder</title>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.4/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+    <style>
+      body, html {
+        margin: 0;
+        overflow: hidden;
+        font-family: sans-serif;
       }
+      #recordControls {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+      }
+      #recordControls button {
+        padding: 10px 20px;
+        font-size: 16px;
+        margin: 0 5px;
+        border-radius: 6px;
+        border: none;
+        background: #000;
+        color: #fff;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="recordControls">
+      <button id="startRecord">⏺️ Start Record</button>
+      <button id="stopRecord" disabled>⏹️ Stop & Save</button>
+    </div>
 
-      const stream = canvas.captureStream(30); // 30 fps
-      recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+    <mindar-image id="ar-viewer" image-target-src="targets.mind" auto-start="true" ui-loading="yes" ui-scanning="yes" ui-error="yes">
+      <mindar-scene>
+        <mindar-camera></mindar-camera>
+        <mindar-image-target targetIndex="0">
+          <a-entity
+            gltf-model="AR.glb"
+            scale="0.5 0.5 0.5"
+            position="0 0 0"
+            rotation="0 0 0"
+          ></a-entity>
+        </mindar-image-target>
+      </mindar-scene>
+    </mindar-image>
 
-      recordedChunks = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunks.push(e.data);
+    <script>
+      // Recorder setup
+      let mediaRecorder;
+      let recordedChunks = [];
+
+      const startBtn = document.getElementById("startRecord");
+      const stopBtn = document.getElementById("stopRecord");
+
+      startBtn.onclick = () => {
+        const canvas = document.querySelector("canvas");
+        const stream = canvas.captureStream(30);
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+
+        recordedChunks = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunks, { type: "video/webm" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "recording.webm";
+          a.click();
+        };
+
+        mediaRecorder.start();
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
       };
 
-      recorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: "video/webm" });
-        const url = URL.createObjectURL(blob);
-
-        preview.src = url;
-        preview.style.display = "block";
-
-        // ดาวน์โหลดวิดีโออัตโนมัติ
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "ar-recording.webm";
-        a.click();
+      stopBtn.onclick = () => {
+        mediaRecorder.stop();
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
       };
-
-      recorder.start();
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-    };
-
-    stopBtn.onclick = () => {
-      recorder.stop();
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    };
-  </script>
-</body>
+    </script>
+  </body>
 </html>
