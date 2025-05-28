@@ -14,6 +14,13 @@ const config = {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
+    plugins: {
+        scene: [{
+            key: 'rexGestures',
+            plugin: rexgesturesplugin,
+            mapping: 'rexGestures'
+        }]
+    },
     scene: {
         preload: preload,
         create: create,
@@ -85,6 +92,19 @@ function create () {
 
     jumpBtn.addEventListener('touchstart', () => isJumping = true);
     jumpBtn.addEventListener('touchend', () => isJumping = false);
+
+    // Pinch gesture
+    let pinch = this.rexGestures.add.pinch();
+    pinch.on('pinch', (pinch) => {
+        this.cameras.main.zoom *= pinch.scaleFactor;
+    });
+
+    // Pan gesture
+    let pan = this.rexGestures.add.pan();
+    pan.on('pan', (pan) => {
+        this.cameras.main.scrollX -= pan.dx / this.cameras.main.zoom;
+        this.cameras.main.scrollY -= pan.dy / this.cameras.main.zoom;
+    });
 }
 
 function update () {
