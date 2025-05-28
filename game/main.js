@@ -1,14 +1,18 @@
 
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: window.innerWidth,
+    height: window.innerHeight,
     physics: {
         default: 'arcade',
         arcade: {
             gravity: { y: 500 },
             debug: false
         }
+    },
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
     scene: {
         preload: preload,
@@ -18,8 +22,9 @@ const config = {
 };
 
 let player;
-let cursors;
 let platforms;
+let leftBtn, rightBtn, jumpBtn;
+let moveLeft = false, moveRight = false, isJumping = false;
 
 const game = new Phaser.Game(config);
 
@@ -33,10 +38,10 @@ function preload () {
 }
 
 function create () {
-    this.add.image(400, 300, 'sky');
+    this.add.image(config.width / 2, config.height / 2, 'sky').setDisplaySize(config.width, config.height);
 
     platforms = this.physics.add.staticGroup();
-    platforms.create(400, 568, 'ground').setScale(2).refreshBody();
+    platforms.create(400, config.height - 32, 'ground').setScale(2).refreshBody();
     platforms.create(600, 400, 'ground');
     platforms.create(50, 250, 'ground');
     platforms.create(750, 220, 'ground');
@@ -67,14 +72,26 @@ function create () {
         repeat: -1
     });
 
-    cursors = this.input.keyboard.createCursorKeys();
+    // Touch controls
+    leftBtn = document.getElementById("left");
+    rightBtn = document.getElementById("right");
+    jumpBtn = document.getElementById("jump");
+
+    leftBtn.addEventListener('touchstart', () => moveLeft = true);
+    leftBtn.addEventListener('touchend', () => moveLeft = false);
+
+    rightBtn.addEventListener('touchstart', () => moveRight = true);
+    rightBtn.addEventListener('touchend', () => moveRight = false);
+
+    jumpBtn.addEventListener('touchstart', () => isJumping = true);
+    jumpBtn.addEventListener('touchend', () => isJumping = false);
 }
 
 function update () {
-    if (cursors.left.isDown) {
+    if (moveLeft) {
         player.setVelocityX(-160);
         player.anims.play('left', true);
-    } else if (cursors.right.isDown) {
+    } else if (moveRight) {
         player.setVelocityX(160);
         player.anims.play('right', true);
     } else {
@@ -82,7 +99,7 @@ function update () {
         player.anims.play('turn');
     }
 
-    if (cursors.up.isDown && player.body.touching.down) {
+    if (isJumping && player.body.touching.down) {
         player.setVelocityY(-350);
     }
 }
