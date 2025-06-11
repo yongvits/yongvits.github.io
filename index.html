@@ -2,67 +2,90 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>AR Viewer</title>
+  <title>AR Viewer Models</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <!-- โหลด model-viewer -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-  
+
   <style>
     body {
       margin: 0;
       background-color: #f2f2f2;
+      font-family: sans-serif;
       display: flex;
-      justify-content: center;
-      align-items: center;
       flex-direction: column;
-      height: 100vh;
+      align-items: center;
+    }
+
+    .ar-section {
+      margin: 24px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     model-viewer {
       width: 100%;
-      max-width: 600px; /* ปรับขนาดเหลือครึ่งหนึ่ง */
-      height: 600px;
+      max-width: 500px;
+      height: 400px;
+      background: #fff;
     }
 
     model-viewer::part(ar-button) {
-      transform: scale(1.5); /* ปรับปุ่มให้ใหญ่ขึ้นนิดหน่อย */
-      transform-origin: bottom right;
-      margin: 20px;
-    }
-
-    .image-button {
-      margin-top: 20px;
-      cursor: pointer;
+      transform: scale(1.3);
+      margin: 16px;
     }
 
     .image-button img {
       width: 200px;
+      margin-top: 12px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      cursor: pointer;
     }
   </style>
 </head>
 
 <body>
 
-  <model-viewer
-    src="AR.glb"
-    ios-src="AR.usdz"
-    ar
-    ar-modes="scene-viewer quick-look webxr"
-    auto-rotate
-    camera-controls
-    ar-button
-    shadow-intensity="1"
-    alt="โมเดล AR"
-    id="ar-model"
-  >
-  </model-viewer>
+  <!-- โมเดลตัวแรก -->
+  <div class="ar-section">
+    <model-viewer
+      src="AR.glb"
+      ios-src="AR.usdz"
+      ar
+      ar-modes="scene-viewer quick-look webxr"
+      auto-rotate
+      camera-controls
+      ar-button
+      shadow-intensity="1"
+      alt="โมเดล AR 1"
+      id="ar-model-1"
+    ></model-viewer>
+    
+    <div class="image-button" onclick="document.getElementById('ar-model-1').activateAR()">
+      <img src="IMG_7710.jpeg" alt="เปิด AR 1">
+    </div>
+  </div>
 
-  <!-- ปุ่มเปิด AR แบบใช้รูปภาพ -->
-  <div class="image-button" onclick="document.getElementById('ar-model').activateAR()">
-    <img src="IMG_7710.jpeg" alt="เปิด AR">
+  <!-- โมเดลตัวที่สอง -->
+  <div class="ar-section">
+    <model-viewer
+      src="AR2.glb"
+      ios-src="AR2.usdz"
+      ar
+      ar-modes="scene-viewer quick-look webxr"
+      auto-rotate
+      camera-controls
+      ar-button
+      shadow-intensity="1"
+      alt="โมเดล AR 2"
+      id="ar-model-2"
+    ></model-viewer>
+    
+    <div class="image-button" onclick="document.getElementById('ar-model-2').activateAR()">
+      <img src="IMG_7710.jpeg" alt="เปิด AR 2">
+    </div>
   </div>
 
 </body>
