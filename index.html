@@ -25,11 +25,12 @@
       align-items: center;
     }
 
-    model-viewer {
-      width: 100%;
-      height: 75vh;
-      background-color: #f2f2f2;
-    }
+model-viewer {
+  width: 100%;
+  max-width: 400px; /* ปรับให้เล็กลงบนจอใหญ่ */
+  height: 60vh;
+  background-color: #f2f2f2;
+}
 
     model-viewer::part(ar-button) {
       transform: scale(1.3);
