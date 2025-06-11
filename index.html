@@ -18,6 +18,7 @@
     }
 
     .ar-section {
+      width: 100%;
       margin: 24px 0;
       display: flex;
       flex-direction: column;
@@ -26,9 +27,8 @@
 
     model-viewer {
       width: 100%;
-      max-width: 500px;
-      height: 400px;
-      background: #fff;
+      height: 75vh;
+      background-color: #f2f2f2;
     }
 
     model-viewer::part(ar-button) {
@@ -37,7 +37,7 @@
     }
 
     .image-button img {
-      width: 200px;
+      width: 180px;
       margin-top: 12px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -63,9 +63,7 @@
       id="ar-model-1"
     ></model-viewer>
     
-    <div class="image-button" onclick="document.getElementById('ar-model-1').activateAR()">
-      <img src="IMG_7710.jpeg" alt="เปิด AR 1">
-    </div>
+    <button class="ar-button" onclick="document.getElementById('ar-model-1').activateAR()">Play AR</button>
   </div>
 
   <!-- โมเดลตัวที่สอง -->
@@ -83,9 +81,7 @@
       id="ar-model-2"
     ></model-viewer>
     
-    <div class="image-button" onclick="document.getElementById('ar-model-2').activateAR()">
-      <img src="IMG_7710.jpeg" alt="เปิด AR 2">
-    </div>
+    <button class="ar-button" onclick="document.getElementById('ar-model-2').activateAR()">Play AR</button>
   </div>
 
 </body>
