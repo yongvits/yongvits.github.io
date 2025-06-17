@@ -73,17 +73,29 @@
 
   <div class="ar-section">
     <div class="label">Mingpu</div>
-    <model-viewer id="model1" src="AR.glb" ios-src="AR.usdz"
-      ar ar-modes="scene-viewer webxr quick-look"
-      camera-controls autoplay></model-viewer>
+    <model-viewer id="model1"
+      src="AR.glb"
+      ios-src="AR.usdz"
+      ar
+      ar-modes="scene-viewer webxr quick-look"
+      camera-controls
+      autoplay
+      auto-rotate>
+    </model-viewer>
     <button class="ar-button" onclick="document.getElementById('model1').activateAR();">Play AR</button>
   </div>
 
   <div class="ar-section">
     <div class="label">Sinual</div>
-    <model-viewer id="model2" src="AR2.glb" ios-src="AR2.usdz"
-      ar ar-modes="scene-viewer webxr quick-look"
-      camera-controls autoplay></model-viewer>
+    <model-viewer id="model2"
+      src="AR2.glb"
+      ios-src="AR2.usdz"
+      ar
+      ar-modes="scene-viewer webxr quick-look"
+      camera-controls
+      autoplay
+      auto-rotate>
+    </model-viewer>
     <button class="ar-button" onclick="document.getElementById('model2').activateAR();">Play AR</button>
   </div>
 </body>
