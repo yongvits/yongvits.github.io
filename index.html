@@ -2,118 +2,19 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>Mushroom Studio</title>
+  <title>Mushroom Studio AR Character</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet" />
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Noto Sans Thai', sans-serif;
-      background: linear-gradient(to bottom, #ffffff, #e6f0ff);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    header {
-      padding: 1rem;
-      text-align: center;
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #003366;
-    }
-
-    .ar-section {
-      width: 95%;
-      max-width: 600px;
-      margin: 1rem auto;
-      padding: 1rem;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      text-align: center;
-    }
-
-    model-viewer {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      border-radius: 12px;
-      background: #f9f9f9;
-    }
-
-    .label {
-      margin: 0.5rem 0;
-      font-size: 1.2rem;
-      color: #333;
-    }
-
-    .ar-button {
-      margin-top: 0.8rem;
-      padding: 10px 24px;
-      font-size: 16px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    .ar-button:hover {
-      background-color: #0056b3;
-    }
-
-    /* ✅ Landscape adjustments */
-    @media screen and (orientation: landscape) {
-      .ar-section {
-        width: 90%;
-        padding: 0.8rem;
-      }
-
-      model-viewer {
-        aspect-ratio: 16 / 6; /* ปรับให้แบนในแนวนอน */
-      }
-
-      .label {
-        font-size: 1rem;
-      }
-
-      .ar-button {
-        font-size: 14px;
-        padding: 8px 16px;
-      }
-    }
-  
-    .logo {
-      height: 50px;
-      margin-bottom: 0.5rem;
-    }
-
-    .main-title {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #003366;
-    }
-
-    .sub-title {
-      font-size: 1rem;
-      color: #555;
-    }
-    </style>
-    
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  
-<header>
-  <img src="logo.png" alt="Mushroom Studio Logo" class="logo" />
-  <div class="main-title">Mushroom Studio</div>
-  <div class="sub-title">Character Design (AR)</div>
-</header>
 
+  <header>
+    <img src="logo.png" alt="Mushroom Studio Logo" class="logo" />
+    <div class="main-title">Mushroom Studio</div>
+    <div class="sub-title">Character Design (AR)</div>
+  </header>
 
   <div class="ar-section">
     <div class="label">Mingpu</div>
@@ -142,5 +43,11 @@
     </model-viewer>
     <button class="ar-button" onclick="document.getElementById('model2').activateAR();">Play AR</button>
   </div>
+
+  <footer>
+    <div class="footer-link"><strong>Facebook:</strong> <a href="https://www.facebook.com/mushroomsstudio" target="_blank">facebook.com/mushroomsstudio</a></div>
+    <div class="footer-link"><strong>Website:</strong> <a href="https://www.mushroom-studio.com" target="_blank">mushroom-studio.com</a></div>
+  </footer>
+
 </body>
 </html>
