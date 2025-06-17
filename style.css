@@ -41,8 +41,8 @@ header {
 }
 
 model-viewer {
-  width: 100%;
-  aspect-ratio: 1 / 1;
+  width: 90%;
+  aspect-ratio: 16 / 6;
   border-radius: 12px;
   background: #f9f9f9;
 }
