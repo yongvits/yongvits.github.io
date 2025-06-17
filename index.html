@@ -2,88 +2,89 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>AR Viewer Models</title>
+  <title>Mushroom Studio AR Character</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet" />
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
   <style>
     body {
       margin: 0;
-      background-color: #f2f2f2;
-      font-family: sans-serif;
+      padding: 0;
+      font-family: 'Noto Sans Thai', sans-serif;
+      background: linear-gradient(to bottom, #ffffff, #e6f0ff);
       display: flex;
       flex-direction: column;
       align-items: center;
+    }
+
+    header {
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #003366;
     }
 
     .ar-section {
       width: 100%;
-      margin: 24px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      max-width: 480px;
+      margin: 1rem auto;
+      padding: 1rem;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
     }
 
-model-viewer {
-  width: 100%;
-  max-width: 400px; /* ปรับให้เล็กลงบนจอใหญ่ */
-  height: 60vh;
-  background-color: #f2f2f2;
-}
-
-    model-viewer::part(ar-button) {
-      transform: scale(1.3);
-      margin: 16px;
-    }
-
-    .image-button img {
-      width: 180px;
-      margin-top: 12px;
+    model-viewer {
+      width: 100%;
+      height: 360px;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      background: #f9f9f9;
+    }
+
+    .label {
+      margin: 0.5rem 0;
+      font-size: 1.2rem;
+      color: #333;
+    }
+
+    .ar-button {
+      margin-top: 0.8rem;
+      padding: 10px 24px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .ar-button:hover {
+      background-color: #0056b3;
     }
   </style>
 </head>
-
 <body>
+  <header>AR Viewer Models</header>
 
-  <!-- โมเดลตัวแรก -->
   <div class="ar-section">
-    <model-viewer
-      src="AR.glb"
-      ios-src="AR.usdz"
-      ar
-      ar-modes="scene-viewer quick-look webxr"
-      auto-rotate
-      camera-controls
-      ar-button
-      shadow-intensity="1"
-      alt="โมเดล AR 1"
-      id="ar-model-1"
-    ></model-viewer>
-    
-    <button class="ar-button" onclick="document.getElementById('ar-model-1').activateAR()">Play AR</button>
+    <div class="label">Mingpu</div>
+    <model-viewer id="model1" src="AR.glb" ios-src="AR.usdz"
+      ar ar-modes="scene-viewer webxr quick-look"
+      camera-controls autoplay></model-viewer>
+    <button class="ar-button" onclick="document.getElementById('model1').activateAR();">Play AR</button>
   </div>
 
-  <!-- โมเดลตัวที่สอง -->
   <div class="ar-section">
-    <model-viewer
-      src="AR2.glb"
-      ios-src="AR2.usdz"
-      ar
-      ar-modes="scene-viewer quick-look webxr"
-      auto-rotate
-      camera-controls
-      ar-button
-      shadow-intensity="1"
-      alt="โมเดล AR 2"
-      id="ar-model-2"
-    ></model-viewer>
-    
-    <button class="ar-button" onclick="document.getElementById('ar-model-2').activateAR()">Play AR</button>
+    <div class="label">Sinual</div>
+    <model-viewer id="model2" src="AR2.glb" ios-src="AR2.usdz"
+      ar ar-modes="scene-viewer webxr quick-look"
+      camera-controls autoplay></model-viewer>
+    <button class="ar-button" onclick="document.getElementById('model2').activateAR();">Play AR</button>
   </div>
-
 </body>
 </html>
