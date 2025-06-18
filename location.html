@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gyro Cube</title>
+  <title>Gyro 3D Model</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     canvas { display: block; }
@@ -24,25 +24,34 @@
 <body>
   <button id="startBtn">▶ Start Motion</button>
 
+  <!-- โหลด Three.js และ GLTFLoader -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/GLTFLoader.js"></script>
+
   <script>
-    let scene, camera, renderer, cube;
+    let scene, camera, renderer, model;
     let alpha = 0, beta = 0, gamma = 0;
 
     function init() {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      const geometry = new THREE.BoxGeometry();
-      const material = new THREE.MeshNormalMaterial();
-      cube = new THREE.Mesh(geometry, material);
-      scene.add(cube);
-
       camera.position.z = 3;
 
+      // โหลดไฟล์ GLB
+      const loader = new THREE.GLTFLoader();
+      loader.load('AR.glb', function (gltf) {
+        model = gltf.scene;
+        model.scale.set(1, 1, 1);
+        scene.add(model);
+      }, undefined, function (error) {
+        console.error('❌ โหลดโมเดลไม่สำเร็จ:', error);
+      });
+
+      // ฟังชั่น sensor
       window.addEventListener('deviceorientation', (event) => {
         alpha = event.alpha || 0;
         beta = event.beta || 0;
@@ -54,31 +63,32 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      cube.rotation.x = THREE.MathUtils.degToRad(beta);
-      cube.rotation.y = THREE.MathUtils.degToRad(gamma);
-      cube.rotation.z = THREE.MathUtils.degToRad(alpha);
+      if (model) {
+        model.rotation.x = THREE.MathUtils.degToRad(beta);
+        model.rotation.y = THREE.MathUtils.degToRad(gamma);
+        model.rotation.z = THREE.MathUtils.degToRad(alpha);
+      }
       renderer.render(scene, camera);
     }
 
     document.getElementById('startBtn').addEventListener('click', async () => {
+      const startBtn = document.getElementById('startBtn');
+
       if (typeof DeviceMotionEvent !== 'undefined' &&
           typeof DeviceMotionEvent.requestPermission === 'function') {
         try {
           const permission = await DeviceMotionEvent.requestPermission();
           if (permission === 'granted') {
-            console.log('✅ Motion permission granted.');
-            document.getElementById('startBtn').style.display = 'none';
+            startBtn.style.display = 'none';
             init();
           } else {
-            alert('❌ Motion permission denied.');
+            alert('❌ ต้องอนุญาต Motion Access');
           }
         } catch (err) {
-          console.error(err);
-          alert('❌ Motion access error.');
+          alert('❌ ไม่สามารถเปิด motion ได้');
         }
       } else {
-        // For Android or desktop
-        document.getElementById('startBtn').style.display = 'none';
+        startBtn.style.display = 'none';
         init();
       }
     });
