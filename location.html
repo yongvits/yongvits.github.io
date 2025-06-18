@@ -1,24 +1,62 @@
 <!DOCTYPE html>
-<html>
-<body style="background:black;color:white;font-size:2em;">
-  <button id="btn">Start Sensor</button>
-  <script>
-    document.getElementById('btn').onclick = async () => {
-      try {
-        if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
-          const ori = await DeviceOrientationEvent.requestPermission();
-          console.log('orientation', ori);
-          const mot = await DeviceMotionEvent.requestPermission();
-          console.log('motion', mot);
-        }
-        window.addEventListener('deviceorientation', e => {
-          document.body.textContent = `α:${e.alpha?.toFixed(1)} β:${e.beta?.toFixed(1)} γ:${e.gamma?.toFixed(1)}`;
-        });
-      } catch(err) {
-        console.error(err);
-        document.body.textContent = 'Permission error';
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gyro Cube</title>
+    <style>
+      body { margin: 0; overflow: hidden; background: black; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+    <script>
+      let scene = new THREE.Scene();
+      let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+      let renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // กล่อง
+      const geometry = new THREE.BoxGeometry();
+      const material = new THREE.MeshNormalMaterial();
+      const cube = new THREE.Mesh(geometry, material);
+      scene.add(cube);
+
+      camera.position.z = 3;
+
+      // ตัวแปรจาก sensor
+      let alpha = 0, beta = 0, gamma = 0;
+
+      // ฟังชั่นอ่าน motion
+      window.addEventListener('deviceorientation', (event) => {
+        alpha = event.alpha || 0;
+        beta = event.beta || 0;
+        gamma = event.gamma || 0;
+      });
+
+      // สำหรับ iOS (ต้องขอสิทธิ์)
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission()
+          .then(permissionState => {
+            if (permissionState === 'granted') {
+              console.log('Motion permission granted.');
+            }
+          }).catch(console.error);
       }
-    };
-  </script>
-</body>
+
+      function animate() {
+        requestAnimationFrame(animate);
+        // แปลง degree เป็น radian
+        cube.rotation.x = THREE.MathUtils.degToRad(beta);
+        cube.rotation.y = THREE.MathUtils.degToRad(gamma);
+        cube.rotation.z = THREE.MathUtils.degToRad(alpha);
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    </script>
+  </body>
 </html>
