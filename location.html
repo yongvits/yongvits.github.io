@@ -1,95 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gyro GLB Viewer</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: black; }
-    canvas { display: block; }
-    #startBtn {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 1em 2em;
-      font-size: 18px;
-      background: white;
-      color: black;
-      border: none;
-      border-radius: 10px;
-      z-index: 10;
-    }
-  </style>
-</head>
-<body>
-  <button id="startBtn">▶ Start</button>
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/GLTFLoader.js"></script>
-
+<html>
+<body style="background:black;color:white;font-size:2em;">
+  <button id="btn">Start Sensor</button>
   <script>
-    let scene, camera, renderer, model;
-    let alpha = 0, beta = 0, gamma = 0;
-
-    function init() {
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.z = 3;
-
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      const loader = new THREE.GLTFLoader();
-      loader.load('AR.glb', function (gltf) {
-        model = gltf.scene;
-        model.scale.set(1, 1, 1);
-        scene.add(model);
-      }, undefined, function (error) {
-        alert("❌ โหลดโมเดลไม่สำเร็จ");
-        console.error(error);
-      });
-
-      window.addEventListener('deviceorientation', (event) => {
-        alpha = event.alpha || 0;
-        beta = event.beta || 0;
-        gamma = event.gamma || 0;
-      });
-
-      animate();
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      if (model) {
-        model.rotation.x = THREE.MathUtils.degToRad(beta);
-        model.rotation.y = THREE.MathUtils.degToRad(gamma);
-        model.rotation.z = THREE.MathUtils.degToRad(alpha);
-      }
-      renderer.render(scene, camera);
-    }
-
-    document.getElementById('startBtn').addEventListener('click', async () => {
+    document.getElementById('btn').onclick = async () => {
       try {
-        const btn = document.getElementById('startBtn');
-
-        // ขอ permission จาก iOS
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const orientationPermission = await DeviceOrientationEvent.requestPermission();
-          const motionPermission = await DeviceMotionEvent.requestPermission();
-          if (orientationPermission !== 'granted' || motionPermission !== 'granted') {
-            alert('❌ ไม่ได้รับอนุญาต');
-            return;
-          }
+        if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+          const ori = await DeviceOrientationEvent.requestPermission();
+          console.log('orientation', ori);
+          const mot = await DeviceMotionEvent.requestPermission();
+          console.log('motion', mot);
         }
-
-        btn.style.display = 'none';
-        init();
-      } catch (err) {
-        alert("❌ ไม่สามารถเปิด motion ได้");
+        window.addEventListener('deviceorientation', e => {
+          document.body.textContent = `α:${e.alpha?.toFixed(1)} β:${e.beta?.toFixed(1)} γ:${e.gamma?.toFixed(1)}`;
+        });
+      } catch(err) {
         console.error(err);
+        document.body.textContent = 'Permission error';
       }
-    });
+    };
   </script>
 </body>
 </html>
