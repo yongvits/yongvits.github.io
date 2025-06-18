@@ -42,17 +42,17 @@
 
       camera.position.z = 3;
 
-      // โหลดไฟล์ .glb
+      // โหลดโมเดล AR.glb
       const loader = new THREE.GLTFLoader();
       loader.load('AR.glb', function (gltf) {
         model = gltf.scene;
         model.scale.set(1, 1, 1);
         scene.add(model);
       }, undefined, function (error) {
-        console.error('❌ ไม่สามารถโหลด GLB:', error);
+        console.error('❌ โหลดโมเดลไม่สำเร็จ:', error);
       });
 
-      // ฟังชั่นรับ motion
+      // อ่านค่าการหมุนจาก motion sensor
       window.addEventListener('deviceorientation', (event) => {
         alpha = event.alpha || 0;
         beta = event.beta || 0;
@@ -72,29 +72,28 @@
       renderer.render(scene, camera);
     }
 
-    // รอให้ผู้ใช้กดปุ่มก่อน (iOS)
+    // ขอ permission และเริ่ม
     document.getElementById('startBtn').addEventListener('click', async () => {
       const startBtn = document.getElementById('startBtn');
 
-      if (typeof DeviceMotionEvent !== 'undefined' &&
-          typeof DeviceMotionEvent.requestPermission === 'function') {
-        try {
-          const permission = await DeviceMotionEvent.requestPermission();
-          if (permission === 'granted') {
-            console.log('✅ Motion permission granted.');
-            startBtn.style.display = 'none';
-            init();
-          } else {
-            alert('❌ ต้องอนุญาต Motion Access');
-          }
-        } catch (err) {
-          console.error(err);
-          alert('❌ ไม่สามารถเปิด motion ได้');
+      try {
+        if (typeof DeviceMotionEvent?.requestPermission === 'function') {
+          const motionPermission = await DeviceMotionEvent.requestPermission();
+          if (motionPermission !== 'granted') throw new Error('Motion denied');
         }
-      } else {
-        // สำหรับ Android หรือ desktop
+
+        if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+          const orientationPermission = await DeviceOrientationEvent.requestPermission();
+          if (orientationPermission !== 'granted') throw new Error('Orientation denied');
+        }
+
+        console.log('✅ ได้รับสิทธิ์ Motion & Orientation แล้ว');
         startBtn.style.display = 'none';
         init();
+
+      } catch (err) {
+        console.error(err);
+        alert('❌ ไม่สามารถเปิด motion ได้');
       }
     });
   </script>
