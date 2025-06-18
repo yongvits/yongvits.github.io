@@ -24,7 +24,6 @@
 <body>
   <button id="startBtn">▶ Start Motion</button>
 
-  <!-- โหลด Three.js และ GLTFLoader -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/GLTFLoader.js"></script>
 
@@ -41,9 +40,9 @@
 
       camera.position.z = 3;
 
-      // โหลดไฟล์ GLB
+      // โหลดโมเดลจาก AR.glb.txt
       const loader = new THREE.GLTFLoader();
-      loader.load('AR.glb', function (gltf) {
+      loader.load('AR.glb.txt', function (gltf) {
         model = gltf.scene;
         model.scale.set(1, 1, 1);
         scene.add(model);
@@ -51,7 +50,6 @@
         console.error('❌ โหลดโมเดลไม่สำเร็จ:', error);
       });
 
-      // ฟังชั่น sensor
       window.addEventListener('deviceorientation', (event) => {
         alpha = event.alpha || 0;
         beta = event.beta || 0;
