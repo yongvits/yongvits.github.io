@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gyro Comic</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      background: black;
+    }
+    .layer {
+      position: absolute;
+      width: 100vw;
+      height: 100vh;
+      background-position: center;
+      background-size: cover;
+      will-change: transform;
+    }
+    #bg {
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Comic_panel_example.svg/1920px-Comic_panel_example.svg.png');
+      z-index: 1;
+    }
+    #mid {
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Hero_icon.png/512px-Hero_icon.png');
+      z-index: 2;
+      mix-blend-mode: screen;
+    }
+    #front {
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Speech_bubble.svg/800px-Speech_bubble.svg.png');
+      z-index: 3;
+    }
+  </style>
+</head>
+<body>
+  <div id="bg" class="layer"></div>
+  <div id="mid" class="layer"></div>
+  <div id="front" class="layer"></div>
+
+  <script>
+    window.addEventListener("deviceorientation", function(e) {
+      const x = e.gamma || 0;
+      const y = e.beta || 0;
+      const layers = document.querySelectorAll('.layer');
+      layers.forEach((layer, i) => {
+        const depth = (i + 1) * 5;
+        layer.style.transform = `translate(${x * depth}px, ${y * depth}px)`;
+      });
+    }, true);
+  </script>
+</body>
+</html>
