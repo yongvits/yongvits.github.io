@@ -1,36 +1,80 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gyro Comic Demo</title>
   <style>
-    body, html {
-      margin: 0; padding: 0; overflow: hidden; height: 100%;
-      background: black;
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      background: #e0f7fa;
     }
     .layer {
-      position: absolute; width: 100vw; height: 100vh;
-      background-position: center; background-size: cover;
+      position: absolute;
+      width: 100vw;
+      height: 100vh;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
       will-change: transform;
     }
-    #bg { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Comic_panel_example.svg/1920px-Comic_panel_example.svg.png'); z-index: 1; }
-    #mid { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Hero_icon.png/512px-Hero_icon.png'); z-index: 2; }
-    #front { background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Speech_bubble.svg/800px-Speech_bubble.svg.png'); z-index: 3; }
+    #bg {
+      background-image: url('BACD6E6D-CF25-4AA7-B25E-F2BCC321DD2A.jpeg');
+      z-index: 1;
+    }
+    #fg {
+      background-image: url('9909D6EB-EED3-416A-87A8-C04C980E2FD4.jpeg');
+      z-index: 2;
+    }
+    #startBtn {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background: #00796b;
+      color: white;
+      border: none;
+      font-size: 16px;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
   <div id="bg" class="layer"></div>
-  <div id="mid" class="layer"></div>
-  <div id="front" class="layer"></div>
+  <div id="fg" class="layer"></div>
+  <button id="startBtn">Start Motion</button>
 
   <script>
-    window.addEventListener("deviceorientation", e => {
-      const x = e.gamma || 0, y = e.beta || 0;
-      document.querySelectorAll('.layer').forEach((layer, i) => {
-        const depth = (i + 1) * 5;
-        layer.style.transform = `translate(${x * depth}px, ${y * depth}px)`;
+    function handleOrientation(event) {
+      var x = event.gamma || 0;
+      var y = event.beta || 0;
+      var layers = document.querySelectorAll('.layer');
+      layers.forEach(function(layer, i) {
+        var depth = (i + 1) * 5;
+        layer.style.transform = "translate(" + (x * depth) + "px, " + (y * depth) + "px)";
       });
+    }
+
+    document.getElementById('startBtn').addEventListener('click', function() {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(function(response) {
+            if (response === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+              alert('Permission denied for gyroscope.');
+            }
+          })
+          .catch(console.error);
+      } else {
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+      document.getElementById('startBtn').style.display = 'none';
     });
   </script>
 </body>
