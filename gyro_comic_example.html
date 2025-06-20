@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gyro Text Layers</title>
+  <title>Gyro 5 Text Layers (Shallow)</title>
   <style>
     html, body {
       margin: 0;
@@ -20,25 +19,15 @@
       text-align: center;
       top: 50%;
       transform: translateY(-50%);
-      color: white;
       font-weight: bold;
       will-change: transform;
     }
-    #layer1 {
-      font-size: 3em;
-      color: #f44336;
-      z-index: 1;
-    }
-    #layer2 {
-      font-size: 4em;
-      color: #4caf50;
-      z-index: 2;
-    }
-    #layer3 {
-      font-size: 5em;
-      color: #2196f3;
-      z-index: 3;
-    }
+    #layer1 { font-size: 2em; color: #ff5252; z-index: 1; }
+    #layer2 { font-size: 2.5em; color: #ffb74d; z-index: 2; }
+    #layer3 { font-size: 3em; color: #4caf50; z-index: 3; }
+    #layer4 { font-size: 3.5em; color: #03a9f4; z-index: 4; }
+    #layer5 { font-size: 4em; color: #e040fb; z-index: 5; }
+
     #startBtn {
       position: absolute;
       bottom: 20px;
@@ -55,9 +44,11 @@
   </style>
 </head>
 <body>
-  <div id="layer1" class="layer">Back Layer</div>
-  <div id="layer2" class="layer">Middle Layer</div>
-  <div id="layer3" class="layer">Front Layer</div>
+  <div id="layer1" class="layer">Layer 1 - Farthest</div>
+  <div id="layer2" class="layer">Layer 2</div>
+  <div id="layer3" class="layer">Layer 3 - Middle</div>
+  <div id="layer4" class="layer">Layer 4</div>
+  <div id="layer5" class="layer">Layer 5 - Front</div>
   <button id="startBtn">Start Motion</button>
 
   <script>
@@ -65,7 +56,7 @@
       var x = event.gamma || 0;
       var y = event.beta || 0;
       document.querySelectorAll('.layer').forEach(function(layer, i) {
-        var depth = (i + 1) * 5;
+        var depth = (i + 1) * 1.2; // ความลึกน้อยลง (จาก 5 → 1.2)
         layer.style.transform = "translate(" + (x * depth) + "px, " + (y * depth - 50) + "px)";
       });
     }
