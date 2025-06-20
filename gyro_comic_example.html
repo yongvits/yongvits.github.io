@@ -2,33 +2,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gyro Comic Demo</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gyro Text Layers</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
       height: 100%;
-      background: #e0f7fa;
+      overflow: hidden;
+      background: #111;
+      font-family: sans-serif;
     }
     .layer {
       position: absolute;
       width: 100vw;
-      height: 100vh;
-      background-repeat: no-repeat;
-      background-position: center;
-      background-size: contain;
+      text-align: center;
+      top: 50%;
+      transform: translateY(-50%);
+      color: white;
+      font-weight: bold;
       will-change: transform;
     }
-    #bg {
-      background-image: url('https://cdn.pixabay.com/photo/2017/02/19/03/39/flying-2078870_1280.png');
+    #layer1 {
+      font-size: 3em;
+      color: #f44336;
       z-index: 1;
     }
-    #fg {
-      background-image: url('9909D6EB-EED3-416A-87A8-C04C980E2FD4.jpeg');
+    #layer2 {
+      font-size: 4em;
+      color: #4caf50;
       z-index: 2;
+    }
+    #layer3 {
+      font-size: 5em;
+      color: #2196f3;
+      z-index: 3;
     }
     #startBtn {
       position: absolute;
@@ -36,38 +45,39 @@
       left: 50%;
       transform: translateX(-50%);
       padding: 10px 20px;
-      background: #00796b;
-      color: white;
+      background: #fff;
+      color: #000;
       border: none;
       font-size: 16px;
       border-radius: 8px;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
-  <div id="bg" class="layer"></div>
-  <div id="fg" class="layer"></div>
+  <div id="layer1" class="layer">Back Layer</div>
+  <div id="layer2" class="layer">Middle Layer</div>
+  <div id="layer3" class="layer">Front Layer</div>
   <button id="startBtn">Start Motion</button>
 
   <script>
     function handleOrientation(event) {
       var x = event.gamma || 0;
       var y = event.beta || 0;
-      var layers = document.querySelectorAll('.layer');
-      layers.forEach(function(layer, i) {
+      document.querySelectorAll('.layer').forEach(function(layer, i) {
         var depth = (i + 1) * 5;
-        layer.style.transform = "translate(" + (x * depth) + "px, " + (y * depth) + "px)";
+        layer.style.transform = "translate(" + (x * depth) + "px, " + (y * depth - 50) + "px)";
       });
     }
 
-    document.getElementById('startBtn').addEventListener('click', function() {
+    document.getElementById('startBtn').addEventListener('click', function () {
       if (typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
-          .then(function(response) {
+          .then(function (response) {
             if (response === 'granted') {
               window.addEventListener('deviceorientation', handleOrientation);
             } else {
-              alert('Permission denied for gyroscope.');
+              alert('Permission denied.');
             }
           })
           .catch(console.error);
