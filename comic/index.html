@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gyro comic</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: hsl(216, 73%, 35%);
+      font-family: sans-serif;
+    }
+
+    .layer {
+      position: absolute;
+      width: 100vw;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      will-change: transform;
+      pointer-events: none;
+    }
+
+    #layer1 { z-index: 1; }
+    #layer2 { z-index: 2; }
+    #layer3 { z-index: 3; }
+    #layer4 { z-index: 4; }
+    #layer5 { z-index: 5; }
+    #layer6 { z-index: 6; }
+    #layer7 { z-index: 7; }
+    #layer8 { z-index: 8; }
+    #layer9 { z-index: 9; }
+    #layer10 { z-index: 10; }
+    #startBtn {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background: #fff;
+      color: #000;
+      border: none;
+      font-size: 16px;
+      border-radius: 8px;
+      z-index: 10;
+      cursor: pointer;
+    }
+
+    img {
+      max-width: 80vw;
+      height: auto;
+      user-select: none;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="layer1" class="layer"><img src="layer10.png" alt="Layer 10" /></div>
+  <div id="layer2" class="layer"><img src="layer9.png" alt="Layer 9" /></div>
+  <div id="layer3" class="layer"><img src="layer8.png" alt="Layer 8" /></div>
+  <div id="layer4" class="layer"><img src="layer7.png" alt="Layer 7" /></div>
+  <div id="layer5" class="layer"><img src="layer6.png" alt="Layer 6" /></div>
+  <div id="layer6" class="layer"><img src="layer5.png" alt="Layer 5" /></div>
+  <div id="layer7" class="layer"><img src="layer4.png" alt="Layer 4" /></div>
+  <div id="layer8" class="layer"><img src="layer3.png" alt="Layer 3" /></div>
+  <div id="layer9" class="layer"><img src="layer2.png" alt="Layer 2" /></div>
+  <div id="layer10" class="layer"><img src="layer1.png" alt="Layer 1" /></div>
+
+  <button id="startBtn">Start Motion</button>
+
+  <script>
+    function handleOrientation(event) {
+      const x = event.gamma || 0;
+      const y = event.beta || 0;
+
+      document.querySelectorAll('.layer').forEach((layer, i) => {
+        // ❌ อย่าให้ layer1 (index 0) ขยับ
+        if (i === 0) return;
+
+        const depth = (i + 1) * 1.2;
+        layer.style.transform = `translate(calc(-50% + ${x * depth}px), calc(-50% + ${y * depth}px))`;
+      });
+    }
+
+    document.getElementById('startBtn').addEventListener('click', function () {
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+              alert('Permission denied.');
+            }
+          })
+          .catch(console.error);
+      } else {
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+      this.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
