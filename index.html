@@ -56,9 +56,13 @@
       ios-src="AR3.usdz"
       ar
       ar-modes="scene-viewer webxr quick-look"
-      camera-controls
-      autoplay
-      auto-rotate>
+     camera-controls
+     auto-rotate
+     shadow-intensity="1"
+     exposure="1"
+     camera-orbit="auto"
+     field-of-view="auto"
+     style="width: 100%; height: 400px;">
     </model-viewer>
     <button class="ar-button" onclick="document.getElementById('model3').activateAR();">Play AR</button>
   </div>
