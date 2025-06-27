@@ -15,7 +15,7 @@
     <div class="sub-title">Character Design (AR)</div>
   </header>
 
-  <!-- ตัวอย่างโมเดล -->
+  <!-- Mingpu -->
   <div class="ar-section">
     <div class="head-title">Mingpu</div>
     <div class="sub-title">Concept design from Thai grilled pork (หมูปิ้ง)</div>
@@ -88,16 +88,16 @@
     <div class="footer-link"><strong>Website:</strong> <a href="https://www.mushroom-studio.com" target="_blank">mushroom-studio.com</a></div>
   </footer>
 
-  <!-- โหลด model-viewer หลังสุดเพื่อเร่งการแสดงผล -->
+  <!-- ✅ โหลด model-viewer หลังสุดเพื่อให้โหลดหน้าเว็บเร็วขึ้น -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
-  <!-- Script: ปุ่ม Play AR -->
+  <!-- ✅ Script ปุ่ม Play AR พร้อม catch error -->
   <script>
     function triggerAR(id) {
       const viewer = document.getElementById(id);
       if (viewer && viewer.activateAR) {
         viewer.activateAR().catch((error) => {
-          alert("AR ไม่พร้อมบนอุปกรณ์นี้ หรือถูกบล็อกโดย browser\n(แนะนำให้กดปุ่ม AR บนมุมขวาของโมเดล)");
+          alert("AR ไม่พร้อมบนอุปกรณ์นี้ หรือถูกบล็อกโดย browser\n(แนะนำให้กดปุ่ม AR บนมุมขวาของโมเดลแทน)");
           console.warn("activateAR failed:", error);
         });
       }
