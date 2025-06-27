@@ -5,7 +5,6 @@
   <title>Mushroom Studio AR Character</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet" />
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -16,6 +15,7 @@
     <div class="sub-title">Character Design (AR)</div>
   </header>
 
+  <!-- ตัวอย่างโมเดล -->
   <div class="ar-section">
     <div class="head-title">Mingpu</div>
     <div class="sub-title">Concept design from Thai grilled pork (หมูปิ้ง)</div>
@@ -31,17 +31,17 @@
       shadow-softness="1"
       environment-image="neutral.hdr"
       loading="eager"
-      camera-orbit="auto"
-      field-of-view="auto"
+      reveal="auto"
       style="width: 100%; height: 400px;">
     </model-viewer>
-    <button class="ar-button" onclick="document.getElementById('model1').activateAR();">Play AR</button>
+    <button class="ar-button" onclick="triggerAR('model1')">Play AR</button>
   </div>
 
+  <!-- Sinual -->
   <div class="ar-section">
     <div class="head-title">Sinual</div>
     <div class="sub-title">The design concept was inspired by Thai streetfood </div>
-    <div class="sub-title"> "red sausages"(ไส้กรอกเเดง) idae Cat+Sausage. </div>
+    <div class="sub-title">"red sausages" (ไส้กรอกเเดง) idea: Cat+Sausage.</div>
     <model-viewer id="model2"
       src="AR2.glb"
       ios-src="AR2.usdz"
@@ -54,17 +54,17 @@
       shadow-softness="1"
       environment-image="neutral.hdr"
       loading="eager"
-      camera-orbit="auto"
-      field-of-view="auto"
+      reveal="auto"
       style="width: 100%; height: 400px;">
     </model-viewer>
-    <button class="ar-button" onclick="document.getElementById('model2').activateAR();">Play AR</button>
- </div>
-  
-    <div class="ar-section">
+    <button class="ar-button" onclick="triggerAR('model2')">Play AR</button>
+  </div>
+
+  <!-- Smile -->
+  <div class="ar-section">
     <div class="head-title">Smile</div>
-    <div class="sub-title">The Concept Ideas from Donut in a circus theme. </div>
-    <div class="sub-title"> "Smile" idae Donut+Circus. </div>
+    <div class="sub-title">The Concept Idea from Donut in a circus theme.</div>
+    <div class="sub-title">"Smile" = Donut + Circus.</div>
     <model-viewer id="model3"
       src="AR3.glb"
       ios-src="AR3.usdz"
@@ -77,17 +77,32 @@
       shadow-softness="1"
       environment-image="neutral.hdr"
       loading="eager"
-      camera-orbit="auto"
-      field-of-view="auto"
+      reveal="auto"
       style="width: 100%; height: 400px;">
     </model-viewer>
-    <button class="ar-button" onclick="document.getElementById('model3').activateAR();">Play AR</button>
+    <button class="ar-button" onclick="triggerAR('model3')">Play AR</button>
   </div>
 
   <footer>
     <div class="footer-link"><strong>Facebook:</strong> <a href="https://www.facebook.com/mushroomsstudio" target="_blank">facebook.com/mushroomsstudio</a></div>
     <div class="footer-link"><strong>Website:</strong> <a href="https://www.mushroom-studio.com" target="_blank">mushroom-studio.com</a></div>
   </footer>
+
+  <!-- โหลด model-viewer หลังสุดเพื่อเร่งการแสดงผล -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+  <!-- Script: ปุ่ม Play AR -->
+  <script>
+    function triggerAR(id) {
+      const viewer = document.getElementById(id);
+      if (viewer && viewer.activateAR) {
+        viewer.activateAR().catch((error) => {
+          alert("AR ไม่พร้อมบนอุปกรณ์นี้ หรือถูกบล็อกโดย browser\n(แนะนำให้กดปุ่ม AR บนมุมขวาของโมเดล)");
+          console.warn("activateAR failed:", error);
+        });
+      }
+    }
+  </script>
 
 </body>
 </html>
