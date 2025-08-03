@@ -6,23 +6,133 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: 'Noto Sans Thai', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #333;
+    }
+
+    header {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .logo {
+      width: 120px;
+    }
+
+    .main-title {
+      font-size: 2em;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .sub-title {
+      font-size: 1.2em;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .ar-section {
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+      text-align: center;
+    }
+
+    .head-title {
+      font-size: 1.8em;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .concept-image {
+      width: 100%;
+      max-width: 800px;
+      display: block;
+      margin: 20px auto;
+      border-radius: 12px;
+    }
+
+    .preview-video {
+      width: 100%;
+      max-width: 800px;
+      display: block;
+      margin: 20px auto;
+      border-radius: 12px;
+    }
+
+    .ar-button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 1em;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .ar-button:hover {
+      background-color: #45a049;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding: 20px;
+      background-color: #f2f2f2;
+      text-align: center;
+      font-size: 0.95em;
+    }
+
+    .footer-link {
+      margin: 5px 0;
+    }
+
+    a {
+      color: #0077cc;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
 
   <header>
-    <img src="logo.png" alt="Mushroom Studio Logo" class="logo" />
-    <div class="main-title">Mushroom Studio</div>
+    <div class="main-title">Yongvit Santanaphanich</div>
     <div class="sub-title">หมวกยายเตียม</div>
   </header>
 
-  <!-- Noah’s Magic Door -->
+  <!-- Mingpu -->
   <div class="ar-section">
     <div class="head-title">Noah’s Magic Door</div>
-    <div class="sub-title">Concept design/My piece is called “Noah’s Magic Door”, and it features characters from my own company, Mushroom Studio, where we normally focus on character design.
-The idea was inspired by the story of Noah’s Ark and the concept of judgment day. I reimagined it in a modern, symbolic way—replacing the ark with a hat, and the animals with our original characters. The hat becomes a kind of vessel, helping these characters escape a massive flood.
-At the top of the hat, there’s a magical doorway that opens into another world—a calm, safe place filled with sky and clouds. For me, it’s a visual story about survival, coming together, and holding onto hope during difficult times.</div>
-    <model-viewer id="model1"
-  <img src="concept.jpg" alt="Concept art for Noah’s Magic Door" class="concept-image" />
+    <div class="sub-title">
+      Concept design / My piece is called “Noah’s Magic Door”, and it features characters from my own company, Mushroom Studio, where we normally focus on character design.
+      <br><br>
+      The idea was inspired by the story of Noah’s Ark and the concept of judgment day. I reimagined it in a modern, symbolic way—replacing the ark with a hat, and the animals with our original characters. The hat becomes a kind of vessel, helping these characters escape a massive flood.
+      <br><br>
+      At the top of the hat, there’s a magical doorway that opens into another world—a calm, safe place filled with sky and clouds. For me, it’s a visual story about survival, coming together, and holding onto hope during difficult times.
+    </div>
+
+  <!-- ✅ วิดีโอ vdo.mp4 แบบ autoplay -->
+<video class="preview-video" autoplay muted loop playsinline>
+  <source src="vdo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+<!-- ✅ วิดีโอ vdo1.mp4 แบบ autoplay -->
+<video class="preview-video" autoplay muted loop playsinline>
+  <source src="vdo1.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+     <model-viewer id="model1"
       src="AR.glb"
       ios-src="AR.usdz"
       ar
@@ -39,7 +149,6 @@ At the top of the hat, there’s a magical doorway that opens into another world
     </model-viewer>
     <button class="ar-button" onclick="triggerAR('model1')">Play AR</button>
   </div>
-
 
   <footer>
     <div class="footer-link"><strong>Facebook:</strong> <a href="https://www.facebook.com/mushroomsstudio" target="_blank">facebook.com/mushroomsstudio</a></div>
@@ -64,4 +173,3 @@ At the top of the hat, there’s a magical doorway that opens into another world
 
 </body>
 </html>
-
