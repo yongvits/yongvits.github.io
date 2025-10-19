@@ -1,24 +1,113 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
   <title>Yuree Kensaku Sculpture</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+  
+  <style>
+    /* ================== Header ================== */
+    body {
+      font-family: 'Noto Sans Thai', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #fafafa;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      padding: 10px 20px;
+      background-color: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    header .logo {
+      width: 80px;
+      height: auto;
+      margin-right: 15px;
+    }
+
+    header .main-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    header .sub-title {
+      font-size: 16px;
+      color: #666;
+      margin-left: 5px;
+    }
+
+    /* ================== AR Section ================== */
+    .ar-section {
+      margin: 40px 20px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .ar-section .head-title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .ar-section .sub-title {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 10px;
+    }
+
+    .ar-button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background-color: #007BFF;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .ar-button:hover {
+      background-color: #0056b3;
+    }
+
+    /* ================== Footer ================== */
+    footer {
+      padding: 20px;
+      text-align: center;
+      background-color: #f2f2f2;
+      font-size: 14px;
+    }
+
+    footer a {
+      color: #007BFF;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
 
   <header>
     <img src="Logo.png" alt="Mushroom Studio Logo" class="logo" />
-    <div class="main-title">Yuree Kensaku</div>
-    <div class="sub-title">Sculpture(AR)</div>
+    <div>
+      <div class="main-title">Yuree Kensaku</div>
+      <div class="sub-title">Sculpture(AR)</div>
+    </div>
   </header>
 
   <!-- Sailor moon Penguin -->
   <div class="ar-section">
     <div class="head-title">Sailor moon Penguin</div>
-    <div class="sub-title"></div>
     <model-viewer id="model1"
       src="AR.glb"
       ios-src="AR.usdz"
@@ -40,8 +129,6 @@
   <!-- Lisa Fox -->
   <div class="ar-section">
     <div class="head-title">Lisa Fox</div>
-    <div class="sub-title"> Lisa Fox </div>
-    <div class="sub-title"></div>
     <model-viewer id="model2"
       src="AR2.glb"
       ios-src="AR2.usdz"
@@ -59,15 +146,15 @@
     </model-viewer>
     <button class="ar-button" onclick="triggerAR('model2')">Play AR</button>
   </div>
- <footer>
+
+  <footer>
     <div class="footer-link"><strong>Facebook:</strong> <a href="https://www.facebook.com/mushroomsstudio" target="_blank">facebook.com/mushroomsstudio</a></div>
     <div class="footer-link"><strong>Website:</strong> <a href="https://www.mushroom-studio.com" target="_blank">mushroom-studio.com</a></div>
   </footer>
 
-  <!-- ✅ โหลด model-viewer หลังสุดเพื่อให้โหลดหน้าเว็บเร็วขึ้น -->
+  <!-- Load model-viewer -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
-  <!-- ✅ Script ปุ่ม Play AR พร้อม catch error -->
   <script>
     function triggerAR(id) {
       const viewer = document.getElementById(id);
