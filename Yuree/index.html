@@ -1,69 +1,84 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <title>AR Viewer</title>
+  <title>Yuree Kensaku Sculpture</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <!-- ???? model-viewer -->
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-  
-  <style>
-    body {
-      margin: 0;
-      background-color: #f2f2f2;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    model-viewer {
-      width: 100%;
-      max-width: 600px; /* yuree */
-      height: 600px;
-    }
-
-    model-viewer::part(ar-button) {
-      transform: scale(1.5); /* yuree */
-      transform-origin: bottom right;
-      margin: 20px;
-    }
-
-    .image-button {
-      margin-top: 20px;
-      cursor: pointer;
-    }
-
-    .image-button img {
-      width: 200px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
 
-  <model-viewer
-    src="AR.glb"
-    ios-src="AR.usdz"
-    ar
-    ar-modes="scene-viewer quick-look webxr"
-    auto-rotate
-    camera-controls
-    ar-button
-    shadow-intensity="1"
-    alt="????? AR"
-    id="ar-model"
-  >
-  </model-viewer>
+  <header>
+    <img src="logo.png" alt="Mushroom Studio Logo" class="logo" />
+    <div class="main-title">Yuree Kensaku</div>
+    <div class="sub-title">Sculpture (AR)</div>
+  </header>
 
-  <!-- yuree -->
-  <div class="image-button" onclick="document.getElementById('ar-model').activateAR()">
-    <img src="IMG_7710.jpeg" alt="???? AR">
+  <!-- Sailor moon Penguin -->
+  <div class="ar-section">
+    <div class="head-title">Sailor moon Penguin</div>
+    <div class="sub-title"></div>
+    <model-viewer id="model1"
+      src="AR.glb"
+      ios-src="AR.usdz"
+      ar
+      ar-modes="scene-viewer webxr quick-look"
+      camera-controls
+      autoplay
+      auto-rotate
+      shadow-intensity="1"
+      shadow-softness="1"
+      environment-image="neutral.hdr"
+      loading="eager"
+      reveal="auto"
+      style="width: 100%; height: 400px;">
+    </model-viewer>
+    <button class="ar-button" onclick="triggerAR('model1')">Play AR</button>
   </div>
+
+  <!-- Lisa Fox -->
+  <div class="ar-section">
+    <div class="head-title">Lisa Fox</div>
+    <div class="sub-title"> Lisa Fox </div>
+    <div class="sub-title"></div>
+    <model-viewer id="model2"
+      src="AR2.glb"
+      ios-src="AR2.usdz"
+      ar
+      ar-modes="scene-viewer webxr quick-look"
+      camera-controls
+      autoplay
+      auto-rotate
+      shadow-intensity="1"
+      shadow-softness="1"
+      environment-image="neutral.hdr"
+      loading="eager"
+      reveal="auto"
+      style="width: 100%; height: 400px;">
+    </model-viewer>
+    <button class="ar-button" onclick="triggerAR('model2')">Play AR</button>
+  </div>
+ <footer>
+    <div class="footer-link"><strong>Facebook:</strong> <a href="https://www.facebook.com/mushroomsstudio" target="_blank">facebook.com/mushroomsstudio</a></div>
+    <div class="footer-link"><strong>Website:</strong> <a href="https://www.mushroom-studio.com" target="_blank">mushroom-studio.com</a></div>
+  </footer>
+
+  <!-- ✅ โหลด model-viewer หลังสุดเพื่อให้โหลดหน้าเว็บเร็วขึ้น -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+  <!-- ✅ Script ปุ่ม Play AR พร้อม catch error -->
+  <script>
+    function triggerAR(id) {
+      const viewer = document.getElementById(id);
+      if (viewer && viewer.activateAR) {
+        viewer.activateAR().catch((error) => {
+          alert("AR ไม่พร้อมบนอุปกรณ์นี้ หรือถูกบล็อกโดย browser\n(แนะนำให้กดปุ่ม AR บนมุมขวาของโมเดลแทน)");
+          console.warn("activateAR failed:", error);
+        });
+      }
+    }
+  </script>
 
 </body>
 </html>
