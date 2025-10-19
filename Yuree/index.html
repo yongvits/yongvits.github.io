@@ -1,1 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>AR Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- ???? model-viewer -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      background-color: #f2f2f2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100vh;
+    }
 
+    model-viewer {
+      width: 100%;
+      max-width: 600px; /* yuree */
+      height: 600px;
+    }
+
+    model-viewer::part(ar-button) {
+      transform: scale(1.5); /* yuree */
+      transform-origin: bottom right;
+      margin: 20px;
+    }
+
+    .image-button {
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    .image-button img {
+      width: 200px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+
+<body>
+
+  <model-viewer
+    src="AR.glb"
+    ios-src="AR.usdz"
+    ar
+    ar-modes="scene-viewer quick-look webxr"
+    auto-rotate
+    camera-controls
+    ar-button
+    shadow-intensity="1"
+    alt="????? AR"
+    id="ar-model"
+  >
+  </model-viewer>
+
+  <!-- yuree -->
+  <div class="image-button" onclick="document.getElementById('ar-model').activateAR()">
+    <img src="IMG_7710.jpeg" alt="???? AR">
+  </div>
+
+</body>
+</html>
