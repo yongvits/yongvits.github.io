@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ready Player Me - BlendShape Downloader</title>
+<style>
+  body {
+    background: #feb334;
+    font-family: "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  h1 {
+    color: #222;
+  }
+  input {
+    width: 80%;
+    max-width: 600px;
+    padding: 12px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  button {
+    background: #333;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #444;
+  }
+  #status {
+    margin-top: 16px;
+    color: #222;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+  <h1>🎨 Ready Player Me BlendShape Downloader</h1>
+  <input id="urlInput" type="text" placeholder="Paste your Ready Player Me URL here..." />
+  <button id="downloadBtn">Download .GLB (with ARKit BlendShapes)</button>
+  <div id="status"></div>
+
+<script>
+  async function downloadWithBlendShapes() {
+    const input = document.getElementById("urlInput");
+    const status = document.getElementById("status");
+    const url = input.value.trim();
+    if (!url) {
+      status.innerText = "⚠️ Please paste your Ready Player Me link first.";
+      return;
+    }
+
+    status.innerText = "⏳ Processing link...";
+
+    let avatarId = "";
+    if (url.includes("avatars/")) {
+      avatarId = url.split("avatars/")[1].split("?")[0];
+    } else if (url.includes("models.readyplayer.me")) {
+      avatarId = url.split("/").pop().replace(".glb", "");
+    } else {
+      status.innerText = "❌ Invalid Ready Player Me URL.";
+      return;
+    }
+
+    const apiUrl = `https://api.readyplayer.me/v1/avatars/${avatarId}.glb?morphTargets=ARKit,Oculus+Visemes`;
+
+    try {
+      status.innerText = "⬇️ Downloading with BlendShapes...";
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error("Failed to fetch model.");
+
+      const blob = await response.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${avatarId}_blendshape.glb`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      status.innerText = "✅ Download complete! Your model includes all BlendShapes.";
+    } catch (err) {
+      console.error(err);
+      status.innerText = "❌ Error downloading file. Check the URL or try again.";
+    }
+  }
+
+  document.getElementById("downloadBtn").addEventListener("click", downloadWithBlendShapes);
+</script>
+</body>
+</html>
