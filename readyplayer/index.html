@@ -45,26 +45,35 @@
     color: #222;
     font-weight: bold;
   }
-  /* 🖋️ ลายน้ำมุมขวาล่าง */
+  /* 🖋️ ลายน้ำมุมขวาล่าง (GMJK Style) */
   .credit {
     position: absolute;
     bottom: 10px;
-    right: 14px;
-    font-size: 12px;
-    color: rgba(0,0,0,0.5);
-    font-style: italic;
+    right: 18px;
+    font-size: 18px;
+    color: rgba(0, 0, 0, 0.65);
+    font-weight: 700;
+    font-family: "Segoe UI", "Arial Black", sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0px 1px 2px rgba(255, 255, 255, 0.4);
     user-select: none;
+    transition: 0.3s;
+  }
+  .credit:hover {
+    color: rgba(0,0,0,0.85);
+    transform: scale(1.05);
   }
 </style>
 </head>
 <body>
   <h1>ReadyPlayer Me - All BlendShape Downloader</h1>
   <input id="urlInput" type="text" placeholder="Paste your Ready Player Me URL here..." />
-  <button id="downloadBtn">Download .GLB (with ARKit BlendShapes)</button>
+  <button id="downloadBtn">Download .GLB (with Full BlendShapes)</button>
   <div id="status"></div>
 
   <!-- ✅ เครดิตมุมขวาล่าง -->
-  <div class="credit">CR.yongvits</div>
+  <div class="credit">CR.Yongvits</div>
 
 <script>
   async function downloadWithBlendShapes() {
