@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Ver 05 Smooth</title>
+    <title>WebAR Ver 06 Fixed</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
@@ -39,7 +39,7 @@
 <body>
     <div id="status-text">Ready</div>
     <div id="record-btn"></div>
-    <div id="version-label">ver06 (Smooth & Portrait)</div>
+    <div id="version-label">ver07 (Model Fix)</div>
     
     <div id="save-dialog">
         <button id="btn-discard" class="action-btn discard-btn">X</button>
@@ -84,41 +84,53 @@
 
         function updateCompositeCanvas() {
             const video = document.querySelector('video');
-            // ใช้ WebGL Canvas (ขนาดหน้าจอ) เป็นหลัก
             const webglCanvas = scene.canvas; 
             
             if (!video || !webglCanvas) return;
 
-            // ตั้งขนาด Canvas ให้เท่ากับหน้าจอมือถือ (Portrait)
-            if (compositeCanvas.width !== webglCanvas.width || compositeCanvas.height !== webglCanvas.height) {
-                compositeCanvas.width = webglCanvas.width;
-                compositeCanvas.height = webglCanvas.height;
+            // 1. ตั้งขนาด Canvas ให้เท่ากับหน้าจอมือถือ (Portrait)
+            // ใช้ logical size เพื่อประสิทธิภาพ แล้วค่อย scale context เอา
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            // จัดการ Retina Display (แก้ภาพเบลอ/ภาพเพี้ยน)
+            const dpr = window.devicePixelRatio || 1;
+            
+            if (compositeCanvas.width !== width * dpr || compositeCanvas.height !== height * dpr) {
+                compositeCanvas.width = width * dpr;
+                compositeCanvas.height = height * dpr;
+                ctx.scale(dpr, dpr); // Scale ให้ตรงกับ DPR
             }
 
-            // คำนวณการวางวิดีโอให้เต็มจอ (Cover) ไม่ให้บีบ
+            // คำนวณการวางวิดีโอให้เต็มจอ (Cover Mode)
             const vRatio = video.videoWidth / video.videoHeight;
-            const cRatio = compositeCanvas.width / compositeCanvas.height;
+            const cRatio = width / height; // ใช้ logical size ในการคำนวณ
             let dw, dh, dx, dy;
 
             if (vRatio > cRatio) {
                 // วิดีโอกว้างกว่าจอ (ตัดซ้ายขวา)
-                dh = compositeCanvas.height;
+                dh = height;
                 dw = dh * vRatio;
-                dx = (compositeCanvas.width - dw) / 2;
+                dx = (width - dw) / 2;
                 dy = 0;
             } else {
                 // วิดีโอสูงกว่าจอ (ตัดบนล่าง)
-                dw = compositeCanvas.width;
+                dw = width;
                 dh = dw / vRatio;
-                dy = (compositeCanvas.height - dh) / 2;
+                dy = (height - dh) / 2;
                 dx = 0;
             }
 
-            // 1. วาดพื้นหลัง (Video) แบบ Crop Center
+            // Clear เก่าทิ้งก่อน
+            ctx.clearRect(0, 0, width, height);
+
+            // 2. วาดพื้นหลัง (Video)
             ctx.drawImage(video, dx, dy, dw, dh);
 
-            // 2. วาด 3D Model ทับลงไป
-            ctx.drawImage(webglCanvas, 0, 0);
+            // 3. วาด 3D Model ทับลงไป (จุดสำคัญที่แก้!)
+            // ต้องระบุความกว้างความสูง (width, height) ลงไปด้วย เพื่อบังคับให้ WebGL ยืดเต็มจอ
+            // ถ้าไม่ใส่ตรงนี้ บางเครื่องจะวาด 3D ผิดขนาด ทำให้มองไม่เห็น
+            ctx.drawImage(webglCanvas, 0, 0, width, height);
         }
 
         function takeScreenshot() {
@@ -131,7 +143,7 @@
         }
 
         function startRecording() {
-            // ลด FPS เหลือ 24 เพื่อความลื่นไหลและไม่กินเครื่อง
+            // ใช้ 24 FPS เพื่อความลื่นไหล
             renderLoop = setInterval(updateCompositeCanvas, 1000/24);
             const stream = compositeCanvas.captureStream(24);
             
@@ -140,8 +152,8 @@
             else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) mimeType = 'video/webm;codecs=h264';
 
             recordedChunks = [];
-            // ลด Bitrate ลงเหลือ 2.5 Mbps (ชัดพอสำหรับมือถือ แต่ไม่กระตุก)
-            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 2500000 });
+            // Bitrate 3Mbps
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 3000000 });
             
             mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
