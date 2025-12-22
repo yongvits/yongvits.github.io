@@ -2,13 +2,13 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Link to Website</title>
+    <title>WebAR Fast Track & Link</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
 
     <script>
-        // สร้าง Component สำหรับคลิกแล้วไปหน้าเว็บ
+        // Component สำหรับคลิกแล้วไปหน้าเว็บ
         AFRAME.registerComponent('navigate-on-click', {
             schema: {
                 url: { default: '' }
@@ -16,10 +16,7 @@
             init: function () {
                 var data = this.data;
                 var el = this.el;
-
-                // เมื่อมีการคลิก (Click/Tap) ที่โมเดล
                 el.addEventListener('click', function () {
-                    // สั่งให้เปิดหน้าเว็บ
                     window.location.href = data.url; 
                 });
             }
@@ -28,12 +25,20 @@
     
     <style>
         body { margin: 0; overflow: hidden; }
+        /* แสดงเลขเวอร์ชันมุมขวาล่าง */
+        #version-label { 
+            position: fixed; bottom: 5px; right: 5px; 
+            color: rgba(255,255,255,0.5); font-size: 10px; z-index: 9999; pointer-events: none; 
+            font-family: sans-serif;
+        }
     </style>
 </head>
 <body>
 
+    <div id="version-label">Ver Final Fast</div>
+
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; filterMinCF:0.0001; filterBeta: 0.001;" 
+        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; uiScanning: no; warmupTolerance: 0; missTolerance: 0; filterMinCF: 1; filterBeta: 1000;" 
         color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
@@ -50,7 +55,7 @@
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model 
                 src="#model-AR1" 
-                rotation="90 0 0" 
+                rotation="9 0 0" 
                 position="0 0 0" 
                 scale="1 1 1" 
                 animation-mixer
@@ -64,7 +69,7 @@
                 src="#model-AR2" 
                 rotation="90 0 0" 
                 position="0 0 0" 
-                scale="1 1 1" 
+                scale="1.5 1.5 1.5" 
                 animation-mixer
                 class="clickable" 
                 navigate-on-click="url: https://mushroom-studio.com">
