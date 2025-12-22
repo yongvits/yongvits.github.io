@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Fast Track & Link</title>
+    <title>WebAR Link Fixed</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
@@ -17,6 +17,7 @@
                 var data = this.data;
                 var el = this.el;
                 el.addEventListener('click', function () {
+                    // เปิดหน้าเว็บ (ใช้ _blank ถ้าอยากให้เปิดแท็บใหม่)
                     window.location.href = data.url; 
                 });
             }
@@ -25,17 +26,24 @@
     
     <style>
         body { margin: 0; overflow: hidden; }
-        /* แสดงเลขเวอร์ชันมุมขวาล่าง */
         #version-label { 
             position: fixed; bottom: 5px; right: 5px; 
             color: rgba(255,255,255,0.5); font-size: 10px; z-index: 9999; pointer-events: none; 
             font-family: sans-serif;
         }
+        /* ข้อความบอกให้กด */
+        #tap-hint {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; background: rgba(0,0,0,0.5); padding: 10px 20px; 
+            border-radius: 20px; z-index: 9999; pointer-events: none;
+            font-family: sans-serif; opacity: 0; transition: opacity 0.5s;
+        }
     </style>
 </head>
 <body>
 
-    <div id="version-label">Ver Final Fast</div>
+    <div id="version-label">Ver Link Fix (Hitbox)</div>
+    <div id="tap-hint">Tap to Open Link 👆</div>
 
     <a-scene 
         mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; uiScanning: no; warmupTolerance: 0; missTolerance: 0; filterMinCF: 1; filterBeta: 1000;" 
@@ -52,31 +60,47 @@
         <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;" raycaster="far: 10000; objects: .clickable">
         </a-camera>
 
-        <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model 
-                src="#model-AR1" 
-                rotation="90 0 0" 
-                position="0 0 0" 
-                scale="1 1 1" 
-                animation-mixer
+        <a-entity mindar-image-target="targetIndex: 0" id="target1">
+            
+            <a-gltf-model src="#model-AR1" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            
+            <a-box 
                 class="clickable" 
-                navigate-on-click="url: https://mushroom-studio.com"> 
-            </a-gltf-model>
+                navigate-on-click="url: https://mushroom-studio.com"
+                position="0 0.5 0" 
+                scale="1.5 1.5 1.5"
+                material="opacity: 0; transparent: true">
+            </a-box>
+
         </a-entity>
 
-        <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model 
-                src="#model-AR2" 
-                rotation="90 0 0" 
-                position="0 0 0" 
-                scale="1.5 1.5 1.5" 
-                animation-mixer
+        <a-entity mindar-image-target="targetIndex: 1" id="target2">
+            
+            <a-gltf-model src="#model-AR2" rotation="90 0 0" position="0 0 0" scale="1.5 1.5 1.5" animation-mixer></a-gltf-model>
+            
+            <a-box 
                 class="clickable" 
-                navigate-on-click="url: https://mushroom-studio.com">
-            </a-gltf-model>
+                navigate-on-click="url: https://mushroom-studio.com"
+                position="0 0.5 0" 
+                scale="1.5 1.5 1.5"
+                material="opacity: 0; transparent: true">
+            </a-box>
+
         </a-entity>
         
     </a-scene>
+
+    <script>
+        // Script เล็กน้อยเพื่อโชว์ข้อความ "Tap to Open Link" ตอนส่องเจอ
+        const hint = document.getElementById('tap-hint');
+        const t1 = document.querySelector('#target1');
+        const t2 = document.querySelector('#target2');
+
+        const showHint = () => { hint.style.opacity = 1; setTimeout(() => hint.style.opacity = 0, 3000); };
+        
+        t1.addEventListener("targetFound", showHint);
+        t2.addEventListener("targetFound", showHint);
+    </script>
 
 </body>
 </html>
