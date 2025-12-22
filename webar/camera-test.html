@@ -2,12 +2,18 @@
 <html>
 <body>
 <button id="cam">Open Camera</button>
-<video autoplay playsinline></video>
+<video autoplay playsinline style="width:100%; height:auto;"></video>
 
 <script>
 document.getElementById("cam").onclick = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-  document.querySelector("video").srcObject = stream;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const video = document.querySelector("video");
+    video.srcObject = stream;
+  } catch (err) {
+    alert("Camera access denied or not supported: " + err.message);
+    console.error(err);
+  }
 };
 </script>
 </body>
