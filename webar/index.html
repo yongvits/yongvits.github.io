@@ -1,50 +1,36 @@
-<script>
-const btn = document.getElementById("startAR");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Image AR Recorder</title>
 
-btn.onclick = async function () {
-  console.log("BUTTON CLICK");
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 
-  try {
-    // 🔑 ขอ permission กล้องตรง ๆ
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-      audio: false
-    });
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #ui {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      margin: 0 5px;
+    }
+  </style>
+</head>
 
-    console.log("CAMERA PERMISSION OK");
+<body>
+  <div id="ui">
+    <button id="startAR">Start AR</button>
+    <button id="rec">REC</button>
+    <button id="stop">STOP</button>
+  </div>
 
-    // ปิด stream ทิ้ง (MindAR จะเปิดใหม่)
-    stream.getTracks().forEach(track => track.stop());
-
-    startMindAR();
-
-  } catch (e) {
-    alert("ไม่สามารถเปิดกล้องได้\nกรุณาอนุญาต Camera");
-    console.error(e);
-  }
-};
-
-function startMindAR() {
-  const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-    container: document.body,
-    imageTargetSrc: './targets.mind'
-  });
-
-  const { renderer, scene, camera } = mindarThree;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1));
-
-  const anchor = mindarThree.addAnchor(0);
-  const loader = new THREE.GLTFLoader();
-  loader.load('./model/product.glb', gltf => {
-    gltf.scene.scale.set(0.5, 0.5, 0.5);
-    anchor.group.add(gltf.scene);
-  });
-
-  mindarThree.start().then(() => {
-    console.log("MINDAR STARTED");
-    renderer.setAnimationLoop(() => {
-      renderer.render(scene, camera);
-    });
-  });
-}
-</script>
+  <script src="./recorder.js"></script>
+</body>
+</html>
