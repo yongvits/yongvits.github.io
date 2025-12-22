@@ -1,42 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MindAR Debug</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160/examples/js/loaders/GLTFLoader.js"></script>
+
+<style>
+html,body { margin:0; padding:0; overflow:hidden; background:black; }
+#ui { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:10; }
+button { padding:14px 18px; font-size:16px; }
+</style>
+</head>
+
 <body>
 
 <div id="ui">
   <button id="startAR">START AR</button>
-  <button onclick="startRecord()">● REC</button>
-  <button onclick="stopRecord()">■ STOP</button>
 </div>
 
-<script src="recorder.js"></script>
+<script>
+console.log("SCRIPT LOADED");
 
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
-import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/loaders/GLTFLoader.js';
+let mindarThree, renderer, scene, camera;
 
-const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-  container: document.body,
-  imageTargetSrc: './targets.mind',
-});
+document.getElementById("startAR").onclick = function () {
+  console.log("START AR CLICKED");
 
-const { renderer, scene, camera } = mindarThree;
+  if (!mindarThree) {
+    initAR();
+  }
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1));
-
-const anchor = mindarThree.addAnchor(0);
-
-const loader = new GLTFLoader();
-loader.load('./model/product.glb', gltf => {
-  gltf.scene.scale.set(0.5, 0.5, 0.5);
-  anchor.group.add(gltf.scene);
-});
-
-document.getElementById("startAR").addEventListener("click", async () => {
-  document.getElementById("startAR").style.display = "none";
-
-  await mindarThree.start(); // 👈 ต้องอยู่ใน click เท่านั้น
-  renderer.setAnimationLoop(() => {
-    renderer.render(scene, camera);
+  mindarThree.start().then(() => {
+    console.log("AR STARTED");
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
+  }).catch(err => {
+    console.error("START ERROR:", err);
   });
-});
+};
+
+function initAR() {
+  console.log("INIT AR");
+
+  mindarThree = new window.MINDAR.IMAGE.MindARThree({
+    container: document.body,
+    imageTargetSrc: './targets.mind',
+  });
+
+  renderer = mindarThree.renderer;
+  scene = mindarThree.scene;
+  camera = mindarThree.camera;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1));
+
+  const anchor = mindarThree.addAnchor(0);
+  const loader = new THREE.GLTFLoader();
+  loader.load('./model/product.glb', gltf => {
+    gltf.scene.scale.set(0.5, 0.5, 0.5);
+    anchor.group.add(gltf.scene);
+    console.log("MODEL LOADED");
+  });
+}
 </script>
 
 </body>
+</html>
