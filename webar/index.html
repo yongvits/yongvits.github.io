@@ -1,61 +1,36 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>MindAR Debug</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160/examples/js/loaders/GLTFLoader.js"></script>
-
-<style>
-html,body { margin:0; padding:0; overflow:hidden; background:black; }
-#ui { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:10; }
-button { padding:14px 18px; font-size:16px; }
-</style>
-</head>
-
-<body>
-
-<div id="ui">
-  <button id="startAR">START AR</button>
-</div>
-
 <script>
-console.log("SCRIPT LOADED");
+const btn = document.getElementById("startAR");
 
-let mindarThree, renderer, scene, camera;
+btn.onclick = async function () {
+  console.log("BUTTON CLICK");
 
-document.getElementById("startAR").onclick = function () {
-  console.log("START AR CLICKED");
-
-  if (!mindarThree) {
-    initAR();
-  }
-
-  mindarThree.start().then(() => {
-    console.log("AR STARTED");
-    renderer.setAnimationLoop(() => {
-      renderer.render(scene, camera);
+  try {
+    // 🔑 ขอ permission กล้องตรง ๆ
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
     });
-  }).catch(err => {
-    console.error("START ERROR:", err);
-  });
+
+    console.log("CAMERA PERMISSION OK");
+
+    // ปิด stream ทิ้ง (MindAR จะเปิดใหม่)
+    stream.getTracks().forEach(track => track.stop());
+
+    startMindAR();
+
+  } catch (e) {
+    alert("ไม่สามารถเปิดกล้องได้\nกรุณาอนุญาต Camera");
+    console.error(e);
+  }
 };
 
-function initAR() {
-  console.log("INIT AR");
-
-  mindarThree = new window.MINDAR.IMAGE.MindARThree({
+function startMindAR() {
+  const mindarThree = new window.MINDAR.IMAGE.MindARThree({
     container: document.body,
-    imageTargetSrc: './targets.mind',
+    imageTargetSrc: './targets.mind'
   });
 
-  renderer = mindarThree.renderer;
-  scene = mindarThree.scene;
-  camera = mindarThree.camera;
-
+  const { renderer, scene, camera } = mindarThree;
   scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1));
 
   const anchor = mindarThree.addAnchor(0);
@@ -63,10 +38,13 @@ function initAR() {
   loader.load('./model/product.glb', gltf => {
     gltf.scene.scale.set(0.5, 0.5, 0.5);
     anchor.group.add(gltf.scene);
-    console.log("MODEL LOADED");
+  });
+
+  mindarThree.start().then(() => {
+    console.log("MINDAR STARTED");
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
   });
 }
 </script>
-
-</body>
-</html>
