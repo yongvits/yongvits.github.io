@@ -1,10 +1,15 @@
+// =======================
+// GLOBAL VARIABLES
+// =======================
 let mindarThree;
 let renderer;
 let mediaRecorder;
 let chunks = [];
 
+// =======================
+// START AR (iOS SAFE)
+// =======================
 document.getElementById("startAR").addEventListener("click", () => {
-  // ✅ ต้องอยู่ใน user gesture ตรง ๆ
   startAR();
 });
 
@@ -26,9 +31,48 @@ function startAR() {
     anchor.group.add(gltf.scene);
   });
 
-  mindarThree.start(); // ← iOS เปิดกล้องตรงนี้
+  mindarThree.start();
 
   renderer.setAnimationLoop(() => {
     renderer.render(scene, camera);
   });
 }
+
+// =======================
+// REC BUTTON
+// =======================
+document.getElementById("rec").onclick = () => {
+  if (!renderer) {
+    alert("Start AR first");
+    return;
+  }
+
+  const stream = renderer.domElement.captureStream(30);
+  mediaRecorder = new MediaRecorder(stream, {
+    mimeType: "video/webm"
+  });
+
+  chunks = [];
+  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ar-record.webm";
+    a.click();
+  };
+
+  mediaRecorder.start();
+};
+
+// =======================
+// STOP BUTTON
+// =======================
+document.getElementById("stop").onclick = () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+  }
+};
