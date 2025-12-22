@@ -45,6 +45,15 @@
             border-radius: 20px; font-size: 14px; pointer-events: none; z-index: 9999;
         }
 
+        /* เลข Version มุมขวาล่าง */
+        #version-label {
+            position: fixed; bottom: 5px; right: 5px;
+            color: rgba(255, 255, 255, 0.6); /* สีขาวจางๆ */
+            font-size: 10px; 
+            z-index: 9999;
+            pointer-events: none; /* กดทะลุได้ */
+        }
+
         /* ซ่อน Canvas ที่ใช้ประมวลผล */
         #composite-canvas { display: none; }
     </style>
@@ -53,6 +62,8 @@
 
     <div id="status-text">Ready</div>
     <div id="record-btn"></div>
+    
+    <div id="version-label">ver 02</div>
     
     <div id="save-dialog">
         <button id="btn-discard" class="action-btn discard-btn">X</button>
@@ -75,16 +86,16 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
         <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
         <a-entity mindar-image-target="targetIndex: 2">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
         <a-entity mindar-image-target="targetIndex: 3">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
     </a-scene>
 
@@ -107,79 +118,71 @@
         let lastBlob = null; 
         let lastType = '';
 
-        // --- ฟังก์ชัน "รวมร่าง" (แก้ VDO เบี้ยว + โมเดลหาย) ---
+        function resizeCanvasToScreen() {
+            const width = window.innerWidth * window.devicePixelRatio;
+            const height = window.innerHeight * window.devicePixelRatio;
+            
+            if (compositeCanvas.width !== width || compositeCanvas.height !== height) {
+                compositeCanvas.width = width;
+                compositeCanvas.height = height;
+            }
+        }
+
         function updateCompositeCanvas() {
-            // 1. หา Video ของ MindAR (มันซ่อนอยู่ใน body)
             const video = document.querySelector('video'); 
-            const webglCanvas = scene.canvas; // ชั้น AR
+            const webglCanvas = scene.canvas; 
 
             if (!video || !webglCanvas) return;
 
-            // 2. ตั้งขนาด Canvas ให้เท่ากับหน้าจอ WebGL (เท่ากับจอมือถือ)
-            if (compositeCanvas.width !== webglCanvas.width || compositeCanvas.height !== webglCanvas.height) {
-                compositeCanvas.width = webglCanvas.width;
-                compositeCanvas.height = webglCanvas.height;
-            }
+            resizeCanvasToScreen();
 
-            // 3. วาดภาพจากกล้อง (พื้นหลัง) แบบ "เต็มจอ" (Cover)
-            // สูตรนี้จะตัดส่วนเกินออก ทำให้ภาพไม่ยืด ไม่เบี้ยว
             const vRatio = video.videoWidth / video.videoHeight;
             const cRatio = compositeCanvas.width / compositeCanvas.height;
             let dw, dh, dx, dy;
 
             if (vRatio > cRatio) {
-                // วิดีโอกว้างกว่าจอ (ตัดซ้ายขวาออก)
                 dh = compositeCanvas.height;
                 dw = dh * vRatio;
                 dx = (compositeCanvas.width - dw) / 2;
                 dy = 0;
             } else {
-                // วิดีโอสูงกว่าจอ (ตัดบนล่างออก)
                 dw = compositeCanvas.width;
                 dh = dw / vRatio;
                 dy = (compositeCanvas.height - dh) / 2;
                 dx = 0;
             }
 
-            // วาดพื้นหลัง (กล้อง)
             ctx.drawImage(video, dx, dy, dw, dh);
-
-            // 4. วาด AR Model ทับลงไป (สำคัญ!)
-            // ต้องวาดหลังจากวาดวิดีโอเสร็จแล้ว
             ctx.drawImage(webglCanvas, 0, 0, compositeCanvas.width, compositeCanvas.height);
         }
 
-        // --- ถ่ายรูป ---
         function takeScreenshot() {
             showStatus("Capturing...");
-            // บังคับรวมภาพ 1 ครั้งก่อนถ่าย
             updateCompositeCanvas();
-            
             compositeCanvas.toBlob((blob) => {
+                if (!blob) { showStatus("Error Capturing"); return; }
                 lastBlob = blob;
                 lastType = 'image';
                 showSaveDialog("📸 Photo Ready");
             }, 'image/png', 1.0);
         }
 
-        // --- อัดวิดีโอ ---
         function startRecording() {
-            // เริ่ม Loop รวมภาพตามเฟรมเรต 30fps
+            resizeCanvasToScreen();
             renderLoop = setInterval(updateCompositeCanvas, 1000/30);
             
             const stream = compositeCanvas.captureStream(30);
             let mimeType = 'video/webm';
-            // พยายามใช้ MP4 ถ้าเครื่องรองรับ
             if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4'; 
             else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) mimeType = 'video/webm;codecs=h264';
 
             recordedChunks = [];
-            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 2500000 }); // เพิ่ม Bitrate
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 3000000 }); 
             
             mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
             
             mediaRecorder.onstop = () => {
-                clearInterval(renderLoop); // หยุด Loop
+                clearInterval(renderLoop);
                 const blob = new Blob(recordedChunks, { type: mimeType });
                 lastBlob = blob;
                 lastType = 'video';
@@ -200,7 +203,6 @@
             }
         }
 
-        // --- UI & Save Logic ---
         function showSaveDialog(text) {
             statusText.innerText = text;
             btn.style.display = 'none';
@@ -214,21 +216,18 @@
             lastBlob = null;
         }
 
-        // ปุ่ม Save (กดปุ๊บ Save ปั๊บ)
         btnSave.onclick = async () => {
             if (!lastBlob) return;
             const ext = lastType === 'image' ? 'png' : 'mp4';
             const filename = `ar-${Date.now()}.${ext}`;
             const file = new File([lastBlob], filename, { type: lastBlob.type });
 
-            // ใช้ระบบ Share ของมือถือ (เสถียรสุดสำหรับ iPhone)
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                     await navigator.share({ files: [file], title: "My AR" });
                     resetUI();
                 } catch (e) { console.log("User cancelled share"); }
             } else {
-                // Fallback สำหรับ Android บางรุ่น / PC
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(lastBlob);
                 a.download = filename;
@@ -239,7 +238,6 @@
 
         btnDiscard.onclick = resetUI;
 
-        // Touch Control
         function handleStart(e) {
             if(e.cancelable) e.preventDefault();
             if(saveDialog.style.display === 'flex') return;
