@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<body>
+<button id="cam">Open Camera</button>
+<video autoplay playsinline></video>
+
+<script>
+document.getElementById("cam").onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  document.querySelector("video").srcObject = stream;
+};
+</script>
+</body>
+</html>
