@@ -26,7 +26,6 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* ป้องกันการเลือก text เวลาแตะค้างบนมือถือ */
             user-select: none; 
             -webkit-user-select: none;
             touch-action: none; 
@@ -46,7 +45,7 @@
         #record-btn.recording::after {
             width: 30px;
             height: 30px;
-            border-radius: 4px; /* เปลี่ยนเป็นสี่เหลี่ยมตอนอัด */
+            border-radius: 4px; 
         }
         
         /* ข้อความสถานะ */
@@ -61,7 +60,7 @@
             border-radius: 10px;
             font-family: sans-serif;
             font-size: 14px;
-            pointer-events: none; /* กดทะลุได้ */
+            pointer-events: none;
             z-index: 1000;
         }
     </style>
@@ -80,14 +79,17 @@
         device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            </a-assets>
+            <a-asset-item id="product-model" src="./model/product.glb"></a-asset-item>
+        </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-box position="0 0 0.5" rotation="0 45 0" color="#4CC3D9" 
-                   animation="property: rotation; to: 0 405 0; dur: 2000; easing: linear; loop: true">
-            </a-box>
+            <a-gltf-model src="#product-model" 
+                          rotation="0 0 0" 
+                          position="0 0 0" 
+                          scale="0.5 0.5 0.5">
+            </a-gltf-model>
         </a-entity>
     </a-scene>
 
@@ -104,11 +106,9 @@
 
         // ฟังก์ชันถ่ายรูป (Screenshot)
         function takeScreenshot() {
-            // ดึงภาพจาก Canvas ของ A-Frame
             const canvas = scene.components.screenshot.getCanvas('perspective');
             const dataURL = canvas.toDataURL("image/png");
             
-            // สร้างลิงก์ดาวน์โหลด
             const link = document.createElement("a");
             link.download = "ar-snap-" + Date.now() + ".png";
             link.href = dataURL;
@@ -120,11 +120,9 @@
         // ฟังก์ชันเริ่มอัดวีดีโอ
         function startRecording() {
             const canvas = scene.canvas;
-            // ดึง Stream (25 FPS)
             const stream = canvas.captureStream(25); 
             
             try {
-                // พยายามใช้ mimeType ที่รองรับทั่วโลก
                 const options = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
                     ? { mimeType: 'video/webm;codecs=vp9' } 
                     : { mimeType: 'video/webm' };
@@ -145,7 +143,7 @@
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
-                    recordedChunks = []; // Clear buffer
+                    recordedChunks = []; 
                     
                     showStatus("Saved Video! 🎥");
                 };
@@ -171,7 +169,6 @@
 
         function showStatus(text) {
             statusText.innerText = text;
-            // คืนค่าเดิมหลังจาก 2 วิ
             setTimeout(() => {
                 if(!isRecording) statusText.innerText = "Tap to Snap / Hold to Record";
             }, 2000);
@@ -183,7 +180,6 @@
             if (e.cancelable) e.preventDefault();
             isLongPress = false;
             
-            // จับเวลา 0.5 วินาที
             pressTimer = setTimeout(() => {
                 isLongPress = true;
                 startRecording();
@@ -192,24 +188,20 @@
 
         function handlePressEnd(e) {
             if (e.cancelable) e.preventDefault();
-            clearTimeout(pressTimer); // ยกเลิกจับเวลาทันที
+            clearTimeout(pressTimer); 
 
             if (isLongPress) {
-                // ถ้าเกิน 0.5 วิ -> หยุดอัด
                 stopRecording();
             } else {
-                // ถ้าปล่อยก่อน -> ถ่ายรูป
                 if (!isRecording) {
                     takeScreenshot();
                 }
             }
         }
 
-        // รองรับ Touch (มือถือ)
         btn.addEventListener('touchstart', handlePressStart);
         btn.addEventListener('touchend', handlePressEnd);
         
-        // รองรับ Mouse (คอมพิวเตอร์)
         btn.addEventListener('mousedown', handlePressStart);
         btn.addEventListener('mouseup', handlePressEnd);
 
