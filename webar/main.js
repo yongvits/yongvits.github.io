@@ -1,79 +1,80 @@
-// =======================
-// GLOBAL
-// =======================
-let mindarThree;
-let renderer;
-let mediaRecorder;
-let chunks = [];
+document.addEventListener("DOMContentLoaded", () => {
 
-// =======================
-// START BUTTON
-// =======================
-document.getElementById("startAR").addEventListener("click", () => {
-  startAR();
-});
+  // =======================
+  // GLOBAL
+  // =======================
+  let mindarThree;
+  let renderer;
+  let mediaRecorder;
+  let chunks = [];
 
-// =======================
-// ⬇⬇⬇ วาง function startAR() ตรงนี้ ⬇⬇⬇
-// =======================
-function startAR() {
-  console.log("START AR");
-
-  mindarThree = new window.MINDAR.IMAGE.MindARThree({
-    container: document.body,
-    imageTargetSrc: "./targets.mind",
+  // =======================
+  // START BUTTON
+  // =======================
+  document.getElementById("startAR").addEventListener("click", () => {
+    startAR();
   });
 
-  const { scene, camera, renderer: r } = mindarThree;
-  renderer = r;
+  function startAR() {
+    console.log("START AR");
 
-  scene.add(new THREE.AxesHelper(0.5));
-
-  mindarThree.start()
-    .then(() => {
-      console.log("CAMERA STARTED");
-    })
-    .catch(err => {
-      alert("MindAR error: " + err);
+    mindarThree = new window.MINDAR.IMAGE.MindARThree({
+      container: document.body,
+      imageTargetSrc: "./targets.mind",
     });
 
-  renderer.setAnimationLoop(() => {
-    renderer.render(scene, camera);
-  });
-}
+    const { scene, camera, renderer: r } = mindarThree;
+    renderer = r;
 
-// =======================
-// REC
-// =======================
-document.getElementById("rec").onclick = () => {
-  if (!renderer) {
-    alert("Start AR first");
-    return;
+    scene.add(new THREE.AxesHelper(0.5));
+
+    mindarThree.start()
+      .then(() => {
+        console.log("CAMERA STARTED");
+      })
+      .catch(err => {
+        alert("MindAR error: " + err);
+      });
+
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
   }
 
-  const stream = renderer.domElement.captureStream(30);
-  mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+  // =======================
+  // REC
+  // =======================
+  document.getElementById("rec").onclick = () => {
+    if (!renderer) {
+      alert("Start AR first");
+      return;
+    }
 
-  chunks = [];
-  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    const stream = renderer.domElement.captureStream(30);
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
 
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(chunks, { type: "video/webm" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "ar-record.webm";
-    a.click();
+    chunks = [];
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ar-record.webm";
+      a.click();
+    };
+
+    mediaRecorder.start();
   };
 
-  mediaRecorder.start();
-};
+  // =======================
+  // STOP
+  // =======================
+  document.getElementById("stop").onclick = () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  };
 
-// =======================
-// STOP
-// =======================
-document.getElementById("stop").onclick = () => {
-  if (mediaRecorder && mediaRecorder.state === "recording") {
-    mediaRecorder.stop();
-  }
-};
+});
