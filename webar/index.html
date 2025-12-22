@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Custom Models</title>
+    <title>WebAR Turbo Speed</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
@@ -36,9 +36,9 @@
     </style>
 </head>
 <body>
-    <div id="status-text">Ready</div>
+    <div id="status-text">Ready (Turbo Mode)</div>
     <div id="record-btn"></div>
-    <div id="version-label">ver08 (AR1 & AR2)</div>
+    <div id="version-label">ver09 (Turbo Speed)</div>
     
     <div id="save-dialog">
         <button id="btn-discard" class="action-btn discard-btn">X</button>
@@ -48,7 +48,7 @@
     <canvas id="composite-canvas"></canvas>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; uiScanning: no; filterMinCF:0.0001; filterBeta: 0.001;" 
+        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; uiScanning: no; warmupTolerance: 0; missTolerance: 0; filterMinCF: 1; filterBeta: 1000;" 
         color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights; preserveDrawingBuffer: true; alpha: true" 
         vr-mode-ui="enabled: false" 
@@ -66,7 +66,7 @@
         </a-entity>
 
         <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model src="#model-AR2" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#model-AR2" rotation="90 0 0" position="0 0 0" scale="1.5 1.5 1.5" animation-mixer></a-gltf-model>
         </a-entity>
         
     </a-scene>
@@ -114,7 +114,6 @@
 
             ctx.clearRect(0, 0, width, height);
             ctx.drawImage(video, dx, dy, dw, dh);
-            // บังคับวาดโมเดลให้เต็มจอ
             ctx.drawImage(webglCanvas, 0, 0, width, height);
         }
 
