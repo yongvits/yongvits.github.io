@@ -6,39 +6,78 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     
     <style>
-        /* ปุ่มสำหรับกดอัดวิดีโอ */
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        /* ปุ่มสำหรับกด */
         #record-btn {
             position: fixed;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 15px 30px;
-            background-color: #ff3b30;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            font-size: 18px;
+            width: 80px;
+            height: 80px;
+            background-color: white;
+            border: 4px solid #ccc;
+            border-radius: 50%;
             z-index: 1000;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* ป้องกันการเลือก text เวลาแตะค้างบนมือถือ */
+            user-select: none; 
+            -webkit-user-select: none;
+            touch-action: none; 
         }
-        #record-btn.recording {
-            background-color: #dedede;
-            color: #333;
-            animation: pulse 1s infinite;
+
+        /* วงกลมสีแดงข้างใน */
+        #record-btn::after {
+            content: '';
+            width: 60px;
+            height: 60px;
+            background-color: #ff3b30;
+            border-radius: 50%;
+            transition: all 0.2s;
         }
-        @keyframes pulse {
-            0% { transform: translateX(-50%) scale(1); }
-            50% { transform: translateX(-50%) scale(0.95); }
-            100% { transform: translateX(-50%) scale(1); }
+
+        /* Effect ตอนกดค้าง (อัดวีดีโอ) */
+        #record-btn.recording::after {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px; /* เปลี่ยนเป็นสี่เหลี่ยมตอนอัด */
+        }
+        
+        /* ข้อความสถานะ */
+        #status-text {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-family: sans-serif;
+            font-size: 14px;
+            pointer-events: none; /* กดทะลุได้ */
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
 
-    <button id="record-btn">Start Recording</button>
+    <div id="status-text">Tap to Snap / Hold to Record</div>
 
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <div id="record-btn"></div>
+
+    <a-scene 
+        mindar-image="imageTargetSrc: ./targets.mind;" 
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights; preserveDrawingBuffer: true" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false">
         
         <a-assets>
             </a-assets>
@@ -46,75 +85,134 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-box position="0 0 0.5" rotation="0 45 0" color="#4CC3D9" animation="property: rotation; to: 0 405 0; dur: 2000; easing: linear; loop: true"></a-box>
-            </a-entity>
+            <a-box position="0 0 0.5" rotation="0 45 0" color="#4CC3D9" 
+                   animation="property: rotation; to: 0 405 0; dur: 2000; easing: linear; loop: true">
+            </a-box>
+        </a-entity>
     </a-scene>
 
     <script>
         const btn = document.getElementById('record-btn');
+        const statusText = document.getElementById('status-text');
+        const scene = document.querySelector('a-scene');
+        
         let mediaRecorder;
         let recordedChunks = [];
+        let pressTimer;
+        let isLongPress = false;
         let isRecording = false;
 
-        btn.addEventListener('click', async () => {
-            if (!isRecording) {
-                // เริ่มอัด
-                try {
-                    // ขออนุญาตอัดหน้าจอ (Browser จะเด้งถามว่าจะอัด Tab ไหน)
-                    const stream = await navigator.mediaDevices.getDisplayMedia({
-                        video: { mediaSource: "screen" },
-                        audio: true
-                    });
+        // ฟังก์ชันถ่ายรูป (Screenshot)
+        function takeScreenshot() {
+            // ดึงภาพจาก Canvas ของ A-Frame
+            const canvas = scene.components.screenshot.getCanvas('perspective');
+            const dataURL = canvas.toDataURL("image/png");
+            
+            // สร้างลิงก์ดาวน์โหลด
+            const link = document.createElement("a");
+            link.download = "ar-snap-" + Date.now() + ".png";
+            link.href = dataURL;
+            link.click();
+            
+            showStatus("Saved Image! 📸");
+        }
 
-                    mediaRecorder = new MediaRecorder(stream);
+        // ฟังก์ชันเริ่มอัดวีดีโอ
+        function startRecording() {
+            const canvas = scene.canvas;
+            // ดึง Stream (25 FPS)
+            const stream = canvas.captureStream(25); 
+            
+            try {
+                // พยายามใช้ mimeType ที่รองรับทั่วโลก
+                const options = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
+                    ? { mimeType: 'video/webm;codecs=vp9' } 
+                    : { mimeType: 'video/webm' };
+                
+                mediaRecorder = new MediaRecorder(stream, options);
 
-                    mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            recordedChunks.push(event.data);
-                        }
-                    };
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
 
-                    mediaRecorder.onstop = () => {
-                        // เมื่อหยุดอัด ให้รวมไฟล์และดาวน์โหลด
-                        const blob = new Blob(recordedChunks, {
-                            type: "video/webm"
-                        });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        document.body.appendChild(a);
-                        a.style = "display: none";
-                        a.href = url;
-                        a.download = "ar-recording.webm";
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        
-                        // Reset
-                        recordedChunks = [];
-                        btn.innerText = "Start Recording";
-                        btn.classList.remove("recording");
-                        isRecording = false;
-                    };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'ar-video-' + Date.now() + '.webm';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    recordedChunks = []; // Clear buffer
+                    
+                    showStatus("Saved Video! 🎥");
+                };
 
-                    mediaRecorder.start();
-                    btn.innerText = "Stop Recording";
-                    btn.classList.add("recording");
-                    isRecording = true;
-
-                    // หยุดอัดเมื่อ User กด Stop sharing ของ Browser
-                    stream.getVideoTracks()[0].onended = () => {
-                         if(isRecording) btn.click();
-                    };
-
-                } catch (err) {
-                    console.error("Error: " + err);
-                }
-            } else {
-                // สั่งหยุดอัด
-                mediaRecorder.stop();
-                // หยุด stream ของกล้องอัดหน้าจอด้วย
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                mediaRecorder.start();
+                isRecording = true;
+                btn.classList.add("recording");
+                showStatus("Recording... 🔴");
+            } catch (e) {
+                console.error(e);
+                showStatus("Error Recording ❌");
             }
-        });
+        }
+
+        // ฟังก์ชันหยุดอัด
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            btn.classList.remove("recording");
+        }
+
+        function showStatus(text) {
+            statusText.innerText = text;
+            // คืนค่าเดิมหลังจาก 2 วิ
+            setTimeout(() => {
+                if(!isRecording) statusText.innerText = "Tap to Snap / Hold to Record";
+            }, 2000);
+        }
+
+        // --- Event Handlers ---
+        
+        function handlePressStart(e) {
+            if (e.cancelable) e.preventDefault();
+            isLongPress = false;
+            
+            // จับเวลา 0.5 วินาที
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                startRecording();
+            }, 500); 
+        }
+
+        function handlePressEnd(e) {
+            if (e.cancelable) e.preventDefault();
+            clearTimeout(pressTimer); // ยกเลิกจับเวลาทันที
+
+            if (isLongPress) {
+                // ถ้าเกิน 0.5 วิ -> หยุดอัด
+                stopRecording();
+            } else {
+                // ถ้าปล่อยก่อน -> ถ่ายรูป
+                if (!isRecording) {
+                    takeScreenshot();
+                }
+            }
+        }
+
+        // รองรับ Touch (มือถือ)
+        btn.addEventListener('touchstart', handlePressStart);
+        btn.addEventListener('touchend', handlePressEnd);
+        
+        // รองรับ Mouse (คอมพิวเตอร์)
+        btn.addEventListener('mousedown', handlePressStart);
+        btn.addEventListener('mouseup', handlePressEnd);
+
     </script>
 </body>
 </html>
