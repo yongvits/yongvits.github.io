@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Final Fixed</title>
+    <title>WebAR Recorder Ver03</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
@@ -44,17 +44,14 @@
             color: white; background: rgba(0,0,0,0.6); padding: 8px 16px;
             border-radius: 20px; font-size: 14px; pointer-events: none; z-index: 9999;
         }
-
-        /* เลข Version มุมขวาล่าง */
+        
+        /* ปรับ text เป็น ver03 ตามที่ขอ */
         #version-label {
-            position: fixed; bottom: 5px; right: 5px;
-            color: rgba(255, 255, 255, 0.6); /* สีขาวจางๆ */
-            font-size: 10px; 
-            z-index: 9999;
-            pointer-events: none; /* กดทะลุได้ */
+            position: fixed; bottom: 5px; right: 5px; 
+            color: rgba(255,255,255,0.5); font-size: 10px; z-index: 9999;
+            pointer-events: none;
         }
 
-        /* ซ่อน Canvas ที่ใช้ประมวลผล */
         #composite-canvas { display: none; }
     </style>
 </head>
@@ -63,7 +60,7 @@
     <div id="status-text">Ready</div>
     <div id="record-btn"></div>
     
-    <div id="version-label">ver 02</div>
+    <div id="version-label">ver03</div>
     
     <div id="save-dialog">
         <button id="btn-discard" class="action-btn discard-btn">X</button>
@@ -73,7 +70,7 @@
     <canvas id="composite-canvas"></canvas>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4; filterMinCF:0.0001; filterBeta: 0.001;" 
+        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; uiScanning: no; filterMinCF:0.0001; filterBeta: 0.001;" 
         color-space="sRGB" 
         renderer="colorManagement: true, physicallyCorrectLights; preserveDrawingBuffer: true; alpha: true" 
         vr-mode-ui="enabled: false" 
@@ -88,13 +85,8 @@
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
+
         <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
-        </a-entity>
-        <a-entity mindar-image-target="targetIndex: 2">
-            <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
-        </a-entity>
-        <a-entity mindar-image-target="targetIndex: 3">
             <a-gltf-model src="#product-model" rotation="0 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
     </a-scene>
@@ -119,13 +111,16 @@
         let lastType = '';
 
         function resizeCanvasToScreen() {
-            const width = window.innerWidth * window.devicePixelRatio;
-            const height = window.innerHeight * window.devicePixelRatio;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
             
-            if (compositeCanvas.width !== width || compositeCanvas.height !== height) {
-                compositeCanvas.width = width;
-                compositeCanvas.height = height;
+            if (compositeCanvas.width !== width * dpr || compositeCanvas.height !== height * dpr) {
+                compositeCanvas.width = width * dpr;
+                compositeCanvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
             }
+            return { width, height };
         }
 
         function updateCompositeCanvas() {
@@ -134,37 +129,43 @@
 
             if (!video || !webglCanvas) return;
 
-            resizeCanvasToScreen();
+            const screenSize = resizeCanvasToScreen(); 
+            const canvasWidth = compositeCanvas.width;
+            const canvasHeight = compositeCanvas.height;
 
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            
             const vRatio = video.videoWidth / video.videoHeight;
-            const cRatio = compositeCanvas.width / compositeCanvas.height;
+            const cRatio = canvasWidth / canvasHeight;
             let dw, dh, dx, dy;
 
             if (vRatio > cRatio) {
-                dh = compositeCanvas.height;
-                dw = dh * vRatio;
-                dx = (compositeCanvas.width - dw) / 2;
-                dy = 0;
+                dh = canvasHeight; dw = dh * vRatio;
+                dx = (canvasWidth - dw) / 2; dy = 0;
             } else {
-                dw = compositeCanvas.width;
-                dh = dw / vRatio;
-                dy = (compositeCanvas.height - dh) / 2;
-                dx = 0;
+                dw = canvasWidth; dh = dw / vRatio;
+                dy = (canvasHeight - dh) / 2; dx = 0;
             }
-
+            
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); 
             ctx.drawImage(video, dx, dy, dw, dh);
-            ctx.drawImage(webglCanvas, 0, 0, compositeCanvas.width, compositeCanvas.height);
+            ctx.restore();
+
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0); 
+            ctx.drawImage(webglCanvas, 0, 0, canvasWidth, canvasHeight);
+            ctx.restore();
         }
 
         function takeScreenshot() {
             showStatus("Capturing...");
             updateCompositeCanvas();
             compositeCanvas.toBlob((blob) => {
-                if (!blob) { showStatus("Error Capturing"); return; }
-                lastBlob = blob;
-                lastType = 'image';
+                if (!blob) { showStatus("Error"); return; }
+                lastBlob = blob; lastType = 'image';
                 showSaveDialog("📸 Photo Ready");
-            }, 'image/png', 1.0);
+            }, 'image/png');
         }
 
         function startRecording() {
@@ -177,15 +178,14 @@
             else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) mimeType = 'video/webm;codecs=h264';
 
             recordedChunks = [];
-            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 3000000 }); 
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 4000000 });
             
             mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
             
             mediaRecorder.onstop = () => {
                 clearInterval(renderLoop);
                 const blob = new Blob(recordedChunks, { type: mimeType });
-                lastBlob = blob;
-                lastType = 'video';
+                lastBlob = blob; lastType = 'video';
                 showSaveDialog("🎥 Video Ready");
             };
 
@@ -223,10 +223,8 @@
             const file = new File([lastBlob], filename, { type: lastBlob.type });
 
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({ files: [file], title: "My AR" });
-                    resetUI();
-                } catch (e) { console.log("User cancelled share"); }
+                try { await navigator.share({ files: [file], title: "My AR" }); resetUI(); } 
+                catch (e) { console.log("Share cancelled"); }
             } else {
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(lastBlob);
