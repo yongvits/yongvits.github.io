@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     mindarThree = new window.MINDAR.IMAGE.MindARThree({
       container: document.body,
-      imageTargetSrc: "./targets.mind",
+      imageTargetSrc: "/webar/targets.mind",
     });
 
     const { scene, camera, renderer: r } = mindarThree;
