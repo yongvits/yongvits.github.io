@@ -125,7 +125,7 @@
 
         function updateCompositeCanvas() {
             const video = document.querySelector('video'); 
-            const webglCanvas = scene.canvas; 
+            const webglCanvas = scene.renderer.domElement; 
 
             if (!video || !webglCanvas) return;
 
