@@ -2,12 +2,14 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebAR Recorder - Save to Album</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
     
     <style>
         body { margin: 0; overflow: hidden; }
+        /* ปุ่ม Record / Snap */
         #record-btn {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
             width: 80px; height: 80px; background-color: white; border: 4px solid #ccc;
@@ -22,6 +24,7 @@
         #record-btn.recording::after {
             width: 30px; height: 30px; border-radius: 4px; 
         }
+        /* ข้อความสถานะ */
         #status-text {
             position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
             color: white; background: rgba(0,0,0,0.5); padding: 5px 10px;
@@ -50,7 +53,7 @@
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model src="#product-model" 
-                          rotation="90 0 0" 
+                          rotation="-90 0 0" 
                           position="0 0 0" 
                           scale="1 1 1"
                           animation-mixer>
@@ -66,18 +69,58 @@
         let mediaRecorder; let recordedChunks = []; let pressTimer;
         let isLongPress = false; let isRecording = false;
 
-        function takeScreenshot() {
-            const canvas = scene.components.screenshot.getCanvas('perspective');
-            const dataURL = canvas.toDataURL("image/png");
-            const link = document.createElement("a");
-            link.download = "ar-photo-" + Date.now() + ".png";
-            link.href = dataURL; link.click();
-            showStatus("Saved Image! 📸");
+        // --- NEW: Helper Function สำหรับ Save ลง Photos ---
+        async function saveToPhotos(blob, filename, mimeType) {
+            const file = new File([blob], filename, { type: mimeType });
+
+            // ตรวจสอบว่า Browser รองรับการ Share ไฟล์ไหม (เช่น iOS Safari / Chrome Android)
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: filename,
+                        text: 'Check out my AR experience!'
+                    });
+                    showStatus("Saved via Share Sheet 📲");
+                } catch (e) {
+                    console.warn("Share canceled", e);
+                    // ถ้า User กดยกเลิก Share Sheet
+                    showStatus("Share Canceled"); 
+                }
+            } else {
+                // Fallback: ถ้า Share ไม่ได้ (เช่นบน PC) ให้ Download ปกติ
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showStatus("Downloaded 📥");
+            }
         }
 
+        // --- UPDATED: ถ่ายรูปโดยใช้ saveToPhotos ---
+        function takeScreenshot() {
+            const canvas = scene.components.screenshot.getCanvas('perspective');
+            
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+                showStatus("Saving Image... 💾");
+                await saveToPhotos(
+                    blob,
+                    `ar-photo-${Date.now()}.png`,
+                    "image/png"
+                );
+            }, "image/png");
+        }
+
+        // --- UPDATED: อัดวิดีโอโดยใช้ saveToPhotos ---
         function startRecording() {
             const canvas = scene.canvas;
             const stream = canvas.captureStream(30); 
+            
             let mimeType = 'video/webm'; 
             if (MediaRecorder.isTypeSupported('video/mp4')) { mimeType = 'video/mp4'; } 
             else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) { mimeType = 'video/webm;codecs=h264'; }
@@ -85,20 +128,29 @@
             try {
                 mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
                 mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) recordedChunks.push(event.data); };
-                mediaRecorder.onstop = () => {
+                
+                // แก้ไขส่วน onstop ให้ใช้ saveToPhotos
+                mediaRecorder.onstop = async () => {
                     const blob = new Blob(recordedChunks, { type: mimeType });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none'; a.href = url;
-                    a.download = 'ar-video-' + Date.now() + '.mp4';
-                    document.body.appendChild(a); a.click();
-                    window.URL.revokeObjectURL(url); recordedChunks = []; 
-                    showStatus("Saved Video! 🎥");
+                    recordedChunks = []; 
+                    
+                    showStatus("Saving Video... 💾");
+                    
+                    // เรียกใช้ Helper Function
+                    // หมายเหตุ: iOS บางครั้งต้องการนามสกุลไฟล์ให้ตรงกับ mimeType
+                    let extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+                    
+                    await saveToPhotos(
+                        blob,
+                        `ar-video-${Date.now()}.${extension}`,
+                        mimeType
+                    );
                 };
+
                 mediaRecorder.start(); isRecording = true;
                 btn.classList.add("recording"); showStatus("Recording... 🔴");
             } catch (e) {
-                console.error("Recording Error:", e); showStatus("Error ❌");
+                console.error("Recording Error:", e); showStatus("Error: Browser not supported ❌");
                 isRecording = false; btn.classList.remove("recording");
             }
         }
@@ -110,7 +162,7 @@
 
         function showStatus(text) {
             statusText.innerText = text;
-            setTimeout(() => { if(!isRecording) statusText.innerText = "Tap to Snap / Hold to Record"; }, 2000);
+            setTimeout(() => { if(!isRecording) statusText.innerText = "Tap to Snap / Hold to Record"; }, 3000);
         }
 
         function handlePressStart(e) {
