@@ -1,56 +1,120 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="utf-8" />
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1, user-scalable=no"
-/>
-
-<title>iOS AR Recorder</title>
-
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
-
-<style>
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: black;
-}
-
-canvas {
-  position: fixed !important;
-  top: 0;
-  left: 0;
-  z-index: 0;
-}
-
-#ui {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-}
-button {
-  font-size: 16px;
-  padding: 10px 16px;
-}
-</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    
+    <style>
+        /* ปุ่มสำหรับกดอัดวิดีโอ */
+        #record-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            background-color: #ff3b30;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            z-index: 1000;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #record-btn.recording {
+            background-color: #dedede;
+            color: #333;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(0.95); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+    </style>
 </head>
-
 <body>
-<div id="ui">
-  <button id="startAR">Start AR</button>
-  <button id="rec">REC</button>
-  <button id="stop">STOP</button>
-</div>
 
-<script src="./main.js"></script>
+    <button id="record-btn">Start Recording</button>
+
+    <a-scene mindar-image="imageTargetSrc: ./targets.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+        
+        <a-assets>
+            </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity mindar-image-target="targetIndex: 0">
+            <a-box position="0 0 0.5" rotation="0 45 0" color="#4CC3D9" animation="property: rotation; to: 0 405 0; dur: 2000; easing: linear; loop: true"></a-box>
+            </a-entity>
+    </a-scene>
+
+    <script>
+        const btn = document.getElementById('record-btn');
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+
+        btn.addEventListener('click', async () => {
+            if (!isRecording) {
+                // เริ่มอัด
+                try {
+                    // ขออนุญาตอัดหน้าจอ (Browser จะเด้งถามว่าจะอัด Tab ไหน)
+                    const stream = await navigator.mediaDevices.getDisplayMedia({
+                        video: { mediaSource: "screen" },
+                        audio: true
+                    });
+
+                    mediaRecorder = new MediaRecorder(stream);
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            recordedChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        // เมื่อหยุดอัด ให้รวมไฟล์และดาวน์โหลด
+                        const blob = new Blob(recordedChunks, {
+                            type: "video/webm"
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        document.body.appendChild(a);
+                        a.style = "display: none";
+                        a.href = url;
+                        a.download = "ar-recording.webm";
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        
+                        // Reset
+                        recordedChunks = [];
+                        btn.innerText = "Start Recording";
+                        btn.classList.remove("recording");
+                        isRecording = false;
+                    };
+
+                    mediaRecorder.start();
+                    btn.innerText = "Stop Recording";
+                    btn.classList.add("recording");
+                    isRecording = true;
+
+                    // หยุดอัดเมื่อ User กด Stop sharing ของ Browser
+                    stream.getVideoTracks()[0].onended = () => {
+                         if(isRecording) btn.click();
+                    };
+
+                } catch (err) {
+                    console.error("Error: " + err);
+                }
+            } else {
+                // สั่งหยุดอัด
+                mediaRecorder.stop();
+                // หยุด stream ของกล้องอัดหน้าจอด้วย
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
 </body>
 </html>
