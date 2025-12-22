@@ -2,20 +2,21 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Full Screen</title>
+    <title>WebAR Multi-Track Recorder</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
         
-        /* ปุ่ม Record / Snap */
+        /* ปุ่มหลัก (วงกลม) */
         #record-btn {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            width: 80px; height: 80px; background-color: white; border: 4px solid #ccc;
-            border-radius: 50%; z-index: 1000; cursor: pointer;
+            width: 80px; height: 80px; background-color: rgba(255,255,255,0.8); 
+            border: 4px solid #fff; border-radius: 50%; z-index: 1000; cursor: pointer;
             display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             user-select: none; -webkit-user-select: none; touch-action: none; 
         }
         #record-btn::after {
@@ -23,27 +24,49 @@
             border-radius: 50%; transition: all 0.2s;
         }
         #record-btn.recording::after {
-            width: 30px; height: 30px; border-radius: 4px; 
+            width: 30px; height: 30px; border-radius: 6px; transform: scale(0.8);
         }
-        
+
         /* ข้อความสถานะ */
         #status-text {
-            position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
-            color: white; background: rgba(0,0,0,0.5); padding: 5px 10px;
-            border-radius: 10px; font-family: sans-serif; font-size: 14px;
-            pointer-events: none; z-index: 1000; text-align: center;
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            color: white; background: rgba(0,0,0,0.6); padding: 8px 16px;
+            border-radius: 20px; font-size: 14px; pointer-events: none; z-index: 1000;
         }
+
+        /* ปุ่ม Save/Discard */
+        #save-dialog {
+            display: none; position: fixed; bottom: 130px; left: 50%; 
+            transform: translateX(-50%); z-index: 1001; gap: 10px;
+        }
+        .action-btn {
+            background: #007AFF; color: white; border: none; padding: 10px 20px;
+            border-radius: 50px; font-size: 16px; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer;
+        }
+        .discard-btn { background: #FF3B30; }
+
+        /* Canvas ลับ สำหรับรวมภาพ */
+        #composite-canvas { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="status-text">Tap to Snap / Hold to Record</div>
+    <div id="status-text">Scan up to 4 Images!</div>
+    
     <div id="record-btn"></div>
+    
+    <div id="save-dialog">
+        <button id="btn-discard" class="action-btn discard-btn">X</button>
+        <button id="btn-save" class="action-btn">Save / Share 📲</button>
+    </div>
+
+    <canvas id="composite-canvas"></canvas>
 
     <a-scene 
         mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 4; filterMinCF:0.0001; filterBeta: 0.001;" 
         color-space="sRGB" 
-        renderer="colorManagement: true, physicallyCorrectLights; preserveDrawingBuffer: true" 
+        renderer="colorManagement: true, physicallyCorrectLights; preserveDrawingBuffer: true, alpha: true" 
         vr-mode-ui="enabled: false" 
         device-orientation-permission-ui="enabled: false">
         
@@ -54,16 +77,19 @@
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="-90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
+
         <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="-90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
+
         <a-entity mindar-image-target="targetIndex: 2">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="-90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
+
         <a-entity mindar-image-target="targetIndex: 3">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#product-model" rotation="-90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
 
     </a-scene>
@@ -71,103 +97,137 @@
     <script>
         const btn = document.getElementById('record-btn');
         const statusText = document.getElementById('status-text');
+        const saveDialog = document.getElementById('save-dialog');
+        const btnSave = document.getElementById('btn-save');
+        const btnDiscard = document.getElementById('btn-discard');
         const scene = document.querySelector('a-scene');
+        const compositeCanvas = document.getElementById('composite-canvas');
+        const ctx = compositeCanvas.getContext('2d');
+        
         let mediaRecorder; let recordedChunks = []; let pressTimer;
         let isLongPress = false; let isRecording = false;
+        let renderLoop; let lastBlob = null; let lastType = '';
 
-        // --- Helper: Save to Photos (Share Sheet) ---
-        async function saveToPhotos(blob, filename, mimeType) {
-            const file = new File([blob], filename, { type: mimeType });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({
-                        files: [file],
-                        title: filename,
-                    });
-                    showStatus("Saved via Share Sheet 📲");
-                } catch (e) {
-                    showStatus("Share Canceled"); 
-                }
+        // --- ระบบรวมภาพ (Composite) ---
+        function updateCompositeCanvas() {
+            const video = document.querySelector('video');
+            const webglCanvas = scene.canvas;
+
+            if (!video || !webglCanvas) return;
+
+            if (compositeCanvas.width !== webglCanvas.width || compositeCanvas.height !== webglCanvas.height) {
+                compositeCanvas.width = webglCanvas.width;
+                compositeCanvas.height = webglCanvas.height;
+            }
+
+            // คำนวณ Scale ภาพกล้องให้เต็มจอ (Cover)
+            const vRatio = video.videoWidth / video.videoHeight;
+            const cRatio = compositeCanvas.width / compositeCanvas.height;
+            let dw, dh, dx, dy;
+
+            if (vRatio > cRatio) {
+                dh = compositeCanvas.height; dw = dh * vRatio;
+                dx = (compositeCanvas.width - dw) / 2; dy = 0;
             } else {
-                // Fallback Download
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url; a.download = filename;
-                document.body.appendChild(a); a.click();
-                document.body.removeChild(a); URL.revokeObjectURL(url);
-                showStatus("Downloaded 📥");
+                dw = compositeCanvas.width; dh = dw / vRatio;
+                dy = (compositeCanvas.height - dh) / 2; dx = 0;
             }
+            ctx.drawImage(video, dx, dy, dw, dh);
+            ctx.drawImage(webglCanvas, 0, 0);
         }
 
-        // --- NEW FIX: Screenshot ตามขนาดหน้าจอเป๊ะๆ ---
         function takeScreenshot() {
-            // ใช้ scene.canvas โดยตรง แทน component screenshot
-            // วิธีนี้จะได้ภาพเท่ากับที่ตาเห็นในจอ (WYSIWYG)
-            const canvas = scene.canvas;
-            
-            showStatus("Capturing... 📸");
-
-            canvas.toBlob(async (blob) => {
-                if (!blob) return;
-                await saveToPhotos(blob, `ar-photo-${Date.now()}.png`, "image/png");
-            }, "image/png", 1.0); // Quality 1.0
+            showStatus("Capturing...");
+            updateCompositeCanvas();
+            compositeCanvas.toBlob((blob) => {
+                lastBlob = blob; lastType = 'image';
+                showSaveDialog("📸 Photo Ready!");
+            }, 'image/png');
         }
 
-        // --- NEW FIX: Video Recording ---
         function startRecording() {
-            const canvas = scene.canvas;
+            const stream = compositeCanvas.captureStream(30);
+            renderLoop = setInterval(updateCompositeCanvas, 1000/30);
             
-            // ดึง Stream ตามขนาด Canvas ปัจจุบัน
-            const stream = canvas.captureStream(30); 
+            let mimeType = 'video/webm';
+            if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4'; 
+            else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) mimeType = 'video/webm;codecs=h264';
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
             
-            let mimeType = 'video/webm'; 
-            if (MediaRecorder.isTypeSupported('video/mp4')) { mimeType = 'video/mp4'; } 
-            else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) { mimeType = 'video/webm;codecs=h264'; }
+            mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                clearInterval(renderLoop);
+                const blob = new Blob(recordedChunks, { type: mimeType });
+                lastBlob = blob; lastType = 'video';
+                showSaveDialog("🎥 Video Ready!");
+            };
 
-            try {
-                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-                mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) recordedChunks.push(event.data); };
-                
-                mediaRecorder.onstop = async () => {
-                    const blob = new Blob(recordedChunks, { type: mimeType });
-                    recordedChunks = []; 
-                    
-                    showStatus("Saving Video... 💾");
-                    let extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
-                    
-                    await saveToPhotos(blob, `ar-video-${Date.now()}.${extension}`, mimeType);
-                };
-
-                mediaRecorder.start(); isRecording = true;
-                btn.classList.add("recording"); showStatus("Recording... 🔴");
-            } catch (e) {
-                console.error("Recording Error:", e); showStatus("Error: Browser not supported ❌");
-                isRecording = false; btn.classList.remove("recording");
-            }
+            mediaRecorder.start(); isRecording = true;
+            btn.classList.add("recording");
+            showStatus("Recording... (Release to Stop)");
         }
 
         function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
-            isRecording = false; btn.classList.remove("recording");
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop(); isRecording = false;
+                btn.classList.remove("recording");
+            }
         }
 
-        function showStatus(text) {
-            statusText.innerText = text;
-            setTimeout(() => { if(!isRecording) statusText.innerText = "Tap to Snap / Hold to Record"; }, 3000);
+        function showSaveDialog(msg) {
+            statusText.innerText = msg;
+            btn.style.display = 'none';
+            saveDialog.style.display = 'flex';
         }
 
-        function handlePressStart(e) {
-            if (e.cancelable) e.preventDefault(); isLongPress = false;
+        function resetUI() {
+            saveDialog.style.display = 'none';
+            btn.style.display = 'flex';
+            statusText.innerText = "Tap to Snap / Hold to Record";
+            lastBlob = null;
+        }
+
+        btnSave.onclick = async () => {
+            if (!lastBlob) return;
+            const ext = lastType === 'image' ? 'png' : (lastBlob.type.includes('mp4') ? 'mp4' : 'webm');
+            const filename = `ar-${lastType}-${Date.now()}.${ext}`;
+            const file = new File([lastBlob], filename, { type: lastBlob.type });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try { await navigator.share({ files: [file], title: "My AR" }); resetUI(); } 
+                catch (e) { console.log("Share skipped"); }
+            } else {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(lastBlob);
+                a.download = filename;
+                document.body.appendChild(a); a.click();
+                resetUI();
+            }
+        };
+
+        btnDiscard.onclick = resetUI;
+
+        function handleStart(e) {
+            if(e.cancelable) e.preventDefault();
+            if(saveDialog.style.display === 'flex') return;
+            isLongPress = false;
             pressTimer = setTimeout(() => { isLongPress = true; startRecording(); }, 500); 
         }
 
-        function handlePressEnd(e) {
-            if (e.cancelable) e.preventDefault(); clearTimeout(pressTimer); 
-            if (isLongPress) { stopRecording(); } else { if (!isRecording) { takeScreenshot(); } }
+        function handleEnd(e) {
+            if(e.cancelable) e.preventDefault();
+            clearTimeout(pressTimer);
+            if (isLongPress) { stopRecording(); } else { if (!isRecording) takeScreenshot(); }
         }
 
-        btn.addEventListener('touchstart', handlePressStart); btn.addEventListener('touchend', handlePressEnd);
-        btn.addEventListener('mousedown', handlePressStart); btn.addEventListener('mouseup', handlePressEnd);
+        btn.addEventListener('touchstart', handleStart);
+        btn.addEventListener('touchend', handleEnd);
+        btn.addEventListener('mousedown', handleStart);
+        btn.addEventListener('mouseup', handleEnd);
+
+        function showStatus(msg) { statusText.innerText = msg; }
     </script>
 </body>
 </html>
