@@ -1,5 +1,5 @@
 // =======================
-// GLOBAL VARIABLES
+// GLOBAL
 // =======================
 let mindarThree;
 let renderer;
@@ -7,13 +7,18 @@ let mediaRecorder;
 let chunks = [];
 
 // =======================
-// START AR (iOS SAFE)
+// START BUTTON
 // =======================
 document.getElementById("startAR").addEventListener("click", () => {
   startAR();
 });
 
+// =======================
+// ⬇⬇⬇ วาง function startAR() ตรงนี้ ⬇⬇⬇
+// =======================
 function startAR() {
+  console.log("START AR");
+
   mindarThree = new window.MINDAR.IMAGE.MindARThree({
     container: document.body,
     imageTargetSrc: "./targets.mind",
@@ -22,16 +27,15 @@ function startAR() {
   const { scene, camera, renderer: r } = mindarThree;
   renderer = r;
 
-  const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-  scene.add(light);
+  scene.add(new THREE.AxesHelper(0.5));
 
-  const loader = new THREE.GLTFLoader();
-  loader.load("./model/product.glb", (gltf) => {
-    const anchor = mindarThree.addAnchor(0);
-    anchor.group.add(gltf.scene);
-  });
-
-  mindarThree.start();
+  mindarThree.start()
+    .then(() => {
+      console.log("CAMERA STARTED");
+    })
+    .catch(err => {
+      alert("MindAR error: " + err);
+    });
 
   renderer.setAnimationLoop(() => {
     renderer.render(scene, camera);
@@ -39,7 +43,7 @@ function startAR() {
 }
 
 // =======================
-// REC BUTTON
+// REC
 // =======================
 document.getElementById("rec").onclick = () => {
   if (!renderer) {
@@ -48,9 +52,7 @@ document.getElementById("rec").onclick = () => {
   }
 
   const stream = renderer.domElement.captureStream(30);
-  mediaRecorder = new MediaRecorder(stream, {
-    mimeType: "video/webm"
-  });
+  mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
 
   chunks = [];
   mediaRecorder.ondataavailable = e => chunks.push(e.data);
@@ -58,7 +60,6 @@ document.getElementById("rec").onclick = () => {
   mediaRecorder.onstop = () => {
     const blob = new Blob(chunks, { type: "video/webm" });
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement("a");
     a.href = url;
     a.download = "ar-record.webm";
@@ -69,7 +70,7 @@ document.getElementById("rec").onclick = () => {
 };
 
 // =======================
-// STOP BUTTON
+// STOP
 // =======================
 document.getElementById("stop").onclick = () => {
   if (mediaRecorder && mediaRecorder.state === "recording") {
