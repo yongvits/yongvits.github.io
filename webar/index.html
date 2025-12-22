@@ -107,10 +107,11 @@
         // ฟังก์ชันถ่ายรูป (Screenshot)
         function takeScreenshot() {
             const canvas = scene.components.screenshot.getCanvas('perspective');
+            // เปลี่ยนชื่อไฟล์เป็น .png
             const dataURL = canvas.toDataURL("image/png");
             
             const link = document.createElement("a");
-            link.download = "ar-snap-" + Date.now() + ".png";
+            link.download = "ar-photo-" + Date.now() + ".png";
             link.href = dataURL;
             link.click();
             
@@ -120,26 +121,35 @@
         // ฟังก์ชันเริ่มอัดวีดีโอ
         function startRecording() {
             const canvas = scene.canvas;
-            const stream = canvas.captureStream(25); 
+            // ดึง Stream (30 FPS เพื่อความลื่น)
+            const stream = canvas.captureStream(30); 
             
+            // ตั้งค่าให้พยายามเป็น MP4 หรือ Format ที่ใกล้เคียงที่สุด
+            let mimeType = 'video/webm'; // Default ของ Chrome/Android
+            
+            if (MediaRecorder.isTypeSupported('video/mp4')) {
+                mimeType = 'video/mp4'; // Safari มักจะรองรับอันนี้
+            } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+                mimeType = 'video/webm;codecs=h264'; // Chrome บางเครื่อง
+            }
+
             try {
-                const options = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
-                    ? { mimeType: 'video/webm;codecs=vp9' } 
-                    : { mimeType: 'video/webm' };
-                
-                mediaRecorder = new MediaRecorder(stream, options);
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
 
                 mediaRecorder.ondataavailable = (event) => {
                     if (event.data.size > 0) recordedChunks.push(event.data);
                 };
 
                 mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const blob = new Blob(recordedChunks, { type: mimeType });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.style.display = 'none';
                     a.href = url;
-                    a.download = 'ar-video-' + Date.now() + '.webm';
+                    
+                    // บังคับชื่อไฟล์เป็น .mp4 (Browser ส่วนใหญ่จะยอมให้โหลดและเล่นได้)
+                    a.download = 'ar-video-' + Date.now() + '.mp4';
+                    
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
@@ -153,8 +163,10 @@
                 btn.classList.add("recording");
                 showStatus("Recording... 🔴");
             } catch (e) {
-                console.error(e);
-                showStatus("Error Recording ❌");
+                console.error("Recording Error:", e);
+                showStatus("Error: Browser not supported ❌");
+                isRecording = false;
+                btn.classList.remove("recording");
             }
         }
 
@@ -183,7 +195,7 @@
             pressTimer = setTimeout(() => {
                 isLongPress = true;
                 startRecording();
-            }, 500); 
+            }, 500); // กดค้าง 0.5 วิ ถึงจะอัด
         }
 
         function handlePressEnd(e) {
