@@ -2,55 +2,40 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Turbo Speed</title>
+    <title>WebAR Link to Website</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
+
+    <script>
+        // สร้าง Component สำหรับคลิกแล้วไปหน้าเว็บ
+        AFRAME.registerComponent('navigate-on-click', {
+            schema: {
+                url: { default: '' }
+            },
+            init: function () {
+                var data = this.data;
+                var el = this.el;
+
+                // เมื่อมีการคลิก (Click/Tap) ที่โมเดล
+                el.addEventListener('click', function () {
+                    // สั่งให้เปิดหน้าเว็บ
+                    window.location.href = data.url; 
+                });
+            }
+        });
+    </script>
     
     <style>
-        body { margin: 0; overflow: hidden; background: black; }
-        
-        #record-btn {
-            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-            width: 80px; height: 80px; background-color: rgba(255,255,255,0.8); 
-            border: 4px solid #fff; border-radius: 50%; z-index: 9999; cursor: pointer;
-            display: flex; justify-content: center; align-items: center;
-        }
-        #record-btn::after {
-            content: ''; width: 60px; height: 60px; background-color: #ff3b30;
-            border-radius: 50%; transition: all 0.2s;
-        }
-        #record-btn.recording::after { width: 30px; height: 30px; border-radius: 6px; }
-
-        #save-dialog { display: none; position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%); z-index: 10000; gap: 10px; }
-        .action-btn { background: #007AFF; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; }
-        .discard-btn { background: #FF3B30; }
-
-        #status-text {
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-            color: white; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; z-index: 9999; font-family: sans-serif;
-        }
-        #version-label { position: fixed; bottom: 5px; right: 5px; color: grey; font-size: 10px; z-index: 9999; }
-        
-        #composite-canvas { display: none; }
+        body { margin: 0; overflow: hidden; }
     </style>
 </head>
 <body>
-    <div id="status-text">Ready (Turbo Mode)</div>
-    <div id="record-btn"></div>
-    <div id="version-label">ver09 (Turbo Speed)</div>
-    
-    <div id="save-dialog">
-        <button id="btn-discard" class="action-btn discard-btn">X</button>
-        <button id="btn-save" class="action-btn">Save 📲</button>
-    </div>
-
-    <canvas id="composite-canvas"></canvas>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; uiScanning: no; warmupTolerance: 0; missTolerance: 0; filterMinCF: 1; filterBeta: 1000;" 
+        mindar-image="imageTargetSrc: ./targets.mind; maxTrack: 2; filterMinCF:0.0001; filterBeta: 0.001;" 
         color-space="sRGB" 
-        renderer="colorManagement: true, physicallyCorrectLights; preserveDrawingBuffer: true; alpha: true" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
         device-orientation-permission-ui="enabled: false">
         
@@ -59,128 +44,34 @@
             <a-asset-item id="model-AR2" src="./model/AR2.glb"></a-asset-item>
         </a-assets>
 
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        <a-camera position="0 0 0" look-controls="enabled: false" cursor="fuse: false; rayOrigin: mouse;" raycaster="far: 10000; objects: .clickable">
+        </a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model src="#model-AR1" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model 
+                src="#model-AR1" 
+                rotation="90 0 0" 
+                position="0 0 0" 
+                scale="1 1 1" 
+                animation-mixer
+                class="clickable" 
+                navigate-on-click="url: https://mushroom-studio.com"> 
+            </a-gltf-model>
         </a-entity>
 
         <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model src="#model-AR2" rotation="90 0 0" position="0 0 0" scale="1.5 1.5 1.5" animation-mixer></a-gltf-model>
+            <a-gltf-model 
+                src="#model-AR2" 
+                rotation="90 0 0" 
+                position="0 0 0" 
+                scale="1 1 1" 
+                animation-mixer
+                class="clickable" 
+                navigate-on-click="url: https://mushroom-studio.com">
+            </a-gltf-model>
         </a-entity>
         
     </a-scene>
 
-    <script>
-        const btn = document.getElementById('record-btn');
-        const statusText = document.getElementById('status-text');
-        const saveDialog = document.getElementById('save-dialog');
-        const btnSave = document.getElementById('btn-save');
-        const btnDiscard = document.getElementById('btn-discard');
-        const scene = document.querySelector('a-scene');
-        const compositeCanvas = document.getElementById('composite-canvas');
-        const ctx = compositeCanvas.getContext('2d');
-        
-        let mediaRecorder; let recordedChunks = []; let renderLoop;
-        let isRecording = false; let pressTimer; let lastBlob = null; let lastType = '';
-
-        function updateCompositeCanvas() {
-            const video = document.querySelector('video');
-            const webglCanvas = scene.canvas; 
-            
-            if (!video || !webglCanvas) return;
-
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-            const dpr = window.devicePixelRatio || 1;
-            
-            if (compositeCanvas.width !== width * dpr || compositeCanvas.height !== height * dpr) {
-                compositeCanvas.width = width * dpr;
-                compositeCanvas.height = height * dpr;
-                ctx.scale(dpr, dpr);
-            }
-
-            const vRatio = video.videoWidth / video.videoHeight;
-            const cRatio = width / height;
-            let dw, dh, dx, dy;
-
-            if (vRatio > cRatio) {
-                dh = height; dw = dh * vRatio;
-                dx = (width - dw) / 2; dy = 0;
-            } else {
-                dw = width; dh = dw / vRatio;
-                dy = (height - dh) / 2; dx = 0;
-            }
-
-            ctx.clearRect(0, 0, width, height);
-            ctx.drawImage(video, dx, dy, dw, dh);
-            ctx.drawImage(webglCanvas, 0, 0, width, height);
-        }
-
-        function takeScreenshot() {
-            showStatus("Capturing...");
-            updateCompositeCanvas();
-            compositeCanvas.toBlob((blob) => {
-                lastBlob = blob; lastType = 'image';
-                showSaveDialog("📸 Photo Ready");
-            }, 'image/png');
-        }
-
-        function startRecording() {
-            renderLoop = setInterval(updateCompositeCanvas, 1000/24);
-            const stream = compositeCanvas.captureStream(24);
-            let mimeType = 'video/webm';
-            if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4'; 
-            else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) mimeType = 'video/webm;codecs=h264';
-
-            recordedChunks = [];
-            mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 3000000 });
-            
-            mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
-                clearInterval(renderLoop);
-                const blob = new Blob(recordedChunks, { type: mimeType });
-                lastBlob = blob; lastType = 'video';
-                showSaveDialog("🎥 Video Ready");
-            };
-
-            mediaRecorder.start(); isRecording = true;
-            btn.classList.add("recording"); showStatus("Recording...");
-        }
-
-        function stopRecording() {
-            if (mediaRecorder && isRecording) { mediaRecorder.stop(); isRecording = false; btn.classList.remove("recording"); }
-        }
-
-        function showSaveDialog(text) { statusText.innerText = text; btn.style.display = 'none'; saveDialog.style.display = 'flex'; }
-        function resetUI() { saveDialog.style.display = 'none'; btn.style.display = 'flex'; statusText.innerText = "Ready"; lastBlob = null; }
-
-        btnSave.onclick = async () => {
-            if (!lastBlob) return;
-            const ext = lastType === 'image' ? 'png' : 'mp4';
-            const file = new File([lastBlob], `ar-${Date.now()}.${ext}`, { type: lastBlob.type });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try { await navigator.share({ files: [file], title: "My AR" }); resetUI(); } catch (e) {}
-            } else {
-                const a = document.createElement('a'); a.href = URL.createObjectURL(lastBlob); a.download = file.name;
-                document.body.appendChild(a); a.click(); resetUI();
-            }
-        };
-        btnDiscard.onclick = resetUI;
-
-        function handleStart(e) {
-            if(e.cancelable) e.preventDefault(); if(saveDialog.style.display === 'flex') return;
-            pressTimer = setTimeout(() => { startRecording(); }, 500); 
-        }
-        function handleEnd(e) {
-            if(e.cancelable) e.preventDefault(); clearTimeout(pressTimer);
-            if (isRecording) stopRecording(); else if (saveDialog.style.display !== 'flex') takeScreenshot();
-        }
-
-        btn.addEventListener('touchstart', handleStart); btn.addEventListener('touchend', handleEnd);
-        btn.addEventListener('mousedown', handleStart); btn.addEventListener('mouseup', handleEnd);
-
-        function showStatus(msg) { statusText.innerText = msg; }
-    </script>
 </body>
 </html>
