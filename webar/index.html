@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>WebAR Ver 06 Fixed</title>
+    <title>WebAR Custom Models</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
@@ -10,7 +10,6 @@
     <style>
         body { margin: 0; overflow: hidden; background: black; }
         
-        /* ปุ่มกด */
         #record-btn {
             position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
             width: 80px; height: 80px; background-color: rgba(255,255,255,0.8); 
@@ -39,7 +38,7 @@
 <body>
     <div id="status-text">Ready</div>
     <div id="record-btn"></div>
-    <div id="version-label">ver07 (Model Fix)</div>
+    <div id="version-label">ver08 (AR1 & AR2)</div>
     
     <div id="save-dialog">
         <button id="btn-discard" class="action-btn discard-btn">X</button>
@@ -56,17 +55,20 @@
         device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <a-asset-item id="product-model" src="./model/product.glb"></a-asset-item>
+            <a-asset-item id="model-AR1" src="./model/AR1.glb"></a-asset-item>
+            <a-asset-item id="model-AR2" src="./model/AR2.glb"></a-asset-item>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#model-AR1" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
+
         <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model src="#product-model" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
+            <a-gltf-model src="#model-AR2" rotation="90 0 0" position="0 0 0" scale="1 1 1" animation-mixer></a-gltf-model>
         </a-entity>
+        
     </a-scene>
 
     <script>
@@ -88,48 +90,31 @@
             
             if (!video || !webglCanvas) return;
 
-            // 1. ตั้งขนาด Canvas ให้เท่ากับหน้าจอมือถือ (Portrait)
-            // ใช้ logical size เพื่อประสิทธิภาพ แล้วค่อย scale context เอา
             const width = window.innerWidth;
             const height = window.innerHeight;
-            
-            // จัดการ Retina Display (แก้ภาพเบลอ/ภาพเพี้ยน)
             const dpr = window.devicePixelRatio || 1;
             
             if (compositeCanvas.width !== width * dpr || compositeCanvas.height !== height * dpr) {
                 compositeCanvas.width = width * dpr;
                 compositeCanvas.height = height * dpr;
-                ctx.scale(dpr, dpr); // Scale ให้ตรงกับ DPR
+                ctx.scale(dpr, dpr);
             }
 
-            // คำนวณการวางวิดีโอให้เต็มจอ (Cover Mode)
             const vRatio = video.videoWidth / video.videoHeight;
-            const cRatio = width / height; // ใช้ logical size ในการคำนวณ
+            const cRatio = width / height;
             let dw, dh, dx, dy;
 
             if (vRatio > cRatio) {
-                // วิดีโอกว้างกว่าจอ (ตัดซ้ายขวา)
-                dh = height;
-                dw = dh * vRatio;
-                dx = (width - dw) / 2;
-                dy = 0;
+                dh = height; dw = dh * vRatio;
+                dx = (width - dw) / 2; dy = 0;
             } else {
-                // วิดีโอสูงกว่าจอ (ตัดบนล่าง)
-                dw = width;
-                dh = dw / vRatio;
-                dy = (height - dh) / 2;
-                dx = 0;
+                dw = width; dh = dw / vRatio;
+                dy = (height - dh) / 2; dx = 0;
             }
 
-            // Clear เก่าทิ้งก่อน
             ctx.clearRect(0, 0, width, height);
-
-            // 2. วาดพื้นหลัง (Video)
             ctx.drawImage(video, dx, dy, dw, dh);
-
-            // 3. วาด 3D Model ทับลงไป (จุดสำคัญที่แก้!)
-            // ต้องระบุความกว้างความสูง (width, height) ลงไปด้วย เพื่อบังคับให้ WebGL ยืดเต็มจอ
-            // ถ้าไม่ใส่ตรงนี้ บางเครื่องจะวาด 3D ผิดขนาด ทำให้มองไม่เห็น
+            // บังคับวาดโมเดลให้เต็มจอ
             ctx.drawImage(webglCanvas, 0, 0, width, height);
         }
 
@@ -143,16 +128,13 @@
         }
 
         function startRecording() {
-            // ใช้ 24 FPS เพื่อความลื่นไหล
             renderLoop = setInterval(updateCompositeCanvas, 1000/24);
             const stream = compositeCanvas.captureStream(24);
-            
             let mimeType = 'video/webm';
             if (MediaRecorder.isTypeSupported('video/mp4')) mimeType = 'video/mp4'; 
             else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) mimeType = 'video/webm;codecs=h264';
 
             recordedChunks = [];
-            // Bitrate 3Mbps
             mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 3000000 });
             
             mediaRecorder.ondataavailable = (e) => { if(e.data.size > 0) recordedChunks.push(e.data); };
@@ -187,7 +169,6 @@
         };
         btnDiscard.onclick = resetUI;
 
-        // Touch Logic
         function handleStart(e) {
             if(e.cancelable) e.preventDefault(); if(saveDialog.style.display === 'flex') return;
             pressTimer = setTimeout(() => { startRecording(); }, 500); 
