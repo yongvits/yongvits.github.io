@@ -1,22 +1,22 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-  // =======================
-  // GLOBAL
-  // =======================
-  let mindarThree;
-  let renderer;
-  let mediaRecorder;
+  console.log("DOM READY");
+
+  let mindarThree = null;
+  let renderer = null;
+  let mediaRecorder = null;
   let chunks = [];
 
   // =======================
-  // START BUTTON
+  // START AR
   // =======================
   document.getElementById("startAR").addEventListener("click", () => {
+    console.log("START AR CLICK");
     startAR();
   });
 
   function startAR() {
-    console.log("START AR");
+    console.log("START AR FUNCTION");
 
     mindarThree = new window.MINDAR.IMAGE.MindARThree({
       container: document.body,
@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .catch(err => {
         alert("MindAR error: " + err);
+        console.error(err);
       });
 
     renderer.setAnimationLoop(() => {
@@ -44,11 +45,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // =======================
   // REC
   // =======================
-  document.getElementById("rec").onclick = () => {
+  document.getElementById("rec").addEventListener("click", () => {
     if (!renderer) {
       alert("Start AR first");
       return;
     }
+
+    console.log("REC START");
 
     const stream = renderer.domElement.captureStream(30);
     mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
@@ -66,15 +69,16 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     mediaRecorder.start();
-  };
+  });
 
   // =======================
   // STOP
   // =======================
-  document.getElementById("stop").onclick = () => {
+  document.getElementById("stop").addEventListener("click", () => {
     if (mediaRecorder && mediaRecorder.state === "recording") {
+      console.log("REC STOP");
       mediaRecorder.stop();
     }
-  };
+  });
 
 });
