@@ -7,60 +7,26 @@
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
     
     <style>
-        body {
-            margin: 0;
-            overflow: hidden; /* ซ่อน Scrollbar */
-        }
-        /* ดีไซน์ปุ่มกด */
+        body { margin: 0; overflow: hidden; }
         #record-btn {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80px;
-            height: 80px;
-            background-color: white;
-            border: 4px solid #ccc;
-            border-radius: 50%;
-            z-index: 1000; /* ให้อยู่บนสุด */
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            /* ป้องกันการเลือก Text บนมือถือ */
-            user-select: none; 
-            -webkit-user-select: none;
-            touch-action: none; 
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 80px; height: 80px; background-color: white; border: 4px solid #ccc;
+            border-radius: 50%; z-index: 1000; cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            user-select: none; -webkit-user-select: none; touch-action: none; 
         }
-        /* วงกลมสีแดงด้านในปุ่ม */
         #record-btn::after {
-            content: '';
-            width: 60px;
-            height: 60px;
-            background-color: #ff3b30;
-            border-radius: 50%;
-            transition: all 0.2s; /* เอฟเฟกต์เปลี่ยนรูปทรง */
+            content: ''; width: 60px; height: 60px; background-color: #ff3b30;
+            border-radius: 50%; transition: all 0.2s;
         }
-        /* เอฟเฟกต์ตอนกดค้าง (เปลี่ยนเป็นสี่เหลี่ยม) */
         #record-btn.recording::after {
-            width: 30px;
-            height: 30px;
-            border-radius: 4px; 
+            width: 30px; height: 30px; border-radius: 4px; 
         }
-        /* แถบข้อความสถานะ */
         #status-text {
-            position: fixed;
-            bottom: 120px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            background: rgba(0,0,0,0.5);
-            padding: 5px 10px;
-            border-radius: 10px;
-            font-family: sans-serif;
-            font-size: 14px;
-            pointer-events: none; /* ให้กดทะลุได้ */
-            z-index: 1000;
+            position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%);
+            color: white; background: rgba(0,0,0,0.5); padding: 5px 10px;
+            border-radius: 10px; font-family: sans-serif; font-size: 14px;
+            pointer-events: none; z-index: 1000;
         }
     </style>
 </head>
@@ -84,137 +50,81 @@
 
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model src="#product-model" 
-                          rotation="0 0 0" 
+                          rotation="-90 0 0" 
                           position="0 0 0" 
-                          scale="0.5 0.5 0.5"
+                          scale="1 1 1"
                           animation-mixer>
             </a-gltf-model>
         </a-entity>
+
     </a-scene>
 
     <script>
         const btn = document.getElementById('record-btn');
         const statusText = document.getElementById('status-text');
         const scene = document.querySelector('a-scene');
-        
-        let mediaRecorder;
-        let recordedChunks = [];
-        let pressTimer;
-        let isLongPress = false;
-        let isRecording = false;
+        let mediaRecorder; let recordedChunks = []; let pressTimer;
+        let isLongPress = false; let isRecording = false;
 
-        // --- ฟังก์ชันถ่ายรูป (Screenshot) ---
         function takeScreenshot() {
             const canvas = scene.components.screenshot.getCanvas('perspective');
             const dataURL = canvas.toDataURL("image/png");
             const link = document.createElement("a");
             link.download = "ar-photo-" + Date.now() + ".png";
-            link.href = dataURL;
-            link.click();
+            link.href = dataURL; link.click();
             showStatus("Saved Image! 📸");
         }
 
-        // --- ฟังก์ชันเริ่มอัดวีดีโอ ---
         function startRecording() {
             const canvas = scene.canvas;
-            // ดึง Stream จาก Canvas ที่ 30 FPS
             const stream = canvas.captureStream(30); 
-            
-            // พยายามเลือก Format ที่ดีที่สุดสำหรับ Browser นั้นๆ
             let mimeType = 'video/webm'; 
-            if (MediaRecorder.isTypeSupported('video/mp4')) {
-                mimeType = 'video/mp4'; // Safari ชอบอันนี้
-            } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
-                mimeType = 'video/webm;codecs=h264'; // Chrome บางเครื่อง
-            }
+            if (MediaRecorder.isTypeSupported('video/mp4')) { mimeType = 'video/mp4'; } 
+            else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) { mimeType = 'video/webm;codecs=h264'; }
 
             try {
                 mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
-                
-                // เก็บข้อมูลวีดีโอที่อัดได้
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) recordedChunks.push(event.data);
-                };
-
-                // เมื่อหยุดอัด ให้รวมไฟล์และสั่งดาวน์โหลด
+                mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) recordedChunks.push(event.data); };
                 mediaRecorder.onstop = () => {
                     const blob = new Blob(recordedChunks, { type: mimeType });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    // บังคับตั้งชื่อไฟล์เป็น .mp4
+                    a.style.display = 'none'; a.href = url;
                     a.download = 'ar-video-' + Date.now() + '.mp4';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    recordedChunks = []; // ล้างข้อมูลเก่า
-                    
+                    document.body.appendChild(a); a.click();
+                    window.URL.revokeObjectURL(url); recordedChunks = []; 
                     showStatus("Saved Video! 🎥");
                 };
-
-                mediaRecorder.start();
-                isRecording = true;
-                btn.classList.add("recording"); // เปลี่ยนรูปปุ่ม
-                showStatus("Recording... 🔴");
+                mediaRecorder.start(); isRecording = true;
+                btn.classList.add("recording"); showStatus("Recording... 🔴");
             } catch (e) {
-                console.error("Recording Error:", e);
-                showStatus("Error: Browser not supported ❌");
-                isRecording = false;
-                btn.classList.remove("recording");
+                console.error("Recording Error:", e); showStatus("Error ❌");
+                isRecording = false; btn.classList.remove("recording");
             }
         }
 
-        // --- ฟังก์ชันหยุดอัด ---
         function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
-            isRecording = false;
-            btn.classList.remove("recording"); // คืนรูปปุ่มเดิม
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
+            isRecording = false; btn.classList.remove("recording");
         }
 
-        // ฟังก์ชันแสดงสถานะและซ่อนอัตโนมัติ
         function showStatus(text) {
             statusText.innerText = text;
-            setTimeout(() => {
-                if(!isRecording) statusText.innerText = "Tap to Snap / Hold to Record";
-            }, 2000);
+            setTimeout(() => { if(!isRecording) statusText.innerText = "Tap to Snap / Hold to Record"; }, 2000);
         }
 
-        // --- จัดการการกดปุ่ม (Touch/Mouse Logic) ---
-        
         function handlePressStart(e) {
-            if (e.cancelable) e.preventDefault();
-            isLongPress = false;
-            
-            // จับเวลา 0.5 วินาที ถ้ากดเกินนี้ถือว่าอัดวีดีโอ
-            pressTimer = setTimeout(() => {
-                isLongPress = true;
-                startRecording();
-            }, 500); 
+            if (e.cancelable) e.preventDefault(); isLongPress = false;
+            pressTimer = setTimeout(() => { isLongPress = true; startRecording(); }, 500); 
         }
 
         function handlePressEnd(e) {
-            if (e.cancelable) e.preventDefault();
-            clearTimeout(pressTimer); // ยกเลิกตัวจับเวลา
-
-            if (isLongPress) {
-                // ถ้าเป็นการกดค้าง -> หยุดอัด
-                stopRecording();
-            } else {
-                // ถ้าปล่อยก่อน -> ถ่ายรูป
-                if (!isRecording) {
-                    takeScreenshot();
-                }
-            }
+            if (e.cancelable) e.preventDefault(); clearTimeout(pressTimer); 
+            if (isLongPress) { stopRecording(); } else { if (!isRecording) { takeScreenshot(); } }
         }
 
-        // รองรับทั้งมือถือ (Touch) และคอมพิวเตอร์ (Mouse)
-        btn.addEventListener('touchstart', handlePressStart);
-        btn.addEventListener('touchend', handlePressEnd);
-        btn.addEventListener('mousedown', handlePressStart);
-        btn.addEventListener('mouseup', handlePressEnd);
+        btn.addEventListener('touchstart', handlePressStart); btn.addEventListener('touchend', handlePressEnd);
+        btn.addEventListener('mousedown', handlePressStart); btn.addEventListener('mouseup', handlePressEnd);
     </script>
 </body>
 </html>
