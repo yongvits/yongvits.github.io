@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>MR Mapping v37.1 (Restore Fix)</title>
+    <style>
+        body { 
+            margin: 0; overflow: hidden; background-color: #050505; 
+            font-family: 'Segoe UI', sans-serif; touch-action: none;
+            user-select: none; -webkit-user-select: none; font-size: 12px;
+        }
+        canvas { display: block; outline: none; }
+        
+        /* RESTORE OVERLAY: Only visible in Presentation Mode */
+        #restore-overlay {
+            display: none; /* Hidden by default */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; /* Top most */
+            background: transparent; /* Invisible */
+            cursor: pointer;
+        }
+        
+        /* UI Panel */
+        #ui-panel {
+            position: absolute; top: 0; left: 0; width: 240px; 
+            height: 100vh;
+            background: rgba(15, 15, 15, 0.95); border-right: 1px solid #333;
+            color: #ccc; z-index: 100; display: flex; flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            backdrop-filter: blur(15px); pointer-events: auto;
+        }
+        
+        .header { 
+            padding: 60px 15px 15px 15px; 
+            background: rgba(25, 25, 25, 0.8); border-bottom: 1px solid #444; 
+        }
+        h1 { margin: 0; font-size: 16px; color: #00ffaa; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; }
+        
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; cursor: pointer;
+        }
+        #start-overlay h2 { font-size: 30px; margin-bottom: 10px; color: #00ffaa; text-shadow: 0 0 20px #00ffaa; }
+        
+        .mode-switch { display: flex; background: #222; margin: 8px; border-radius: 4px; padding: 3px; }
+        .mode-btn { 
+            flex: 1; border: none; background: transparent; color: #888;
+            padding: 6px; font-weight: bold; cursor: pointer; border-radius: 3px;
+            transition: 0.2s; font-size: 10px; 
+        }
+        .mode-btn.active { background: #00ffaa; color: #000; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+        #layer-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .layer-item { 
+            background: #2a2a2a; padding: 8px; margin-bottom: 5px; border-radius: 4px;
+            cursor: pointer; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px;
+        }
+        .layer-item.active { background: #383838; border-color: #00ffaa; color: white; }
+        
+        .controls { padding: 12px; background: #1a1a1a; border-top: 1px solid #333; }
+        .btn { 
+            background: #444; color: white; border: none; padding: 8px; width: 100%; 
+            cursor: pointer; font-size: 11px; border-radius: 4px; margin-bottom: 6px;
+            display: flex; align-items: center; justify-content: center; gap: 5px; 
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: linear-gradient(45deg, #00ffaa, #00cc88); color: #000; font-weight: bold; }
+        .btn-danger { background: transparent; border: 1px solid #cc3333; color: #cc3333; }
+        .btn-tool { background: #333; border: 1px solid #555; }
+
+        .top-bar { 
+            position: absolute; top: 10px; left: 10px; z-index: 200; 
+            display: flex; gap: 6px; 
+            background: rgba(0,0,0,0.5); padding: 4px; border-radius: 8px; backdrop-filter: blur(5px);
+        }
+        .top-bar .btn {
+            background: rgba(50,50,50,0.9); border: 1px solid #666; 
+            width: 32px; height: 32px; border-radius: 6px; margin: 0; font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5); padding: 0;
+        }
+        
+        .panel-hidden #ui-panel { transform: translateX(-100%); }
+        input[type="file"] { display: none; }
+        
+        .mode-indicator { 
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 900; color: rgba(255,255,255,0.5); 
+            pointer-events: none; text-transform: uppercase; 
+            background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 12px;
+        }
+        
+        .zoom-controls { position: absolute; bottom: 20px; right: 15px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+        .zoom-btn {
+            width: 40px; height: 40px; border-radius: 50%; 
+            background: rgba(30,30,30,0.8); border: 1px solid #555; color: white;
+            font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3); backdrop-filter: blur(5px); transition: 0.2s;
+        }
+
+        /* Guides Toggle Switch */
+        .switch-container {
+            position: absolute; top: 15px; right: 15px; z-index: 201; /* Higher than others */
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px;
+            backdrop-filter: blur(5px); border: 1px solid #444; height: 30px;
+            cursor: pointer;
+        }
+        .switch-label { color: #aaa; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .switch-btn {
+            width: 30px; height: 16px; background: #333; border-radius: 8px;
+            position: relative; transition: 0.3s;
+        }
+        .switch-btn::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 12px; height: 12px; background: #888; border-radius: 50%;
+            transition: 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .switch-btn.active { background: #00ffaa; }
+        .switch-btn.active::after { left: 16px; background: #fff; }
+
+        .row { display: flex; gap: 5px; }
+
+        /* Presentation Mode Hides */
+        body.presentation-mode #ui-panel,
+        body.presentation-mode .top-bar,
+        body.presentation-mode .switch-container,
+        body.presentation-mode .zoom-controls,
+        body.presentation-mode .mode-indicator,
+        body.presentation-mode #snap-ring {
+            display: none !important;
+        }
+        
+        /* Show Restore Overlay when in Presentation Mode */
+        body.presentation-mode #restore-overlay {
+            display: block !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Full screen transparent layer to catch tap when UI is hidden -->
+    <div id="restore-overlay" onclick="togglePresentationMode()"></div>
+
+    <div id="start-overlay" onclick="startApp()">
+        <h2>MR MAPPING v37.1</h2>
+        <p>▶ Click to Start</p>
+    </div>
+    
+    <div id="snap-ring" style="position: absolute; width: 30px; height: 30px; border: 3px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 1000; box-shadow: 0 0 15px #fff;"></div>
+
+    <div class="mode-indicator" id="mode-text">OUTPUT</div>
+
+    <div class="top-bar">
+        <button class="btn" onclick="togglePanel()">☰</button>
+        <button class="btn btn-tool" onclick="undo()">↩</button>
+        <button class="btn btn-tool" onclick="redo()">↪</button>
+    </div>
+
+    <!-- Switch for Presentation Mode -->
+    <div class="switch-container" onclick="togglePresentationMode(event)">
+        <span class="switch-label">GUIDES</span>
+        <div class="switch-btn active" id="vis-switch"></div>
+    </div>
+
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
+    </div>
+
+    <div id="ui-panel">
+        <div class="header">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1>MR Mapping</h1>
+                <span style="font-size:10px; color:#666">v37.1 Restore Fix</span>
+            </div>
+        </div>
+
+        <div style="padding: 8px 8px 0 8px;">
+             <div class="row">
+                <button class="btn btn-tool" onclick="saveProject()">💾 Save</button>
+                <label class="btn btn-tool">📂 Load <input type="file" id="jsonInput" accept=".json"></label>
+             </div>
+        </div>
+
+        <div class="mode-switch">
+            <button class="mode-btn" id="btn-input" onclick="setMode('INPUT')">INPUT (Source)</button>
+            <button class="mode-btn active" id="btn-output" onclick="setMode('OUTPUT')">OUTPUT (Mapping)</button>
+        </div>
+
+        <div style="padding: 0 8px;">
+            <button class="btn btn-primary" onclick="addNewLayer()">➕ Add Screen</button>
+        </div>
+
+        <div id="layer-list"></div>
+
+        <div class="controls">
+            <label class="btn" style="background: #2266aa;">🎥 Upload File <input type="file" id="mediaInput" accept="video/*,image/*"></label>
+            <button class="btn btn-tool" id="btn-checker" onclick="toggleCheckerPattern()">🏁 Toggle Checker</button>
+            
+            <div class="row" style="margin-top:8px;">
+                <button class="btn" onclick="resetCurrentLayer()">Reset</button>
+                <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete</button>
+            </div>
+            
+            <div style="margin-top:8px; font-size:9px; color:#555; text-align:center;">
+                Toggle Guides to Hide UI.<br>
+                Tap screen to Restore.
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        const config = { segments: 20, snapDist: 0.5 };
+        let mode = 'OUTPUT';
+        let layers = [];
+        let activeLayerId = null;
+        let layerCounter = 1;
+        
+        let mainTexture = null, checkerTexture = null, videoElement = null;
+        let isCheckerActive = false;
+        let sourceAspectRatio = 16/9;
+        let appStarted = false;
+        let showGuides = true;
+        let isPanMode = false;
+        
+        let scene, camera, renderer, raycaster, mouse, inputGroup, inputBgMesh;
+        
+        let historyStack = []; let redoStack = []; let isHistoryPaused = false;
+
+        let isDragging = false, isGesture = false, selectedObject = null;
+        let activeHandle = null; 
+        let dragStartPos = new THREE.Vector3(); 
+        let previousWorldPos = new THREE.Vector3(); 
+        let planeNormal = new THREE.Vector3(0, 0, 1);
+        let panStart = new THREE.Vector2();
+        
+        let gestureStartDist = 0, gestureStartAngle = 0;
+        let gestureStartCenter = new THREE.Vector3();
+        let gestureStartHandlePositions = [];
+        let lastTapTime = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+            inputGroup = new THREE.Group();
+            inputGroup.visible = false;
+            scene.add(inputGroup);
+            
+            const aspect = window.innerWidth / window.innerHeight;
+            const frustum = 40;
+            camera = new THREE.OrthographicCamera(
+                frustum * aspect / -2, frustum * aspect / 2,
+                frustum / 2, frustum / -2, 0.1, 1000
+            );
+            camera.position.z = 100;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            initVideoElement();
+            setupPlaceholderSource();
+            createCheckerTexture();
+
+            const bgGeo = new THREE.PlaneGeometry(1, 1); 
+            const bgMat = new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 0.5, transparent: true });
+            inputBgMesh = new THREE.Mesh(bgGeo, bgMat);
+            inputBgMesh.position.z = -1;
+            inputBgMesh.scale.set(16, 9, 1);
+            inputGroup.add(inputBgMesh);
+
+            const cvs = renderer.domElement;
+            cvs.addEventListener('mousedown', onPointerDown);
+            cvs.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('mouseup', onPointerUp);
+            cvs.addEventListener('touchstart', onTouchStart, {passive:false});
+            cvs.addEventListener('touchmove', onTouchMove, {passive:false});
+            cvs.addEventListener('touchend', onPointerUp);
+            cvs.addEventListener('wheel', onWheel, {passive:false});
+            
+            window.addEventListener('resize', onResize);
+            document.getElementById('mediaInput').addEventListener('change', handleUpload);
+            document.getElementById('jsonInput').addEventListener('change', loadProject);
+
+            addNewLayer();
+            recordHistory();
+            animate();
+        }
+
+        window.startApp = function() {
+            document.getElementById('start-overlay').style.display = 'none';
+            appStarted = true;
+            if(videoElement) videoElement.play().catch(e=>{});
+        };
+
+        function initVideoElement() {
+            videoElement = document.createElement('video');
+            videoElement.crossOrigin = "anonymous";
+            videoElement.loop = true; videoElement.muted = false;
+            videoElement.playsInline = true; videoElement.style.display = 'none';
+            document.body.appendChild(videoElement);
+        }
+
+        function setupPlaceholderSource() {
+            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024;
+            const ctx = cvs.getContext('2d');
+            ctx.fillStyle = '#111'; ctx.fillRect(0,0,1024,1024);
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+            for(let i=0; i<=1024; i+=100) { ctx.moveTo(i,0); ctx.lineTo(i,1024); ctx.moveTo(0,i); ctx.lineTo(1024,i); }
+            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center';
+            ctx.fillText('MR MAPPING v37.1', 512, 512);
+            if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.CanvasTexture(cvs);
+        }
+
+        function createCheckerTexture() {
+            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024;
+            const ctx = cvs.getContext('2d');
+            ctx.fillStyle = 'white'; ctx.fillRect(0,0,1024,1024); ctx.fillStyle = 'black';
+            for(let y=0; y<1024; y+=128) for(let x=0; x<1024; x+=128) if((x/128+y/128)%2===1) ctx.fillRect(x,y,128,128);
+            ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 5; ctx.strokeRect(0,0,1024,1024);
+            checkerTexture = new THREE.CanvasTexture(cvs);
+        }
+
+        function handleUpload(e) {
+            const file = e.target.files[0]; if(!file) return;
+            const url = URL.createObjectURL(file);
+            if (file.type.indexOf('image') !== -1) {
+                videoElement.pause();
+                new THREE.TextureLoader().load(url, (tex) => {
+                    sourceAspectRatio = tex.image.width / tex.image.height;
+                    updateInputBgAspect();
+                    if(mainTexture) mainTexture.dispose(); mainTexture = tex; mainTexture.minFilter = THREE.LinearFilter;
+                    updateAllTextures();
+                });
+            } else if (file.type.indexOf('video') !== -1) {
+                videoElement.src = url;
+                videoElement.onloadedmetadata = function() {
+                    sourceAspectRatio = this.videoWidth / this.videoHeight;
+                    updateInputBgAspect();
+                    if(mainTexture) mainTexture.dispose();
+                    mainTexture = new THREE.VideoTexture(videoElement);
+                    mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
+                    updateAllTextures();
+                    if(appStarted) videoElement.play().catch(()=>{});
+                };
+            }
+            e.target.value = '';
+        }
+
+        function updateInputBgAspect() { inputBgMesh.scale.set(16, 16 / sourceAspectRatio, 1); }
+        function toggleCheckerPattern() { isCheckerActive = !isCheckerActive; document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; updateAllTextures(); }
+        
+        function updateAllTextures() {
+            const tex = isCheckerActive ? checkerTexture : mainTexture;
+            if(inputBgMesh) { inputBgMesh.material.map = tex; inputBgMesh.material.needsUpdate = true; }
+            layers.forEach(l => {
+                l.mesh.material.map = tex; l.mesh.material.needsUpdate = true;
+                if(isCheckerActive) l.resetUVsToFull(); else l.updateUVs();
+            });
+        }
+
+        function togglePresentationMode(e) {
+            if(e) e.stopPropagation();
+            showGuides = !showGuides;
+            const btn = document.getElementById('vis-switch');
+            if (showGuides) {
+                btn.classList.add('active');
+                document.body.classList.remove('presentation-mode');
+            } else {
+                btn.classList.remove('active');
+                document.body.classList.add('presentation-mode');
+            }
+            layers.forEach(l => l.updateVisibilityState());
+        }
+
+        // --- SNAPPING LOGIC ---
+        function applySnapping(pos, currentLayerId) {
+            let bestPos = pos.clone();
+            let minDist = config.snapDist;
+            let snapped = false;
+
+            layers.forEach(l => {
+                if(l.id === currentLayerId) return;
+
+                const handles = mode==='OUTPUT' ? l.handles : l.inputHandles;
+                handles.forEach(h => {
+                    const hPos = new THREE.Vector3();
+                    h.getWorldPosition(hPos);
+
+                    const d = pos.distanceTo(hPos);
+                    if(d < minDist) {
+                        minDist = d;
+                        bestPos.copy(hPos);
+                        snapped = true;
+                    }
+                });
+            });
+
+            const ring = document.getElementById('snap-ring');
+            if(snapped) {
+                const screenPos = bestPos.clone().project(camera);
+                const x = (screenPos.x * .5 + .5) * window.innerWidth;
+                const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
+                ring.style.left = x + 'px'; ring.style.top = y + 'px';
+                ring.style.display = 'block';
+            } else {
+                ring.style.display = 'none';
+            }
+
+            return bestPos;
+        }
+
+        function checkSnappingBody(layer, delta) {
+            const handles = mode==='OUTPUT' ? layer.handles : layer.inputHandles;
+            let bestDelta = delta.clone();
+            let minDist = config.snapDist;
+            let snapped = false;
+            let snapPoint = new THREE.Vector3();
+
+            for(let myH of handles) {
+                const myPos = new THREE.Vector3();
+                myH.getWorldPosition(myPos);
+                const predictedPos = myPos.clone().add(delta);
+
+                layers.forEach(otherL => {
+                    if(otherL.id === layer.id) return;
+                    const otherHandles = mode==='OUTPUT' ? otherL.handles : otherL.inputHandles;
+                    otherHandles.forEach(otherH => {
+                        const otherPos = new THREE.Vector3();
+                        otherH.getWorldPosition(otherPos);
+                        const d = predictedPos.distanceTo(otherPos);
+                        if(d < minDist) {
+                            bestDelta.subVectors(otherPos, myPos);
+                            minDist = d;
+                            snapped = true;
+                            snapPoint.copy(otherPos);
+                        }
+                    });
+                });
+                if(snapped) break;
+            }
+
+            const ring = document.getElementById('snap-ring');
+            if(snapped) {
+                const screenPos = snapPoint.clone().project(camera);
+                const x = (screenPos.x * .5 + .5) * window.innerWidth;
+                const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
+                ring.style.left = x + 'px'; ring.style.top = y + 'px';
+                ring.style.display = 'block';
+            } else {
+                ring.style.display = 'none';
+            }
+            return bestDelta;
+        }
+
+        class Layer {
+            constructor(id, data = null) {
+                this.id = id; this.name = `Screen ${id}`;
+                
+                // OUTPUT MESH
+                const geo = new THREE.PlaneGeometry(1, 1, config.segments, config.segments);
+                const mat = new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide });
+                this.mesh = new THREE.Mesh(geo, mat);
+                this.mesh.userData = { id: id, type: 'output_screen' };
+                this.mesh.position.z = id * 0.01; 
+                scene.add(this.mesh);
+                
+                this.grid = new THREE.Group();
+                this.createInternalGrid();
+                scene.add(this.grid);
+                
+                this.helper = new THREE.Group();
+                scene.add(this.helper);
+                
+                this.handles = []; this.createHandles(this.mesh, this.handles, 'output_handle');
+
+                // INPUT MESH
+                const inGeo = new THREE.PlaneGeometry(1, 1, 1, 1);
+                // CLEAN INPUT: Transparent Yellow Tint (No Texture)
+                const inMat = new THREE.MeshBasicMaterial({ 
+                    color: 0xffff00, 
+                    wireframe: false, 
+                    transparent: true, 
+                    opacity: 0.2, 
+                    side: THREE.DoubleSide,
+                    map: null 
+                });
+                this.inputMesh = new THREE.Mesh(inGeo, inMat);
+                this.inputMesh.userData = { id: id, type: 'input_slice' };
+                
+                // Wireframe for visibility
+                const wGeo = new THREE.EdgesGeometry(inGeo);
+                const wMat = new THREE.LineBasicMaterial({ color: 0xffff00 });
+                this.inputWire = new THREE.LineSegments(wGeo, wMat);
+                this.inputMesh.add(this.inputWire);
+
+                this.inputHandles = []; 
+                this.createHandles(this.inputMesh, this.inputHandles, 'input_handle');
+                
+                this.inputGrid = new THREE.Group();
+                this.createInternalGridForInput();
+                this.inputMesh.add(this.inputGrid);
+                
+                inputGroup.add(this.inputMesh);
+
+                if (data) this.loadFromData(data);
+                else this.initDefault();
+                
+                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+                this.updateHelpers();
+                this.updateVisibilityState();
+            }
+
+            createInternalGrid() {
+                const geo = new THREE.PlaneGeometry(1, 1, 4, 4);
+                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false });
+                this.gridMesh = new THREE.Mesh(geo, mat);
+                this.grid.add(this.gridMesh);
+            }
+
+            createInternalGridForInput() {
+                const geo = new THREE.PlaneGeometry(1, 1, 2, 2);
+                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }); 
+                this.inputGridMesh = new THREE.Mesh(geo, mat);
+                this.inputGrid.add(this.inputGridMesh);
+            }
+
+            createHandles(parent, array, type) {
+                const pos = [{x:-0.5, y:0.5}, {x:0.5, y:0.5}, {x:-0.5, y:-0.5}, {x:0.5, y:-0.5}];
+                const mat = new THREE.MeshBasicMaterial({ color: 0x00ffaa, depthTest:false });
+                
+                pos.forEach((p, i) => {
+                    const h = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16), mat.clone());
+                    const hit = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
+                    h.add(hit);
+                    h.userData = { id: this.id, type: type, index: i, originalColor: mat.color.clone() };
+                    hit.userData = { id: this.id, type: type, index: i };
+                    h.renderOrder = 999;
+                    if(type === 'output_handle') scene.add(h); else this.inputMesh.add(h);
+                    array.push(h);
+                });
+            }
+
+            setHandleSelected(index, isSelected) {
+                const list = mode === 'OUTPUT' ? this.handles : this.inputHandles;
+                list.forEach((h, i) => {
+                    if (i === index && isSelected) {
+                        h.material.color.setHex(0xffff00); h.scale.set(1.5, 1.5, 1);
+                    } else {
+                        h.material.color.copy(h.userData.originalColor); h.scale.set(1, 1, 1);
+                    }
+                });
+            }
+
+            clearSelection() {
+                this.handles.forEach(h => { h.material.color.copy(h.userData.originalColor); h.scale.set(1,1,1); });
+                this.inputHandles.forEach(h => { h.material.color.copy(h.userData.originalColor); h.scale.set(1,1,1); });
+            }
+
+            initDefault() {
+                const w = 4; const h = 4*(9/16);
+                const corners = [
+                    new THREE.Vector3(-w/2, h/2, 0), new THREE.Vector3(w/2, h/2, 0),
+                    new THREE.Vector3(-w/2, -h/2, 0), new THREE.Vector3(w/2, -h/2, 0)
+                ];
+                this.inputHandles.forEach((h, i) => h.position.copy(corners[i]));
+                this.handles.forEach((h, i) => {
+                    h.position.copy(corners[i]);
+                    h.position.z = this.mesh.position.z + 0.1;
+                });
+                this.updateInputGeometry();
+                this.updateOutputGeometry();
+            }
+
+            setHandlePos(index, newPos) {
+                 const list = mode === 'OUTPUT' ? this.handles : this.inputHandles;
+                 if(list[index]) {
+                     if(mode==='OUTPUT') {
+                         list[index].position.set(newPos.x, newPos.y, list[index].position.z);
+                         this.updateOutputGeometry();
+                     } else {
+                         const local = this.inputMesh.worldToLocal(newPos.clone());
+                         list[index].position.set(local.x, local.y, 0);
+                         this.updateInputGeometry();
+                     }
+                 }
+            }
+
+            move(delta) {
+                if (mode === 'OUTPUT') {
+                    this.handles.forEach(h => h.position.add(delta));
+                    this.updateOutputGeometry();
+                } else {
+                    this.inputHandles.forEach(h => h.position.add(delta));
+                    this.updateInputGeometry();
+                }
+            }
+
+            transform(scale, rotDelta, center) {
+                const targetHandles = mode === 'OUTPUT' ? this.handles : this.inputHandles;
+                targetHandles.forEach(h => {
+                    const vec = new THREE.Vector3().subVectors(h.position, center);
+                    vec.multiplyScalar(scale);
+                    vec.applyAxisAngle(new THREE.Vector3(0,0,1), -rotDelta); 
+                    h.position.addVectors(center, vec);
+                });
+                if(mode === 'OUTPUT') this.updateOutputGeometry();
+                else this.updateInputGeometry();
+            }
+
+            updateOutputGeometry() {
+                const pos = this.mesh.geometry.attributes.position;
+                const gridPos = this.gridMesh.geometry.attributes.position;
+                const tl = this.handles[0].position; const tr = this.handles[1].position;
+                const bl = this.handles[2].position; const br = this.handles[3].position;
+                this.warpGeometry(pos, tl, tr, bl, br, config.segments);
+                this.warpGeometry(gridPos, tl, tr, bl, br, 4); 
+                this.gridMesh.position.z = this.mesh.position.z + 0.05;
+                this.updateHelpers();
+            }
+
+            updateInputGeometry() {
+                const pos = this.inputMesh.geometry.attributes.position;
+                const tl = this.inputHandles[0].position; const tr = this.inputHandles[1].position;
+                const bl = this.inputHandles[2].position; const br = this.inputHandles[3].position;
+                this.warpGeometry(pos, tl, tr, bl, br, 1);
+                this.updateUVs();
+            }
+
+            warpGeometry(posAttribute, tl, tr, bl, br, segments) {
+                const wVerts = segments + 1;
+                for(let i=0; i<posAttribute.count; i++) {
+                    const ix = i % wVerts; const iy = Math.floor(i / wVerts);
+                    const u = ix / segments; const v = 1 - (iy / segments);
+                    const x = (1-u)*(1-v)*tl.x + u*(1-v)*tr.x + (1-u)*v*bl.x + u*v*br.x;
+                    const y = (1-u)*(1-v)*tl.y + u*(1-v)*tr.y + (1-u)*v*bl.y + u*v*br.y;
+                    posAttribute.setXY(i, x, y, 0);
+                }
+                posAttribute.needsUpdate = true;
+                if(segments === config.segments) this.mesh.geometry.computeBoundingSphere();
+            }
+
+            updateHelpers() {
+                if(mode !== 'OUTPUT') { 
+                    this.helper.visible = false; 
+                    this.grid.visible = false;
+                    return; 
+                }
+                
+                this.helper.visible = showGuides;
+                this.grid.visible = showGuides;
+                this.handles.forEach(h => h.visible = showGuides);
+                if(!showGuides) return;
+                this.helper.clear();
+                const points = [ this.handles[0].position, this.handles[1].position, this.handles[3].position, this.handles[2].position, this.handles[0].position ];
+                const geo = new THREE.BufferGeometry().setFromPoints(points);
+                const mat = new THREE.LineBasicMaterial({ color: 0x00ffaa, opacity: 0.8, transparent: true });
+                this.helper.add(new THREE.Line(geo, mat));
+            }
+            
+            updateVisibilityState() {
+                const isOutput = (mode === 'OUTPUT');
+                const isInput = (mode === 'INPUT');
+                const isActive = (this.id === activeLayerId);
+
+                this.mesh.visible = isOutput;
+                
+                const outputGuides = isOutput && showGuides;
+                this.helper.visible = outputGuides;
+                this.grid.visible = outputGuides;
+                this.handles.forEach(h => h.visible = outputGuides);
+                
+                // V36: Input Visibility
+                this.inputMesh.visible = isInput;
+                this.inputGrid.visible = isInput && isActive && showGuides; 
+                this.inputHandles.forEach(h => h.visible = isInput && isActive && showGuides);
+                
+                if(isInput) {
+                    if(isActive) {
+                        this.inputMesh.material.opacity = 0.4;
+                        this.inputMesh.material.color.set(0x00ffaa);
+                        this.inputWire.material.color.set(0x00ffaa);
+                        this.inputMesh.renderOrder = 10;
+                    } else {
+                        // Inactive High Vis
+                        this.inputMesh.material.opacity = 0.5; 
+                        this.inputMesh.material.color.set(0x444444); 
+                        this.inputWire.material.color.set(0xffffff); 
+                        this.inputMesh.renderOrder = 0;
+                    }
+                }
+            }
+
+            updateUVs() {
+                if(isCheckerActive) return;
+                const bgW = inputBgMesh.scale.x; const bgH = inputBgMesh.scale.y;
+                const getUV = (h) => {
+                    const wp = h.position.clone().applyMatrix4(this.inputMesh.matrixWorld);
+                    return { u: (wp.x+bgW/2)/bgW, v: (wp.y+bgH/2)/bgH };
+                };
+                const uvTL = getUV(this.inputHandles[0]); const uvTR = getUV(this.inputHandles[1]);
+                const uvBL = getUV(this.inputHandles[2]); const uvBR = getUV(this.inputHandles[3]);
+                const uv = this.mesh.geometry.attributes.uv;
+                const wVerts = config.segments + 1;
+                for(let i=0; i<uv.count; i++) {
+                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
+                     const u = ix / config.segments; const v = 1 - (iy / config.segments);
+                     const newU = (1-u)*(1-v)*uvTL.u + u*(1-v)*uvTR.u + (1-u)*v*uvBL.u + u*v*uvBR.u;
+                     const newV = (1-u)*(1-v)*uvTL.v + u*(1-v)*uvTR.v + (1-u)*v*uvBL.v + u*v*uvBR.v;
+                     uv.setXY(i, newU, newV);
+                }
+                uv.needsUpdate = true;
+            }
+
+            resetUVsToFull() {
+                const uv = this.mesh.geometry.attributes.uv;
+                const wVerts = config.segments + 1;
+                for(let i=0; i<uv.count; i++) {
+                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
+                     const u = ix / config.segments; const v = 1 - (iy / config.segments);
+                     uv.setXY(i, u, v);
+                }
+                uv.needsUpdate = true;
+            }
+
+            loadFromData(data) {
+                data.handles.forEach((p, i) => this.handles[i].position.fromArray(p));
+                if(data.inHandles) data.inHandles.forEach((p, i) => this.inputHandles[i].position.fromArray(p));
+                if(data.inPos) {
+                    this.inputMesh.position.fromArray(data.inPos);
+                    this.inputMesh.updateMatrixWorld(true);
+                }
+                this.updateOutputGeometry();
+                this.updateInputGeometry();
+            }
+
+            toJSON() {
+                return {
+                    id: this.id,
+                    handles: this.handles.map(h => h.position.toArray()), 
+                    inHandles: this.inputHandles.map(h => h.position.toArray()),
+                    inPos: this.inputMesh.position.toArray()
+                };
+            }
+
+            setVisible(v) { 
+                this.mesh.visible = v; 
+                this.updateVisibilityState();
+            }
+            setInputVisible(v) { 
+                this.inputMesh.visible = v; 
+                this.updateVisibilityState();
+            }
+            destroy() { scene.remove(this.mesh); scene.remove(this.helper); scene.remove(this.grid); this.handles.forEach(h => scene.remove(h)); inputGroup.remove(this.inputMesh); }
+        }
+
+        // --- INTERACTION ---
+        function onPointerDown(e) {
+            // Block dragging if in presentation mode
+            if(document.body.classList.contains('presentation-mode')) return;
+
+            const ndc = getMousePos(e); 
+            if(isPanMode) { isDragging = true; panStart.copy(ndc); return; }
+            
+            if(isGesture || (mode==='OUTPUT' && !showGuides)) return; 
+            
+            mouse.set(ndc.x, ndc.y); raycaster.setFromCamera(mouse, camera);
+            isHistoryPaused = true;
+
+            const now = Date.now();
+            const isDoubleTap = (now - lastTapTime) < 300;
+            lastTapTime = now;
+
+            const check = (list) => {
+                const t = []; list.forEach(h=>{t.push(h); t.push(...h.children)});
+                const h = raycaster.intersectObjects(t);
+                return h.length>0 ? (h[0].object.userData.type ? h[0].object : h[0].object.parent) : null;
+            };
+
+            const l = layers.find(l => l.id === activeLayerId);
+            
+            if (l) {
+                const h = check(mode === 'OUTPUT' ? l.handles : l.inputHandles);
+                if (h) { 
+                    isDragging = true; 
+                    if (activeHandle && activeHandle !== h) l.setHandleSelected(activeHandle.userData.index, false);
+                    activeHandle = h;
+                    l.setHandleSelected(activeHandle.userData.index, true);
+                    selectedObject = h; 
+                    
+                    const hPos = new THREE.Vector3();
+                    h.getWorldPosition(hPos);
+                    dragStartPos.subVectors(hPos, getWorldPos(ndc));
+                    return; 
+                }
+            }
+
+            const targets = [];
+            if(mode === 'OUTPUT') targets.push(...layers.map(ly => ly.mesh));
+            else if(mode === 'INPUT') targets.push(...layers.map(ly => ly.inputMesh)); // Hit input body
+
+            const hits = raycaster.intersectObjects(targets);
+            if(hits.length > 0) {
+                const hit = hits[0];
+                setActiveLayer(hit.object.userData.id);
+                isDragging = true; selectedObject = layers.find(lay => lay.id === hit.object.userData.id);
+                if(l) l.clearSelection(); activeHandle = null;
+                previousWorldPos.copy(getWorldPos(ndc));
+            } else {
+                if (activeHandle && l) {
+                    isDragging = true; selectedObject = activeHandle;
+                    const hPos = new THREE.Vector3();
+                    activeHandle.getWorldPosition(hPos);
+                    dragStartPos.subVectors(hPos, getWorldPos(ndc));
+                } else {
+                    if (l) l.clearSelection(); activeHandle = null;
+                }
+            }
+            previousWorldPos.copy(getWorldPos(ndc));
+        }
+
+        function onPointerMove(e) {
+            const ndc = getMousePos(e);
+            if(isPanMode && isDragging) {
+                const dx = (ndc.x - panStart.x) * (20 * (1/camera.zoom)); 
+                const dy = (ndc.y - panStart.y) * (20 * (1/camera.zoom)); 
+                camera.position.x -= dx; camera.position.y -= dy;
+                panStart.copy(ndc);
+                return;
+            }
+            if(!isDragging || !selectedObject) return;
+            const wp = getWorldPos(ndc);
+            const l = layers.find(l => l.id === activeLayerId);
+
+            if (selectedObject instanceof Layer) {
+                const delta = new THREE.Vector3().subVectors(wp, previousWorldPos);
+                const snapDelta = checkSnappingBody(selectedObject, delta);
+                selectedObject.move(snapDelta);
+                previousWorldPos.copy(wp);
+            } else {
+                let targetPos = new THREE.Vector3().addVectors(wp, dragStartPos);
+                targetPos = applySnapping(targetPos, l.id);
+                const idx = selectedObject.userData.index;
+                l.setHandlePos(idx, targetPos);
+            }
+        }
+
+        function onTouchStart(e) {
+            if(document.body.classList.contains('presentation-mode')) return;
+
+            if (e.touches.length === 2 && (mode==='INPUT' || showGuides)) { 
+                isGesture = true; isDragging = false;
+                const layer = layers.find(l => l.id === activeLayerId);
+                if(!layer) return;
+
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                gestureStartDist = Math.sqrt(dx*dx + dy*dy);
+                gestureStartAngle = Math.atan2(dy, dx);
+                
+                const center = new THREE.Vector3();
+                const list = mode==='OUTPUT' ? layer.handles : layer.inputHandles;
+                list.forEach(h=>center.add(h.position)); center.divideScalar(4);
+                gestureStartCenter.copy(center);
+                
+                gestureStartHandlePositions = list.map(h => h.position.clone());
+            } else if (e.touches.length === 1) {
+                onPointerDown(e.touches[0]);
+            }
+        }
+
+        function onTouchMove(e) {
+            if (e.touches.length === 2 && isGesture) {
+                e.preventDefault();
+                const layer = layers.find(l => l.id === activeLayerId);
+                if(!layer) return;
+
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const angle = Math.atan2(dy, dx);
+
+                const scale = dist / gestureStartDist;
+                const rotation = angle - gestureStartAngle;
+
+                const targetHandles = mode === 'OUTPUT' ? layer.handles : layer.inputHandles;
+                targetHandles.forEach((h, i) => {
+                    const originalPos = gestureStartHandlePositions[i];
+                    const vec = new THREE.Vector3().subVectors(originalPos, gestureStartCenter);
+                    vec.multiplyScalar(scale);
+                    vec.applyAxisAngle(new THREE.Vector3(0,0,1), -rotation); 
+                    h.position.addVectors(gestureStartCenter, vec);
+                });
+
+                if(mode === 'OUTPUT') layer.updateOutputGeometry();
+                else layer.updateInputGeometry();
+
+            } else if (e.touches.length === 1) {
+                onPointerMove(e.touches[0]);
+            }
+        }
+
+        function onWheel(e) {
+            if(isPanMode || document.body.classList.contains('presentation-mode')) return;
+            if(mode==='OUTPUT' && !showGuides) return;
+            e.preventDefault();
+            const layer = layers.find(l => l.id === activeLayerId);
+            if(!layer) return;
+            const scale = e.deltaY < 0 ? 1.05 : 0.95;
+            
+            const center = new THREE.Vector3();
+            const list = mode==='OUTPUT' ? layer.handles : layer.inputHandles;
+            list.forEach(h=>center.add(h.position)); center.divideScalar(4);
+            
+            layer.transform(scale, 0, center);
+            recordHistory();
+        }
+
+        function onPointerUp() { isDragging=false; isGesture=false; isHistoryPaused=false; recordHistory(); document.getElementById('snap-ring').style.display='none'; }
+        function zoomIn() { camera.zoom = Math.min(camera.zoom+0.1, 5); camera.updateProjectionMatrix(); }
+        function zoomOut() { camera.zoom = Math.max(camera.zoom-0.1, 0.2); camera.updateProjectionMatrix(); }
+        function getMousePos(e) { const cX=e.changedTouches?e.changedTouches[0].clientX:e.clientX; const cY=e.changedTouches?e.changedTouches[0].clientY:e.clientY; return {x:(cX/window.innerWidth)*2-1, y:-(cY/window.innerHeight)*2+1}; }
+        function getWorldPos(ndc) { mouse.set(ndc.x, ndc.y); raycaster.setFromCamera(mouse, camera); const t = new THREE.Vector3(); raycaster.ray.intersectPlane(new THREE.Plane(planeNormal, 0), t); return t; }
+        
+        function setMode(m) {
+            mode = m; document.getElementById('mode-text').innerText = mode;
+            document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn';
+            document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
+            if(m==='INPUT') { inputGroup.visible=true; layers.forEach(l=>{l.setVisible(false); l.setInputVisible(true); l.updateVisibilityState(); }); camera.position.set(0,0,100); camera.zoom=1; camera.updateProjectionMatrix(); }
+            else { inputGroup.visible=false; layers.forEach(l=>{l.setVisible(true); l.setInputVisible(false); l.updateVisibilityState(); }); }
+        }
+
+        function recordHistory() {
+            if(isHistoryPaused) return;
+            const s = JSON.stringify({ layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId });
+            if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return;
+            historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
+        }
+        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1])); }
+        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n)); }
+        function loadState(d) {
+            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; 
+            d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld)));
+            setActiveLayer(d.activeId); updateAllTextures(); setMode(mode);
+        }
+        function saveProject() { const d={version:"37.1", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v37_1.json"; a.click(); }
+        function loadProject(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(evt){ try{ const d=JSON.parse(evt.target.result); loadState(d); alert("Loaded!"); }catch(err){alert("Error");} }; r.readAsText(f); e.target.value=''; }
+
+        function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); setActiveLayer(l.id); updateLayerList(); setMode(mode); recordHistory(); }
+        function setActiveLayer(id) { 
+            activeLayerId=id; 
+            layers.forEach(l=>{ 
+                l.updateVisibilityState(); 
+            }); 
+            updateLayerList(); 
+        }
+        function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); } }
+        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory();} }
+        function updateLayerList() { const l=document.getElementById('layer-list'); l.innerHTML=''; layers.forEach(ly=>{ const d=document.createElement('div'); d.className=`layer-item ${ly.id===activeLayerId?'active':''}`; d.innerHTML=`<span>${ly.name}</span>`; d.onclick=()=>setActiveLayer(ly.id); l.appendChild(d); }); }
+        function togglePanel() { document.body.classList.toggle('panel-hidden'); }
+        function onResize() { const a=window.innerWidth/window.innerHeight; const f=40; camera.left=-f*a/2; camera.right=f*a/2; camera.top=f/2; camera.bottom=-f/2; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+        function animate() { 
+            requestAnimationFrame(animate); 
+            if(videoElement && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) { if(mainTexture) mainTexture.needsUpdate = true; }
+            renderer.render(scene, camera); 
+        }
+        init();
+    </script>
+</body>
+</html>
+
+
