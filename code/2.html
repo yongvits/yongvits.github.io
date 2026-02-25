@@ -1,45 +1,578 @@
-const yokaiGallery = [
-  // --- SET 1: Hyakkai Zukan (ม้วนภาพร้อยอสูร - ลายเส้นคลาสสิก) ---
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Akakuchi.jpg", // ปีศาจปากแดง
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Furaribi.jpg",      // ผีไฟลอย
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Gagoze.jpg",        // ปีศาจกัดเหล็ก
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Hyosube.jpg",       // เฮียวซึเบะ (ญาติกัปปะ)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Inugami.jpg",       // เทพสุนัข
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kamikiri.jpg",      // ปีศาจตัดผม
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kappa.jpg",         // กัปปะ
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kasha.jpg",         // ปีศาจแมวรถลาก (ขโมยศพ)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Mikoshi-nyudo.jpg", // ปีศาจนักบวชยักษ์
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nekomata.jpg",      // แมวสองหาง
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nukekubi.jpg",      // ผีหัวถอด (มีแต่หัวบินไปมา)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuppeppo.jpg",      // ปีศาจก้อนเนื้อ
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nurarihyon.jpg",    // นูราริเฮียง (จอมหัวโต)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nure-onna.jpg",     // ผีผู้หญิงเปียก
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuribotoke.jpg",    // ผีทาดำ
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Otoroshi.jpg",      // ปีศาจขนยุ่ง (ชอบอยู่บนประตูโทริอิ)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ouni.jpg",          // ยายเฒ่าหาบของ
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Shokera.jpg",       // ปีศาจบนหลังคา
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ubume.jpg",         // ผีแม่ลูกอ่อน
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ushioni.jpg",       // ปีศาจวัว (อุชิโอนิ)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Uwan.jpg",          // ปีศาจตะโกน (อูวัง)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Waira.jpg",         // ไวระ (ตัวใหญ่กรงเล็บแหลม)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yako.jpg",          // ปีศาจจิ้งจอก
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-biko.jpg",     // ภูตสะท้อนเสียง
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-uba.jpg",      // ยายเฒ่าภูเขา
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-warau.jpg",    // เด็กภูเขา
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yuki-onna.jpg",     // เจ้าหญิงหิมะ
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yume-no-seirei.jpg", // ภูตแห่งความฝัน
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yurei.jpg",         // วิญญาณ (ยูเร)
-  "https://commons.wikimedia.org/wiki/Mehitotsubou.jpg",                          // ผีตาเดียว (เด็กบวช)
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ทำนายดวงชะตากับ โยไค</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  // --- SET 2: Famous & Iconic Yokai (ตัวดังอื่นๆ) ---
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Takiyasha_the_Witch_and_the_Skeleton_Spectre.jpg", // กาชาโดคุโระ (โครงกระดูกยักษ์) - ภาพนี้ไฟล์ใหญ่มาก
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Tengu_and_whitish_flying_object.jpg",              // เท็นงู
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Rokurokubi.jpg",                                   // ผีคอยาว (Rokurokubi)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Karakasa_obake_Illustrated_by_Kan%C5%8D_Enshin.jpg", // ผีร่ม (Karakasa)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Bakemono_Tango-ghost.jpg",                         // ผีหมวกฟาง
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Bakemono_Tobyo.jpg",                               // โทเบียว (งูจิ๋ว)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Amabie_illustration.jpg",                          // อะมาบิเอะ (นางเงือกพยากรณ์โรค)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Hajikkaki.jpg",                                    // ฮาจิกกากิ (ตัวกลมสีขาว)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Kyakkai_Zukan_Nurikabe.jpg",                       // นูริคาเบะ (ผีกำแพง)
-  "https://commons.wikimedia.org/wiki/Special:FilePath/Tsuchigumo_Ekotoba_-_Tsuchigumo.jpg"               // ซึจิกุโมะ (ปีศาจแมงมุมดิน)
-];
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #111111;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Card Styles */
+        .destiny-card {
+            background-color: #161616;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            border-radius: 16px;
+        }
+
+        .info-box {
+            background-color: #2a1616;
+            border: 1px solid #4a2020;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .category-box {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .action-bar {
+            background: rgba(17, 17, 17, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #333;
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+
+        .lang-btn.active {
+            background-color: #cc3333;
+            color: white;
+            border-color: #cc3333;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center pb-24">
+
+    <!-- LANGUAGE SWITCHER (Fixed Top Right) -->
+    <div class="fixed top-4 right-4 z-[9999] flex gap-2">
+        <button onclick="setLang('th')" id="btnLangTH" class="lang-btn active bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1.5 rounded-full text-xs transition shadow-lg">TH</button>
+        <button onclick="setLang('en')" id="btnLangEN" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1.5 rounded-full text-xs transition shadow-lg">EN</button>
+        <button onclick="setLang('jp')" id="btnLangJP" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1.5 rounded-full text-xs transition shadow-lg">JP</button>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <main class="w-full max-w-md flex flex-col items-center">
+        
+        <!-- HEADER -->
+        <header class="w-full px-6 pt-16 pb-6 text-center">
+            <h1 class="text-3xl font-semibold text-white mb-2 leading-tight" id="mainTitle">ทำนายดวงชะตากับ<br>โยไค</h1>
+            <p class="text-sm text-gray-400" id="subTitle">ค้นพบชะตาชีวิตและโยไคผู้พิทักษ์ของคุณ</p>
+        </header>
+
+        <!-- INPUT FORM -->
+        <div id="inputSection" class="w-full px-4 relative z-10">
+            <div class="bg-[#1a1a1a] rounded-2xl p-6 shadow-lg border border-gray-800">
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-gray-300"></i>
+                    <h2 class="text-lg font-semibold text-white" id="formHeader">กรอกข้อมูลของคุณ</h2>
+                </div>
+                <p class="text-xs text-gray-400 mb-6" id="formSub">ข้อมูลของคุณจะปลุกโยไคและเปิดเผยดวงชะตา</p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-sm text-gray-300 font-medium mb-1.5 block" id="lblNickname">ชื่อเล่น</label>
+                        <input type="text" id="nickname" class="w-full bg-[#111] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#cc3333] outline-none transition" placeholder="ป้อนชื่อเล่นของคุณ...">
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-300 font-medium mb-1.5 block" id="lblDob">วัน/เดือน/ปีเกิด</label>
+                        <input type="date" id="dob" class="w-full bg-[#111] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#cc3333] outline-none transition [color-scheme:dark]">
+                    </div>
+                    <button onclick="calculateDestiny()" class="w-full mt-4 bg-[#cc3333] hover:bg-[#aa2222] text-white py-4 rounded-lg font-medium transition flex items-center justify-center gap-2 active:scale-95 shadow-lg">
+                        <i class="fa-solid fa-sparkles text-sm"></i> <span id="btnSubmit">ทำนายดวงชะตา</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOADING STATE -->
+        <div id="loadingState" class="hidden flex-col justify-center items-center w-full py-24">
+            <div class="w-12 h-12 border-4 border-gray-800 border-t-[#cc3333] rounded-full animate-spin"></div>
+            <p class="text-sm text-gray-400 mt-6 animate-pulse" id="loadingText">กำลังอัญเชิญโยไคผู้พิทักษ์...</p>
+        </div>
+
+        <!-- RESULT CARD -->
+        <div id="resultContainer" class="hidden w-full px-4 mt-4">
+            
+            <div id="destinyCard" class="destiny-card pb-6">
+                
+                <!-- IMAGE SECTION -->
+                <div class="w-full bg-black relative flex justify-center items-center overflow-hidden" style="min-height: 280px; max-height: 380px;">
+                    <img id="yokaiImage" class="w-full h-full object-contain p-2" alt="Yokai">
+                </div>
+
+                <!-- YOKAI TITLE -->
+                <div class="text-center pt-6 pb-4 px-4">
+                    <h2 id="yokaiNameTitle" class="text-3xl font-bold text-white mb-1 drop-shadow-md">Yokai Name</h2>
+                    <p class="text-sm text-gray-400 italic" id="yokaiGuardianLabel">โยไคผู้พิทักษ์ของ คุณ...</p>
+                </div>
+
+                <div class="px-5">
+                    <!-- IDENTITY TEXT -->
+                    <div class="info-box shadow-md">
+                        <p id="textYokai" class="text-sm text-gray-200 leading-relaxed text-center font-light">...</p>
+                    </div>
+
+                    <!-- LUCKY NUMBERS -->
+                    <div class="mb-6">
+                        <div class="stat-box shadow-sm">
+                            <i class="fa-solid fa-gift text-[#cc3333] mb-2 text-lg"></i>
+                            <span class="block text-xs text-gray-400 mb-1" id="lblL2">เลขนำโชค 2 ตัว</span>
+                            <span id="lucky2" class="text-4xl font-bold text-[#cc3333] block mb-1">00</span>
+                            <span id="desc2" class="text-[11px] text-gray-500">...</span>
+                        </div>
+                        <div class="stat-box shadow-sm">
+                            <i class="fa-solid fa-gift text-[#cc3333] mb-2 text-lg"></i>
+                            <span class="block text-xs text-gray-400 mb-1" id="lblL3">เลขนำโชค 3 ตัว</span>
+                            <span id="lucky3" class="text-4xl font-bold text-[#cc3333] block mb-1">000</span>
+                            <span id="desc3" class="text-[11px] text-gray-500">...</span>
+                        </div>
+                        <div class="stat-box shadow-sm">
+                            <i class="fa-solid fa-gift text-[#cc3333] mb-2 text-lg"></i>
+                            <span class="block text-xs text-gray-400 mb-1" id="lblL6">เลขนำโชค 6 ตัว</span>
+                            <span id="lucky6" class="text-4xl font-bold text-[#cc3333] block mb-1 tracking-widest">000000</span>
+                            <span id="desc6" class="text-[11px] text-gray-500">...</span>
+                        </div>
+                    </div>
+
+                    <!-- HOROSCOPE CATEGORIES -->
+                    <div class="space-y-4">
+                        <div class="text-center mb-4">
+                            <span id="cardDailyDate" class="inline-block bg-gray-800 text-gray-300 text-sm px-5 py-2 rounded-full border border-gray-700">
+                                คำทำนายประจำวันที่ ...
+                            </span>
+                        </div>
+
+                        <!-- Work -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-briefcase text-blue-400"></i> <span id="lblWork">ชะตาการงาน</span>
+                            </h3>
+                            <p id="textWork" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
+
+                        <!-- Finance -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-coins text-yellow-500"></i> <span id="lblFinance">ชะตาการเงิน</span>
+                            </h3>
+                            <p id="textFinance" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
+
+                        <!-- Love -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-heart text-pink-500"></i> <span id="lblLove">ชะตาความรัก</span>
+                            </h3>
+                            <p id="textLove" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
+
+                        <!-- Health -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-notes-medical text-green-500"></i> <span id="lblHealth">ชะตาสุขภาพ</span>
+                            </h3>
+                            <p id="textHealth" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Footer branding -->
+                <div class="text-center pt-6 pb-2">
+                    <p class="text-[10px] text-gray-600" id="brandFooter">Generated by ดูดวงกับ Yokai</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- STICKY ACTION BAR -->
+    <div id="actionBar" class="fixed bottom-0 left-0 right-0 w-full action-bar hidden z-50">
+        <div class="max-w-md mx-auto px-4 pt-3 flex gap-3">
+            <button onclick="resetApp()" class="flex-1 bg-[#1a1a1a] border border-gray-700 hover:bg-gray-800 text-white py-3.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 active:scale-95">
+                <i class="fa-solid fa-rotate-left"></i> <span id="btnRetry">ดูใหม่</span>
+            </button>
+            <button onclick="saveCard()" id="btnSave" class="flex-1 bg-[#cc3333] hover:bg-[#aa2222] text-white py-3.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 active:scale-95 shadow-lg">
+                <i class="fa-solid fa-download"></i> <span id="btnSaveTxt">บันทึกรูป</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.documentElement.style.setProperty('--sat', 'env(safe-area-inset-top)');
+        document.documentElement.style.setProperty('--sab', 'env(safe-area-inset-bottom)');
+
+        let curLang = 'th';
+
+        // --- USER PROVIDED IMAGE URLS ---
+        const rawGalleryUrls = [
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Akakuchi.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Furaribi.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Gagoze.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Hyosube.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Inugami.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kamikiri.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kappa.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kasha.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Mikoshi-nyudo.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nekomata.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nukekubi.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuppeppo.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nurarihyon.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nure-onna.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuribotoke.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Otoroshi.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ouni.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Shokera.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ubume.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ushioni.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Uwan.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Waira.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yako.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-biko.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-uba.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-warau.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yuki-onna.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yume-no-seirei.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yurei.jpg",
+            "https://commons.wikimedia.org/wiki/Mehitotsubou.jpg", // The system will auto-patch this one
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Takiyasha_the_Witch_and_the_Skeleton_Spectre.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Tengu_and_whitish_flying_object.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Rokurokubi.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Karakasa_obake_Illustrated_by_Kan%C5%8D_Enshin.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Bakemono_Tango-ghost.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Bakemono_Tobyo.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Amabie_illustration.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Hajikkaki.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Kyakkai_Zukan_Nurikabe.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Tsuchigumo_Ekotoba_-_Tsuchigumo.jpg"
+        ];
+
+        // Process URLs into standard object array
+        const yokaiGallery = rawGalleryUrls.map(url => {
+            let finalUrl = url;
+            // Patch missing Special:FilePath
+            if (finalUrl.indexOf('Special:FilePath') === -1 && finalUrl.indexOf('/wiki/') !== -1) {
+                finalUrl = finalUrl.replace('/wiki/', '/wiki/Special:FilePath/');
+            }
+            
+            // Extract clean name from URL
+            let name = decodeURIComponent(finalUrl).split('/').pop();
+            name = name.replace(/^(Suushi_|Kyakkai_Zukan_|Bakemono_|Tsuchigumo_Ekotoba_-_)/i, '');
+            name = name.replace(/\.(jpg|jpeg|png|gif)$/i, '');
+            name = name.replace(/_/g, ' ');
+            name = name.replace(/Illustrated by.*/i, '').trim();
+            
+            return { name: name, url: finalUrl };
+        });
+
+        // --- DICTIONARY ---
+        const dict = {
+            th: {
+                mainTitle: "ทำนายดวงชะตากับ<br>โยไค", subTitle: "ค้นพบชะตาชีวิตและโยไคผู้พิทักษ์ของคุณ",
+                formHeader: "กรอกข้อมูลของคุณ", formSub: "ข้อมูลของคุณจะปลุกโยไคและเปิดเผยดวงชะตา",
+                lblNickname: "ชื่อเล่น", lblDob: "วัน/เดือน/ปีเกิด", btnSubmit: "ทำนายดวงชะตา",
+                loading: "กำลังอัญเชิญโยไคผู้พิทักษ์...",
+                guardian: "โยไคผู้พิทักษ์ของ", 
+                l2: "เลขนำโชค 2 ตัว", l3: "เลขนำโชค 3 ตัว", l6: "เลขนำโชค 6 ตัว",
+                lblWork: "ชะตาการงาน", lblFinance: "ชะตาการเงิน", lblLove: "ชะตาความรัก", lblHealth: "ชะตาสุขภาพ",
+                btnRetry: "ดูใหม่", btnSave: "บันทึกรูป",
+                datePrefix: "คำทำนายประจำวันที่",
+                numMeanings: ["เลขแห่งเสน่ห์และความร่วมมือ", "เลขแห่งการสร้างสรรค์และความสมดุล", "เลขแห่งความสำเร็จและความมั่นคง", "เลขแห่งโชคลาภและการเสี่ยงดวง", "เลขแห่งอำนาจบารมีและการเติบโต"]
+            },
+            en: {
+                mainTitle: "Yokai<br>Horoscope", subTitle: "Discover your fate and guardian Yokai",
+                formHeader: "Enter Your Details", formSub: "Your data will awaken your Yokai guardian",
+                lblNickname: "Nickname", lblDob: "Date of Birth", btnSubmit: "Read Fortune",
+                loading: "Summoning Guardian Spirit...",
+                guardian: "Guardian Spirit of", 
+                l2: "Lucky 2 Digits", l3: "Lucky 3 Digits", l6: "Lucky 6 Digits",
+                lblWork: "Career Fate", lblFinance: "Financial Fate", lblLove: "Love Fate", lblHealth: "Health Fate",
+                btnRetry: "Retry", btnSave: "Save Image",
+                datePrefix: "Horoscope for",
+                numMeanings: ["Number of Charm & Cooperation", "Number of Creation & Balance", "Number of Success & Stability", "Number of Fortune & Risk", "Number of Power & Growth"]
+            },
+            jp: {
+                mainTitle: "妖怪<br>運勢占い", subTitle: "あなたの運命と守護妖怪を発見する",
+                formHeader: "詳細を入力", formSub: "あなたの情報が守護妖怪を目覚めさせます",
+                lblNickname: "ニックネーム", lblDob: "生年月日", btnSubmit: "運勢を占う",
+                loading: "守護霊を召喚中...",
+                guardian: "の守護霊", 
+                l2: "ラッキー2桁", l3: "ラッキー3桁", l6: "ラッキー6桁",
+                lblWork: "仕事運", lblFinance: "金運", lblLove: "恋愛運", lblHealth: "健康運",
+                btnRetry: "もう一度", btnSave: "画像を保存",
+                datePrefix: "今日の運勢:",
+                numMeanings: ["魅力と協力の数字", "創造と調和の数字", "成功と安定の数字", "幸運と勝負の数字", "権力と成長の数字"]
+            }
+        };
+
+        // --- LONG PREDICTIONS (3-4 Lines) ---
+        const contentDB = {
+            yokai: {
+                th: "ความซื่อสัตย์ ความจงรักภักดี และความทุ่มเทที่คุณมีต่อเป้าหมาย จะได้รับการตอบแทนอย่างยิ่งใหญ่และสมเกียรติ แม้บางครั้งอาจต้องใช้เวลา แต่จงเชื่อมั่นว่าความดีและความจริงใจของคุณจะไม่ถูกลืมเลือน และผลตอบแทนที่ได้รับจะคุ้มค่ากับการรอคอยอย่างแน่นอน",
+                en: "Your honesty, loyalty, and dedication to your goals will be greatly and honorably rewarded. Even though it may take time, believe that your goodness and sincerity will never be forgotten. The rewards you receive will definitely be worth the wait.",
+                jp: "あなたの目標に対する誠実さ、忠誠心、そして献身は、大きく名誉ある形で報われるでしょう。時間がかかることもありますが、あなたの善良さと誠実さが忘れられることは決してないと信じてください。得られる報酬は待つだけの価値があるはずです。"
+            },
+            work: {
+                th: [
+                    "การงานของคุณในช่วงนี้มีความโดดเด่นเป็นพิเศษ จะมีผู้ใหญ่คอยให้การสนับสนุนและมอบหมายโปรเจกต์สำคัญให้ทำ แม้ว่างานจะหนักและต้องใช้ความรับผิดชอบสูง แต่ผลลัพธ์ที่ได้จะนำมาซึ่งความสำเร็จและชื่อเสียง ขอให้ระวังเรื่องการสื่อสารกับเพื่อนร่วมงานเพื่อป้องกันความเข้าใจผิด",
+                    "ช่วงเวลานี้เป็นจังหวะแห่งการเปลี่ยนแปลงในหน้าที่การงาน อาจมีการโยกย้ายตำแหน่งหรือได้รับข้อเสนอใหม่ที่ท้าทายกว่าเดิม คุณจะต้องใช้ความอดทนและการปรับตัวอย่างมากในช่วงแรก แต่ขอให้เชื่อมั่นในศักยภาพของตนเอง แล้วคุณจะสามารถผ่านพ้นอุปสรรคทุกอย่างไปได้อย่างสวยงาม"
+                ],
+                en: [
+                    "Your career is currently outstanding. You will receive strong support from seniors and be assigned important projects. Although the workload is heavy, the results will certainly bring success and reputation. Please be careful with communication among colleagues.",
+                    "This is a period of transition in your career. There might be a change in position or a new, challenging offer. You will need a lot of patience and adaptability at first, but believe in your potential. You will beautifully overcome all obstacles and thrive."
+                ],
+                jp: [
+                    "この時期、あなたの仕事運は特に際立っています。目上の人からの支援があり、重要なプロジェクトを任されるでしょう。仕事は大変ですが、その結果は必ず成功と名声をもたらします。同僚との誤解を防ぐため、コミュニケーションには十分注意してください。",
+                    "今は仕事上の変化の時期です。部署異動や、より挑戦的な新しいオファーを受ける可能性があります。最初は多くの忍耐と適応力が必要になりますが、自分の可能性を信じてください。そうすれば、すべての障害を見事に乗り越えることができるでしょう。"
+                ]
+            },
+            finance: {
+                th: [
+                    "ดวงการเงินกำลังเปิดกว้าง มีเกณฑ์ได้รับลาภลอยหรือเงินก้อนโตจากแหล่งที่คุณไม่คาดคิด เหมาะสำหรับการลงทุนระยะสั้นหรือการเก็งกำไร อย่างไรก็ตามควรระมัดระวังเรื่องการใช้จ่ายตามอารมณ์ เพราะอาจทำให้เงินที่หามาได้หมดไปกับสิ่งของที่ไม่จำเป็น ควรแบ่งเงินส่วนหนึ่งไว้เป็นเงินออม",
+                    "การเงินของคุณอยู่ในสภาวะทรงตัว รายรับและรายจ่ายมีความสมดุลกันดี หากใครที่เคยเป็นหนี้คุณเขาจะนำเงินมาคืนให้ในเร็วๆ นี้ เป็นช่วงเวลาที่ดีในการเริ่มต้นศึกษาเรื่องการวางแผนการเงินหรือการลงทุนระยะยาวเพื่อสร้างความมั่นคงในอนาคต"
+                ],
+                en: [
+                    "Your financial luck is wide open. There's a chance of receiving sudden windfalls or a large sum of money from unexpected sources. It's suitable for short-term investments. However, be cautious about emotional spending, as it might drain your money on unnecessary things.",
+                    "Your finances are in a stable condition. Income and expenses are well balanced. If someone owes you money, they will return it to you very soon. It is a great time to start learning about financial planning or long-term investments to build future stability."
+                ],
+                jp: [
+                    "金運が開けています。思いがけないところから臨時収入や大金を得る予感があります。短期投資や投機に適しています。しかし、感情的な出費には注意してください。不必要なものにお金を使ってしまう可能性があります。一部を貯蓄に回すことをお勧めします。",
+                    "金運は安定した状態にあります。収入と支出のバランスが良く取れています。もしあなたに借金をしている人がいれば、近いうちに返済されるでしょう。将来の安定のために、財務計画や長期投資について学び始めるのに非常に良い時期です。"
+                ]
+            },
+            love: {
+                th: [
+                    "สำหรับคนโสดมีโอกาสได้พบเจอคนที่มีเสน่ห์ดึงดูดจากการเดินทางหรือการทำงาน ซึ่งอาจพัฒนาไปสู่ความสัมพันธ์ที่ดีได้ในอนาคต ส่วนคนมีคู่ควรหาเวลาเติมความหวานให้กัน ระวังความหงุดหงิดหรือเรื่องจุกจิกเล็กน้อยที่อาจบานปลายกลายเป็นปัญหาใหญ่ได้ ให้ใช้เหตุผลและรับฟังกันให้มากขึ้น",
+                    "เสน่ห์ของคุณในช่วงนี้แรงเป็นพิเศษ ทำให้มีคนเข้ามาขายขนมจีบมากมาย แต่ต้องระวังให้ดีเพราะอาจมีคนที่มีเจ้าของแล้วเข้ามาพัวพันให้เกิดปัญหาความรักซ้อนได้ สำหรับคนที่มีครอบครัวแล้ว ความสัมพันธ์จะมีความมั่นคงและเป็นที่พึ่งพิงทางใจให้กันและกันได้อย่างดีเยี่ยม"
+                ],
+                en: [
+                    "For singles, there is a chance to meet someone highly attractive through travel or work, which could develop into a good relationship. Couples should find time to add sweetness to their relationship. Beware of minor irritations that could escalate. Listen to each other more.",
+                    "Your charm is extraordinarily strong right now, attracting many admirers. However, be very careful as someone who is already taken might get involved, causing a complicated love triangle. For those with a family, the relationship will be highly stable and supportive."
+                ],
+                jp: [
+                    "独身者は、旅行や仕事を通じて魅力的な人と出会うチャンスがあります。これは将来、良い関係に発展する可能性があります。カップルは、お互いに甘い時間を作るべきです。些細なイライラが大きな問題に発展する可能性があるので注意してください。",
+                    "この時期、あなたの魅力は特別に高く、多くの人がアプローチしてくるでしょう。しかし、すでにパートナーがいる人が関わってきて、複雑な恋愛問題を引き起こす可能性があるので十分に注意してください。すでに家族がいる人は、関係が安定し、良い支えとなるでしょう。"
+                ]
+            },
+            health: {
+                th: [
+                    "สุขภาพร่างกายโดยรวมอยู่ในเกณฑ์ที่ดี มีพลังงานเหลือล้นพร้อมรับมือกับทุกสถานการณ์ แต่ควรระมัดระวังเรื่องความเครียดสะสมจากการทำงานที่อาจส่งผลให้เกิดอาการปวดไมเกรน หรือออฟฟิศซินโดรมบริเวณคอบ่าไหล่ ควรหาเวลาพักผ่อน ยืดเส้นยืดสาย และดื่มน้ำให้เพียงพอในแต่ละวัน",
+                    "ดวงสุขภาพช่วงนี้ค่อนข้างอ่อนแอ มีเกณฑ์ล้มป่วยด้วยโรคตามฤดูกาลหรือโรคภูมิแพ้กำเริบ ควรหลีกเลี่ยงการอยู่ในที่ที่มีฝุ่นควันหรืออากาศแปรปรวน นอกจากนี้ให้ระมัดระวังอุบัติเหตุเล็กๆ น้อยๆ จากความรีบร้อนหรือความประมาทในการเดินทาง แนะนำให้สวดมนต์ก่อนออกจากบ้าน"
+                ],
+                en: [
+                    "Overall health is in good condition, with abundant energy ready to handle any situation. However, you should be cautious about accumulated stress from work, which may lead to migraines or office syndrome around the neck. Find time to rest, stretch, and drink enough water.",
+                    "Health luck is quite weak right now. You are prone to seasonal illnesses or allergy flare-ups. Avoid being in dusty areas or extreme weather changes. Additionally, be careful of minor accidents caused by rushing or carelessness while traveling. Stay calm."
+                ],
+                jp: [
+                    "全体的な健康状態は良好で、どんな状況にも対応できるエネルギーに満ち溢れています。しかし、仕事からの蓄積されたストレスが偏頭痛や首の凝りを引き起こす可能性があるので注意が必要です。休息の時間を持ち、ストレッチをし、十分な水分を補給してください。",
+                    "この時期の健康運はやや弱いです。季節性の病気やアレルギーの悪化で体調を崩す可能性があります。ほこりっぽい場所や天候の変動が激しい場所は避けてください。また、焦りや不注意による小さな事故にも注意が必要です。外出前に祈ることをお勧めします。"
+                ]
+            }
+        };
+
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        // --- APP LOGIC ---
+
+        function setLang(lang) {
+            curLang = lang;
+            const t = dict[lang];
+            
+            document.getElementById('mainTitle').innerHTML = t.mainTitle;
+            document.getElementById('subTitle').innerText = t.subTitle;
+            document.getElementById('formHeader').innerText = t.formHeader;
+            document.getElementById('formSub').innerText = t.formSub;
+            document.getElementById('lblNickname').innerText = t.lblNickname;
+            document.getElementById('lblDob').innerText = t.lblDob;
+            document.getElementById('btnSubmit').innerText = t.btnSubmit;
+            document.getElementById('loadingText').innerText = t.loading;
+            
+            document.getElementById('lblL2').innerText = t.l2;
+            document.getElementById('lblL3').innerText = t.l3;
+            document.getElementById('lblL6').innerText = t.l6;
+            
+            document.getElementById('lblWork').innerText = t.lblWork;
+            document.getElementById('lblFinance').innerText = t.lblFinance;
+            document.getElementById('lblLove').innerText = t.lblLove;
+            document.getElementById('lblHealth').innerText = t.lblHealth;
+            
+            document.getElementById('btnRetry').innerText = t.btnRetry;
+            document.getElementById('btnSaveTxt').innerText = t.btnSave;
+
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-[#cc3333]', 'text-white', 'border-[#cc3333]');
+            });
+            const activeBtn = document.getElementById(`btnLang${lang.toUpperCase()}`);
+            activeBtn.classList.add('active', 'bg-[#cc3333]', 'text-white', 'border-[#cc3333]');
+        }
+
+        function getDateFormatted() {
+            const today = new Date();
+            if(curLang === 'th') {
+                const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                return `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear() + 543}`;
+            } else if (curLang === 'jp') {
+                return `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+            } else {
+                return today.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+        }
+
+        function calculateDestiny() {
+            const name = document.getElementById('nickname').value.trim();
+            const dob = document.getElementById('dob').value;
+
+            if (!name || !dob) { 
+                alert(curLang === 'th' ? "กรุณากรอกข้อมูลให้ครบถ้วน" : (curLang === 'jp' ? "すべての項目に入力してください" : "Please fill all fields")); 
+                return; 
+            }
+
+            document.getElementById('inputSection').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('loadingState').classList.add('flex');
+            
+            window.scrollTo(0,0);
+
+            setTimeout(() => {
+                const yokaiObj = pick(yokaiGallery);
+                const img = document.getElementById('yokaiImage');
+                
+                // --- THE V12 IMAGE LOADING SYSTEM (Solid & Reliable) ---
+                // Using direct URLs and forcing cache bypass with crossOrigin
+                img.crossOrigin = "anonymous";
+                img.src = yokaiObj.url + (yokaiObj.url.includes('?') ? '&' : '?') + "t=" + new Date().getTime();
+                
+                // Fallback display if CORS fails (allows image to show, but might fail saving)
+                img.onerror = function() {
+                    console.log("CORS failed, removing crossOrigin to allow display.");
+                    this.onerror = null; 
+                    this.removeAttribute('crossorigin');
+                    this.src = yokaiObj.url; 
+                };
+                
+                document.getElementById('yokaiNameTitle').innerText = yokaiObj.name;
+                const guardianTxt = dict[curLang].guardian;
+                document.getElementById('yokaiGuardianLabel').innerText = curLang === 'jp' ? `${name} ${guardianTxt}` : `${guardianTxt} ${name}`;
+                
+                document.getElementById('textYokai').innerText = contentDB.yokai[curLang];
+                document.getElementById('textWork').innerText = pick(contentDB.work[curLang]);
+                document.getElementById('textFinance').innerText = pick(contentDB.finance[curLang]);
+                document.getElementById('textLove').innerText = pick(contentDB.love[curLang]);
+                document.getElementById('textHealth').innerText = pick(contentDB.health[curLang]);
+                
+                document.getElementById('cardDailyDate').innerText = `${dict[curLang].datePrefix} ${getDateFormatted()}`;
+
+                document.getElementById('lucky2').innerText = Math.floor(Math.random()*90 + 10).toString();
+                document.getElementById('lucky3').innerText = Math.floor(Math.random()*900 + 100).toString();
+                document.getElementById('lucky6').innerText = Math.floor(Math.random()*900000 + 100000).toString();
+                
+                const meanings = dict[curLang].numMeanings;
+                document.getElementById('desc2').innerText = pick(meanings);
+                document.getElementById('desc3').innerText = pick(meanings);
+                document.getElementById('desc6').innerText = pick(meanings);
+
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('loadingState').classList.remove('flex');
+                
+                const res = document.getElementById('resultContainer');
+                const action = document.getElementById('actionBar');
+                
+                res.classList.remove('hidden');
+                res.classList.add('fade-in');
+                action.classList.remove('hidden');
+
+            }, 1500);
+        }
+
+        function resetApp() {
+            document.getElementById('resultContainer').classList.add('hidden');
+            document.getElementById('resultContainer').classList.remove('fade-in');
+            document.getElementById('actionBar').classList.add('hidden');
+            document.getElementById('inputSection').classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
+
+        async function saveCard() {
+            const btnTxt = document.getElementById('btnSaveTxt');
+            const originalText = btnTxt.innerText;
+            btnTxt.innerText = curLang === 'th' ? "กำลังบันทึก..." : (curLang === 'jp' ? "保存中..." : "Saving...");
+            
+            const actionBar = document.getElementById('actionBar');
+            actionBar.style.display = 'none';
+            
+            await new Promise(resolve => setTimeout(resolve, 150));
+            
+            const card = document.getElementById('destinyCard');
+            
+            try {
+                const canvas = await html2canvas(card, { 
+                    scale: 2, 
+                    useCORS: true,       
+                    allowTaint: false, 
+                    backgroundColor: "#161616"
+                });
+
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                
+                // Directly trigger Download (Most reliable cross-platform method)
+                const link = document.createElement('a');
+                link.download = `Yokai-Fate-${Date.now()}.jpg`;
+                link.href = dataUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                btnTxt.innerText = curLang === 'th' ? "สำเร็จ!" : "Done!";
+
+            } catch (e) {
+                console.error("Save error:", e);
+                alert(curLang === 'th' ? "เกิดข้อผิดพลาดในการบันทึกภาพ กรุณาใช้วิธี แคปหน้าจอ (Screenshot) แทนครับ" : "Error saving image. Please take a screenshot.");
+                btnTxt.innerText = "Error";
+            }
+
+            setTimeout(() => {
+                btnTxt.innerText = originalText;
+                actionBar.style.display = 'flex';
+            }, 2000);
+        }
+
+        // Initialize Language
+        setLang('th');
+    </script>
+</body>
+</html>
+
+
