@@ -38,14 +38,11 @@ padding: 0 0 6px;
 flex-shrink: 0;
 }
 
-/* Portrait container: fills remaining height after header/controls */
 #container {
 position: relative;
 width: 100%;
-/* 9:16 aspect ratio for portrait */
 aspect-ratio: 9 / 16;
 max-height: calc(100dvh - 110px);
-/* keep width consistent with max-height */
 max-width: calc((100dvh - 110px) * 9 / 16);
 background: #000;
 border: 1px solid #8080ff33;
@@ -53,13 +50,13 @@ overflow: hidden;
 flex-shrink: 0;
 }
 
+/* Video is hidden — we draw it manually onto canvas so both
+the mirrored image and AR overlays share one coordinate system */
 #video {
 position: absolute;
-inset: 0;
-width: 100%;
-height: 100%;
-object-fit: cover;
-transform: scaleX(-1);
+width: 1px; height: 1px;
+opacity: 0;
+pointer-events: none;
 }
 
 #canvas {
@@ -67,8 +64,7 @@ position: absolute;
 inset: 0;
 width: 100%;
 height: 100%;
-pointer-events: none;
-transform: scaleX(-1);
+display: block;
 }
 
 #log {
@@ -129,7 +125,7 @@ box-shadow: 0 0 10px #8080ff44;
 </div>
 
 <script>
-// ─── logger ──────────────────────────────────────────────────────
+// ─── Logger ──────────────────────────────────────────────────────
 const logEl    = document.getElementById('log');
 const statusEl = document.getElementById('status');
 const lines    = [];
@@ -143,7 +139,6 @@ function setStatus(msg, state) {
   statusEl.style.color = state === true ? '#44ff88' : state === false ? '#ff4466' : '#8080ff99';
 }
 
-// ─── script loader ───────────────────────────────────────────────
 function loadScript(src) {
   return new Promise((res, rej) => {
     const s = document.createElement('script');
@@ -154,7 +149,7 @@ function loadScript(src) {
   });
 }
 
-// ─── mode toggle ─────────────────────────────────────────────────
+// ─── Mode toggle ─────────────────────────────────────────────────
 let mode = 'hat';
 document.querySelectorAll('.btn[data-mode]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -164,7 +159,7 @@ document.querySelectorAll('.btn[data-mode]').forEach(btn => {
   });
 });
 
-// ─── elements ────────────────────────────────────────────────────
+// ─── Canvas setup ────────────────────────────────────────────────
 const video     = document.getElementById('video');
 const canvas    = document.getElementById('canvas');
 const ctx       = canvas.getContext('2d');
@@ -182,86 +177,79 @@ function syncCanvasSize() {
   dbg(`canvas: ${renderW}×${renderH}`);
 }
 
-// ─── object-fit:cover coordinate mapping ─────────────────────────
-// MediaPipe landmarks are normalised to the RAW video resolution.
-// Because the video is displayed with object-fit:cover inside the
-// container we must apply the same cover scale+offset so that
-// drawing coordinates align with visible pixels.
+// ─── Coordinate mapping ──────────────────────────────────────────
+//
+// KEY DESIGN DECISION:
+//   • The <video> element is invisible (opacity:0, 1px).
+//   • Each frame we draw the video onto <canvas> with ctx.scale(-1,1)
+//     so the mirrored selfie image is rendered directly into canvas pixels.
+//   • MediaPipe landmarks are in raw (un-mirrored) video space [0,1].
+//   • We flip landmark X → (1 - nx) so it matches the mirrored canvas image.
+//   • Then apply object-fit:cover scale+offset so landmarks align with
+//     how the video is cropped inside the canvas.
+//
+// This way there is exactly ONE coordinate system and NO CSS transforms
+// are fighting each other. Rotation axes are therefore correct.
+
 function coverMap(nx, ny) {
   const vw = video.videoWidth  || renderW;
   const vh = video.videoHeight || renderH;
+
+  // Mirror X to match the flipped video drawn on canvas
+  const mx = 1 - nx;
+
   const scale = Math.max(renderW / vw, renderH / vh);
   const dx    = (renderW - vw * scale) / 2;
   const dy    = (renderH - vh * scale) / 2;
+
   return {
-    x: nx * vw * scale + dx,
+    x: mx * vw * scale + dx,
     y: ny * vh * scale + dy,
-    s: scale   // pixel scale factor (useful for sizing graphics)
+    s: scale
   };
 }
 
 function lm(lms, i) { return coverMap(lms[i].x, lms[i].y); }
 
-// ─── smoothing ────────────────────────────────────────────────────
+// ─── Smoothing ───────────────────────────────────────────────────
 const S = {};
 function sm(k, v, a = 0.3) {
   S[k] = S[k] === undefined ? v : S[k] * (1 - a) + v * a;
   return S[k];
 }
 
-// ─── Head Pose Estimation (6DOF) ─────────────────────────────────
-//
-// We derive pitch (X), yaw (Y), roll (Z) from stable facial landmarks.
-//
-// Yaw   (left/right turn) — horizontal distance between nose tip and
-//        midpoint of the two cheek landmarks relative to face width.
-// Pitch (up/down tilt)   — vertical position of nose tip relative to
-//        the line between forehead and chin.
-// Roll  (head tilt)      — angle of the line connecting left/right
-//        outer eye corners.
-//
-// Translation X/Y is the canvas position of the face centre.
-// Translation Z (depth proxy) = face width → used to scale graphics.
-
+// ─── Head pose (6DOF) ────────────────────────────────────────────
 function getHeadPose(lms) {
-  // Key landmarks (MediaPipe indices)
-  const noseTip   = lm(lms, 1);    // nose tip
-  const noseBase  = lm(lms, 168);  // between eyes (nose bridge)
-  const chin      = lm(lms, 152);  // chin bottom
-  const forehead  = lm(lms, 10);   // forehead top
-  const leftCheek = lm(lms, 234);  // left cheek edge
-  const rightCheek= lm(lms, 454);  // right cheek edge
-  const leftEye   = lm(lms, 33);   // left eye outer
-  const rightEye  = lm(lms, 263);  // right eye outer
+  const noseTip    = lm(lms, 1);
+  const chin       = lm(lms, 152);
+  const forehead   = lm(lms, 10);
+  const leftCheek  = lm(lms, 454);  // swapped because X is mirrored
+  const rightCheek = lm(lms, 234);
+  const leftEye    = lm(lms, 263);  // swapped
+  const rightEye   = lm(lms, 33);
 
-  // Face size in pixels
   const faceW = Math.abs(rightCheek.x - leftCheek.x);
   const faceH = Math.abs(chin.y - forehead.y);
-  const faceScale = lm(lms, 234).s; // pixel scale from cover mapping
+  const cx    = (leftCheek.x + rightCheek.x) / 2;
+  const cy    = (forehead.y  + chin.y)        / 2;
 
-  // Face centre (translation X, Y)
-  const cx = (leftCheek.x + rightCheek.x) / 2;
-  const cy = (forehead.y + chin.y) / 2;
-
-  // Roll: angle of eye line (Z rotation)
+  // Roll: angle of the eye line — positive = head tilted right
   const eyeDx = rightEye.x - leftEye.x;
   const eyeDy = rightEye.y - leftEye.y;
-  const roll  = Math.atan2(eyeDy, eyeDx);  // radians
+  const roll  = Math.atan2(eyeDy, eyeDx);
 
-  // Yaw: nose tip horizontal offset from face centre, normalised by faceW/2
-  // Positive = face turned right (in mirrored view = user's left)
+  // Yaw: nose tip offset from face centre; after mirror flip this is correct
   const yawRaw = (noseTip.x - cx) / (faceW * 0.5);
-  const yaw    = yawRaw * (Math.PI / 2.2);  // map [-1,1] → ~±82°
+  const yaw    = yawRaw * (Math.PI / 2.5);
 
-  // Pitch: nose tip vertical position relative to eye-chin span
-  // When looking up, nose tip moves toward forehead → negative pitch
-  const eyeMidY   = (leftEye.y + rightEye.y) / 2;
-  const pitchRaw  = (noseTip.y - eyeMidY) / (faceH * 0.5);
-  const pitch     = (pitchRaw - 0.55) * (Math.PI / 1.8);  // calibrated offset
+  // Pitch: nose-tip vertical relative to eye midpoint
+  const eyeMidY  = (leftEye.y + rightEye.y) / 2;
+  const pitchRaw = (noseTip.y - eyeMidY) / (faceH * 0.5);
+  const pitch    = (pitchRaw - 0.55) * (Math.PI / 1.8);
 
   return {
-    cx: sm('px', cx),
-    cy: sm('py', cy),
+    cx:    sm('px', cx),
+    cy:    sm('py', cy),
     faceW: sm('fw', faceW),
     faceH: sm('fh', faceH),
     roll:  sm('rl', roll,  0.25),
@@ -270,132 +258,109 @@ function getHeadPose(lms) {
   };
 }
 
-// ─── Apply 3D-ish transform to canvas ctx ────────────────────────
-//
-// True 3D projection would need WebGL. Here we simulate it on
-// Canvas2D by combining:
-//   • translate to face anchor point
-//   • 2D rotate (roll — exact)
-//   • horizontal skew (yaw  — approximates perspective foreshortening)
-//   • vertical   skew (pitch — same)
-//   • uniform scale (face size = depth proxy)
-//
-// This gives convincing 3D look without a full projection matrix.
-
+// ─── Pose transform ───────────────────────────────────────────────
+// Translates ctx to face anchor, applies roll+yaw+pitch as 2D transform,
+// then scales by face size so all graphics are drawn in "face-space" units.
 function applyPoseTransform(pose, anchorOffsetY = 0) {
   const { cx, cy, faceW, roll, yaw, pitch } = pose;
 
   ctx.translate(cx, cy + anchorOffsetY);
   ctx.rotate(roll);
 
-  // Perspective skew coefficients
-  // yaw:   shear X axis by tan(yaw)   → sides lean in/out
-  // pitch: shear Y axis by tan(pitch) → top/bottom lean in/out
-  const kYaw   = Math.tan(yaw)   * 0.6;
-  const kPitch = Math.tan(pitch) * 0.5;
+  // Perspective shear: simulates 3-D rotation on a 2-D canvas
+  const kYaw   =  Math.tan(yaw)   * 0.55;
+  const kPitch = -Math.tan(pitch) * 0.45;  // negative: pitch up = graphic leans back
 
-  ctx.transform(
-    1,       kPitch,   // [scaleX, skewY]
-    kYaw,    1,        // [skewX,  scaleY]
-    0,       0         // [translateX, translateY] — already done above
-  );
+  ctx.transform(1, kPitch, kYaw, 1, 0, 0);
 
-  // Z-depth scale: face appears smaller when farther
+  // Scale so graphics auto-size with distance
   const baseScale = faceW / 220;
   ctx.scale(baseScale, baseScale);
 }
 
-// ─── Draw: Hat ───────────────────────────────────────────────────
+// ─── Draw: Mirrored video frame ───────────────────────────────────
+function drawVideoFrame() {
+  if (video.readyState < 2) return;
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const scale = Math.max(renderW / vw, renderH / vh);
+  const dw    = vw * scale, dh = vh * scale;
+  const dx    = (renderW - dw) / 2;
+  const dy    = (renderH - dh) / 2;
+
+  ctx.save();
+  // Flip horizontally around the canvas centre
+  ctx.translate(renderW, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, dx, dy, dw, dh);
+  ctx.restore();
+}
+
+// ─── Draw: Hat ────────────────────────────────────────────────────
 function drawHat(lms, pose) {
-  // Forehead top as anchor; offset upward so hat sits on head
-  const top = lm(lms, 10);
-  const offsetY = top.y - pose.cy - pose.faceH * 0.1;
+  const top     = lm(lms, 10);
+  const offsetY = top.y - pose.cy - pose.faceH * 0.12;
 
   ctx.save();
   applyPoseTransform(pose, offsetY);
 
-  // All coordinates below are in "face-space" units (base faceW ≈ 220px)
   const hw = 170, hh = 190, brimH = 30;
 
-  // Brim
   ctx.beginPath();
   ctx.ellipse(0, brimH * 0.3, hw * 0.52, brimH * 0.5, 0, 0, Math.PI * 2);
   const brimG = ctx.createLinearGradient(-hw * 0.52, 0, hw * 0.52, 0);
-  brimG.addColorStop(0,   '#1a1a1a');
-  brimG.addColorStop(0.5, '#3c3c3c');
-  brimG.addColorStop(1,   '#111');
-  ctx.fillStyle = brimG;
-  ctx.fill();
+  brimG.addColorStop(0, '#1a1a1a'); brimG.addColorStop(.5, '#3c3c3c'); brimG.addColorStop(1, '#111');
+  ctx.fillStyle = brimG; ctx.fill();
 
-  // Body
   const bx = -hw * 0.32, by = -hh * 0.88, bw = hw * 0.64, bh = hh * 0.88;
   ctx.beginPath();
-  ctx.moveTo(bx + bw * 0.08, by + bh);
-  ctx.lineTo(bx, by + bh);
-  ctx.quadraticCurveTo(bx - bw * 0.04, by + bh * 0.5, bx + bw * 0.1, by);
-  ctx.quadraticCurveTo(0, by - bh * 0.07, bx + bw * 0.9, by);
-  ctx.quadraticCurveTo(bx + bw * 1.04, by + bh * 0.5, bx + bw, by + bh);
-  ctx.lineTo(bx + bw * 0.92, by + bh);
-  ctx.closePath();
+  ctx.moveTo(bx + bw * .08, by + bh); ctx.lineTo(bx, by + bh);
+  ctx.quadraticCurveTo(bx - bw * .04, by + bh * .5, bx + bw * .1, by);
+  ctx.quadraticCurveTo(0, by - bh * .07, bx + bw * .9, by);
+  ctx.quadraticCurveTo(bx + bw * 1.04, by + bh * .5, bx + bw, by + bh);
+  ctx.lineTo(bx + bw * .92, by + bh); ctx.closePath();
   const bodyG = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
-  bodyG.addColorStop(0,   '#2d2d2d');
-  bodyG.addColorStop(0.4, '#555');
-  bodyG.addColorStop(1,   '#111');
-  ctx.fillStyle = bodyG;
-  ctx.fill();
+  bodyG.addColorStop(0, '#2d2d2d'); bodyG.addColorStop(.4, '#555'); bodyG.addColorStop(1, '#111');
+  ctx.fillStyle = bodyG; ctx.fill();
 
-  // Ribbon
   ctx.fillStyle = '#7070ff';
-  ctx.fillRect(bx + bw * 0.02, by + bh * 0.85, bw * 0.96, bh * 0.09);
-
+  ctx.fillRect(bx + bw * .02, by + bh * .85, bw * .96, bh * .09);
   ctx.restore();
 }
 
-// ─── Draw: Glasses ───────────────────────────────────────────────
+// ─── Draw: Glasses ────────────────────────────────────────────────
 function drawGlasses(lms, pose) {
-  const le = lm(lms, 33), re = lm(lms, 263);
-  const offsetY = ((le.y + re.y) / 2) - pose.cy;
-  const eyeSpan = Math.abs(re.x - le.x);          // actual pixel gap
-  const r = (eyeSpan / (pose.faceW / 220)) * 0.38; // scale to pose units
+  const le = lm(lms, 263), re = lm(lms, 33);  // mirrored: 263=left, 33=right
+  const offsetY  = ((le.y + re.y) / 2) - pose.cy;
+  const eyeSpan  = Math.abs(re.x - le.x);
+  const poseUnit = pose.faceW / 220;
+  const r        = (eyeSpan / poseUnit) * 0.38;
+  const halfSpan = (eyeSpan / poseUnit) * 0.5;
+  const lx = -halfSpan, rx = halfSpan;
 
   ctx.save();
   applyPoseTransform(pose, offsetY);
-
-  // In pose-space: left eye at –half_span, right at +half_span
-  const halfSpan = (eyeSpan / (pose.faceW / 220)) * 0.5;
-  const lx = -halfSpan, rx = halfSpan;
-  const lw = r * 0.04 * 220 / 220; // lineWidth in pose units
-
   ctx.lineWidth = r * 0.09;
+
   for (const ex of [lx, rx]) {
-    ctx.beginPath();
-    ctx.ellipse(ex, 0, r, r * 0.7, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(80,80,255,0.18)';
-    ctx.fill();
-    ctx.strokeStyle = '#3030ee';
-    ctx.stroke();
-    // glare
+    ctx.beginPath(); ctx.ellipse(ex, 0, r, r * .7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(80,80,255,0.18)'; ctx.fill();
+    ctx.strokeStyle = '#3030ee'; ctx.stroke();
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(ex - r * 0.2, -r * 0.2, r * 0.18, Math.PI * 1.1, Math.PI * 1.55);
-    ctx.strokeStyle = 'rgba(220,220,255,0.5)';
-    ctx.lineWidth = r * 0.035;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(ex - r * .2, -r * .2, r * .18, Math.PI * 1.1, Math.PI * 1.55);
+    ctx.strokeStyle = 'rgba(220,220,255,.5)'; ctx.lineWidth = r * .035; ctx.stroke();
     ctx.restore();
   }
   ctx.lineWidth = r * 0.09;
-  ctx.beginPath(); ctx.moveTo(lx + r, 0); ctx.lineTo(rx - r, 0);
-  ctx.strokeStyle = '#5050ff'; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(lx - r, 0); ctx.lineTo(lx - r * 2.4, -r * 0.3);
-  ctx.strokeStyle = '#3030ee'; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(rx + r, 0); ctx.lineTo(rx + r * 2.4, -r * 0.3);
-  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lx + r, 0); ctx.lineTo(rx - r, 0); ctx.strokeStyle = '#5050ff'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lx - r, 0); ctx.lineTo(lx - r * 2.4, -r * .3); ctx.strokeStyle = '#3030ee'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rx + r, 0); ctx.lineTo(rx + r * 2.4, -r * .3); ctx.stroke();
   ctx.restore();
 }
 
-// ─── Draw: Crown ─────────────────────────────────────────────────
+// ─── Draw: Crown ──────────────────────────────────────────────────
 function drawCrown(lms, pose) {
-  const top = lm(lms, 10);
+  const top     = lm(lms, 10);
   const offsetY = top.y - pose.cy - pose.faceH * 0.05;
 
   ctx.save();
@@ -403,31 +368,26 @@ function drawCrown(lms, pose) {
 
   const cw = 130, ch = 90;
   const pts = [
-    [-cw,  0], [-cw, -ch * 0.5], [-cw * 0.6, -ch * 0.3], [-cw * 0.3, -ch],
-    [0, -ch * 0.4],
-    [cw * 0.3, -ch], [cw * 0.6, -ch * 0.3], [cw, -ch * 0.5], [cw, 0],
+    [-cw, 0], [-cw, -ch * .5], [-cw * .6, -ch * .3], [-cw * .3, -ch],
+    [0, -ch * .4],
+    [cw * .3, -ch], [cw * .6, -ch * .3], [cw, -ch * .5], [cw, 0],
   ];
   ctx.beginPath(); ctx.moveTo(...pts[0]);
   pts.slice(1).forEach(p => ctx.lineTo(...p));
   ctx.closePath();
   const cg = ctx.createLinearGradient(0, -ch, 0, 0);
-  cg.addColorStop(0,   '#ffe44a');
-  cg.addColorStop(0.5, '#ffaa00');
-  cg.addColorStop(1,   '#bb7700');
-  ctx.fillStyle = cg; ctx.fill();
-  ctx.strokeStyle = '#996600'; ctx.lineWidth = 2; ctx.stroke();
+  cg.addColorStop(0, '#ffe44a'); cg.addColorStop(.5, '#ffaa00'); cg.addColorStop(1, '#bb7700');
+  ctx.fillStyle = cg; ctx.fill(); ctx.strokeStyle = '#996600'; ctx.lineWidth = 2; ctx.stroke();
 
-  [[-cw * 0.3, -ch, '#ff3366'], [0, -ch * 0.4, '#33aaff'], [cw * 0.3, -ch, '#33ff88']].forEach(([gx, gy, gc]) => {
+  [[-cw * .3, -ch, '#ff3366'], [0, -ch * .4, '#33aaff'], [cw * .3, -ch, '#33ff88']].forEach(([gx, gy, gc]) => {
     ctx.beginPath(); ctx.arc(gx, gy, 8, 0, Math.PI * 2);
-    ctx.fillStyle = gc; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = gc; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
   });
   ctx.restore();
 }
 
 // ─── Draw: Mesh ───────────────────────────────────────────────────
 function drawMesh(lms) {
-  // Mesh doesn't need pose transform — drawn directly in screen space
   const EDGES = [
     [10,338],[338,297],[297,332],[332,284],[284,251],[251,389],[389,356],
     [356,454],[454,323],[323,361],[361,288],[288,397],[397,365],[365,379],
@@ -461,17 +421,11 @@ function drawMesh(lms) {
 async function startCamera() {
   let stream;
   try {
-    // Request portrait resolution (taller than wide)
     stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: 'user',
-        width:  { ideal: 720  },
-        height: { ideal: 1280 }
-      },
+      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
       audio: false
     });
-    const track = stream.getVideoTracks()[0];
-    const s = track.getSettings();
+    const s = stream.getVideoTracks()[0].getSettings();
     dbg(`Camera ${s.width}×${s.height} ✓`, '#44ff88');
   } catch (e) {
     dbg('Camera: ' + e.message, '#ff4466');
@@ -484,28 +438,23 @@ async function startCamera() {
   await video.play();
 
   syncCanvasSize();
-
   let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(syncCanvasSize, 200);
-  });
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(syncCanvasSize, 200); });
 
-  dbg(`video src: ${video.videoWidth}×${video.videoHeight}`, '#44ff88');
+  dbg(`video: ${video.videoWidth}×${video.videoHeight}`, '#44ff88');
   setStatus('กำลังโหลด face model...', null);
 
   const faceMesh = new FaceMesh({
     locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`
   });
-  faceMesh.setOptions({
-    maxNumFaces:            1,
-    refineLandmarks:        false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence:  0.5,
-  });
+  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
   faceMesh.onResults(results => {
     ctx.clearRect(0, 0, renderW, renderH);
+
+    // Always draw the mirrored video frame first
+    drawVideoFrame();
+
     if (!results.multiFaceLandmarks?.length) return;
     const lms  = results.multiFaceLandmarks[0];
     const pose = getHeadPose(lms);
