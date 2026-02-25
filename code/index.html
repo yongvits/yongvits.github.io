@@ -3,7 +3,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Face AR</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
@@ -16,49 +16,59 @@ font-family: ‘Space Mono’, monospace;
 display: flex;
 flex-direction: column;
 align-items: center;
-justify-content: center;
+justify-content: flex-start;
 min-height: 100vh;
-gap: 14px;
+overflow-x: hidden;
 }
 
 h1 {
-font-size: 0.9rem;
+font-size: 0.75rem;
 letter-spacing: 0.35em;
 color: #8080ff;
 text-transform: uppercase;
 text-shadow: 0 0 18px #8080ff66;
+padding: 14px 0 10px;
 }
 
+/* container fills full width, height = width * 4/3 for 4:3 camera */
 #container {
 position: relative;
+width: 100%;
+max-width: 640px;
 border: 1px solid #8080ff33;
-border-radius: 6px;
 overflow: hidden;
-box-shadow: 0 0 40px #8080ff18;
+background: #000;
 }
 
 #video {
 display: block;
+width: 100%;
+height: 100%;
+object-fit: cover;
+/* mirror for selfie — canvas will mirror too */
 transform: scaleX(-1);
-background: #000;
 }
 
+/* canvas MUST match video exactly, no independent transform */
 #canvas {
 position: absolute;
 inset: 0;
-transform: scaleX(-1);
+width: 100%;
+height: 100%;
 pointer-events: none;
+/* mirror canvas to match mirrored video */
+transform: scaleX(-1);
 }
 
 #log {
 position: absolute;
-bottom: 8px;
-left: 8px;
-right: 8px;
-font-size: 0.6rem;
-color: #8080ffbb;
+bottom: 6px;
+left: 6px;
+right: 6px;
+font-size: 0.55rem;
+color: #44ff88bb;
 pointer-events: none;
-line-height: 1.6;
+line-height: 1.7;
 }
 
 #controls {
@@ -66,19 +76,25 @@ display: flex;
 gap: 8px;
 flex-wrap: wrap;
 justify-content: center;
+padding: 12px 8px;
+width: 100%;
+max-width: 640px;
 }
 
 .btn {
+flex: 1;
+min-width: 70px;
 background: transparent;
 border: 1px solid #8080ff55;
 color: #aac;
-padding: 7px 14px;
+padding: 8px 6px;
 font-family: ‘Space Mono’, monospace;
-font-size: 0.68rem;
-letter-spacing: 0.08em;
+font-size: 0.65rem;
+letter-spacing: 0.04em;
 cursor: pointer;
 border-radius: 3px;
 transition: all 0.15s;
+text-align: center;
 }
 .btn:hover, .btn.active {
 background: #8080ff22;
@@ -88,9 +104,10 @@ box-shadow: 0 0 10px #8080ff44;
 }
 
 #status {
-font-size: 0.68rem;
-letter-spacing: 0.12em;
+font-size: 0.65rem;
+letter-spacing: 0.1em;
 color: #8080ff99;
+padding: 4px 0 0;
 }
 </style>
 
@@ -98,14 +115,13 @@ color: #8080ff99;
 <body>
 
 <h1>✦ Face AR · Head Tracker</h1>
+<div id="status">กำลังเริ่มต้น...</div>
 
 <div id="container">
-  <video id="video" playsinline muted width="640" height="480"></video>
-  <canvas id="canvas" width="640" height="480"></canvas>
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="canvas"></canvas>
   <div id="log"></div>
 </div>
-
-<div id="status">กำลังเริ่มต้น...</div>
 
 <div id="controls">
   <button class="btn active" data-mode="hat">🎩 หมวก</button>
@@ -115,15 +131,14 @@ color: #8080ff99;
 </div>
 
 <script>
-// ── screen logger ────────────────────────────────────────
+// ── logger ────────────────────────────────────────────────
 const logEl    = document.getElementById('log');
 const statusEl = document.getElementById('status');
 const lines    = [];
-
 function dbg(msg, color) {
   console.log(msg);
-  lines.push(`<span style="color:${color||'#8080ffbb'}">${msg}</span>`);
-  if (lines.length > 6) lines.shift();
+  lines.push(`<span style="color:${color||'#44ff88bb'}">${msg}</span>`);
+  if (lines.length > 5) lines.shift();
   logEl.innerHTML = lines.join('<br>');
 }
 function setStatus(msg, state) {
@@ -131,18 +146,18 @@ function setStatus(msg, state) {
   statusEl.style.color = state === true ? '#44ff88' : state === false ? '#ff4466' : '#8080ff99';
 }
 
-// ── sequential script loader ─────────────────────────────
+// ── script loader ─────────────────────────────────────────
 function loadScript(src) {
   return new Promise((res, rej) => {
     const s = document.createElement('script');
-    s.src    = src;
+    s.src = src;
     s.onload  = () => { dbg('✓ ' + src.split('/').pop()); res(); };
-    s.onerror = () => { dbg('✗ ' + src.split('/').pop(), '#ff4466'); rej(new Error('load fail')); };
+    s.onerror = () => { dbg('✗ ' + src.split('/').pop(), '#ff4466'); rej(); };
     document.head.appendChild(s);
   });
 }
 
-// ── mode toggle ──────────────────────────────────────────
+// ── mode toggle ───────────────────────────────────────────
 let mode = 'hat';
 document.querySelectorAll('.btn[data-mode]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -152,20 +167,42 @@ document.querySelectorAll('.btn[data-mode]').forEach(btn => {
   });
 });
 
-// ── canvas / smoothing ───────────────────────────────────
-const video  = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx    = canvas.getContext('2d');
-const W = 640, H = 480;
+// ── video + canvas elements ───────────────────────────────
+const video     = document.getElementById('video');
+const canvas    = document.getElementById('canvas');
+const ctx       = canvas.getContext('2d');
+const container = document.getElementById('container');
 
+// Track actual rendered size for coordinate mapping
+let renderW = 0, renderH = 0;
+
+function syncCanvasSize() {
+  renderW = video.offsetWidth;
+  renderH = video.offsetHeight;
+  canvas.width  = renderW;
+  canvas.height = renderH;
+  // Sync container height so it doesn't collapse
+  container.style.height = renderH + 'px';
+}
+
+// ── coordinate helper ─────────────────────────────────────
+// MediaPipe returns normalised [0,1] coords relative to video source
+// We must scale them to the rendered canvas size
+function lm(lms, i) {
+  return {
+    x: lms[i].x * renderW,
+    y: lms[i].y * renderH
+  };
+}
+
+// ── smoothing ─────────────────────────────────────────────
 const S = {};
 function sm(k, v, a=0.32) {
   S[k] = (S[k] === undefined) ? v : S[k]*(1-a) + v*a;
   return S[k];
 }
-function lm(lms, i) { return { x: lms[i].x*W, y: lms[i].y*H }; }
 
-// ── AR draw functions ────────────────────────────────────
+// ── draw: hat ─────────────────────────────────────────────
 function drawHat(lms) {
   const top=lm(lms,10), l=lm(lms,234), r=lm(lms,454);
   const cx=sm('hx',(l.x+r.x)/2), cy=sm('hy',top.y), fw=sm('fw',Math.abs(r.x-l.x));
@@ -193,6 +230,7 @@ function drawHat(lms) {
   ctx.restore();
 }
 
+// ── draw: glasses ─────────────────────────────────────────
 function drawGlasses(lms) {
   const le=lm(lms,33), re=lm(lms,263);
   const lx=sm('glx',le.x), rx=sm('grx',re.x), cy=sm('gcy',(le.y+re.y)/2);
@@ -214,6 +252,7 @@ function drawGlasses(lms) {
   ctx.restore();
 }
 
+// ── draw: crown ───────────────────────────────────────────
 function drawCrown(lms) {
   const top=lm(lms,10), l=lm(lms,234), r=lm(lms,454);
   const cx=sm('crx',(l.x+r.x)/2), cy=sm('cry',top.y), fw=sm('cfw',Math.abs(r.x-l.x));
@@ -237,6 +276,7 @@ function drawCrown(lms) {
   ctx.restore();
 }
 
+// ── draw: mesh ────────────────────────────────────────────
 function drawMesh(lms) {
   const EDGES=[
     [10,338],[338,297],[297,332],[332,284],[284,251],[251,389],[389,356],
@@ -254,24 +294,32 @@ function drawMesh(lms) {
     [168,6],[6,197],[197,195],[195,5],[5,4],[4,1],[1,19],[19,94],
   ];
   ctx.save();
-  ctx.strokeStyle='rgba(100,130,255,0.3)'; ctx.lineWidth=.7;
+  ctx.strokeStyle='rgba(100,130,255,0.35)'; ctx.lineWidth=.8;
   EDGES.forEach(([a,b])=>{
     const p=lm(lms,a),q=lm(lms,b);
     ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke();
   });
-  ctx.fillStyle='rgba(140,200,255,0.6)';
-  lms.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x*W,p.y*H,1.2,0,Math.PI*2); ctx.fill(); });
+  ctx.fillStyle='rgba(140,200,255,0.65)';
+  lms.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x*renderW, p.y*renderH, 1.5, 0, Math.PI*2);
+    ctx.fill();
+  });
   ctx.restore();
 }
 
-// ── camera + mediapipe init ──────────────────────────────
+// ── camera + mediapipe ────────────────────────────────────
 async function startCamera() {
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480, facingMode:'user' }, audio:false });
+    // Use exact: false so mobile can pick best available resolution
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
     dbg('Camera OK ✓', '#44ff88');
   } catch(e) {
-    dbg('Camera error: ' + e.message, '#ff4466');
+    dbg('Camera: ' + e.message, '#ff4466');
     setStatus('ไม่สามารถเปิดกล้อง: ' + e.message, false);
     return;
   }
@@ -279,30 +327,44 @@ async function startCamera() {
   video.srcObject = stream;
   await new Promise(res => { video.onloadedmetadata = res; });
   await video.play();
+
+  // Sync canvas AFTER video has actual dimensions
+  syncCanvasSize();
+  window.addEventListener('resize', syncCanvasSize);
+
   dbg('Video playing ✓', '#44ff88');
   setStatus('กำลังโหลด face model...', null);
 
   const faceMesh = new FaceMesh({
     locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`
   });
-  faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:false, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  faceMesh.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
   faceMesh.onResults(results => {
-    ctx.clearRect(0,0,W,H);
+    ctx.clearRect(0, 0, renderW, renderH);
     if (!results.multiFaceLandmarks?.length) return;
     const lms = results.multiFaceLandmarks[0];
-    if      (mode==='hat')     drawHat(lms);
-    else if (mode==='glasses') drawGlasses(lms);
-    else if (mode==='crown')   drawCrown(lms);
-    else if (mode==='mesh')    drawMesh(lms);
+    if      (mode === 'hat')     drawHat(lms);
+    else if (mode === 'glasses') drawGlasses(lms);
+    else if (mode === 'crown')   drawCrown(lms);
+    else if (mode === 'mesh')    drawMesh(lms);
   });
 
   let firstFrame = true;
   async function pump() {
+    // Re-sync size every frame in case layout changed
+    if (video.offsetWidth !== renderW || video.offsetHeight !== renderH) {
+      syncCanvasSize();
+    }
     if (video.readyState >= 2) {
       await faceMesh.send({ image: video });
       if (firstFrame) {
         firstFrame = false;
-        dbg('Face tracking active ✓', '#44ff88');
+        dbg('Tracking active ✓', '#44ff88');
         setStatus('● tracking active', true);
       }
     }
@@ -311,7 +373,6 @@ async function startCamera() {
   pump();
 }
 
-// ── bootstrap: load mediapipe then start ─────────────────
 async function bootstrap() {
   setStatus('กำลังโหลด MediaPipe...');
   dbg('Loading scripts...');
@@ -319,8 +380,7 @@ async function bootstrap() {
     await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js');
     await startCamera();
   } catch(e) {
-    dbg('Error: ' + e.message, '#ff4466');
-    setStatus('โหลดไม่สำเร็จ: ' + e.message, false);
+    setStatus('โหลดไม่สำเร็จ', false);
   }
 }
 
