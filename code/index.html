@@ -16,7 +16,6 @@ font-family: ‘Space Mono’, monospace;
 display: flex;
 flex-direction: column;
 align-items: center;
-justify-content: flex-start;
 min-height: 100vh;
 overflow-x: hidden;
 }
@@ -27,36 +26,46 @@ letter-spacing: 0.35em;
 color: #8080ff;
 text-transform: uppercase;
 text-shadow: 0 0 18px #8080ff66;
-padding: 14px 0 10px;
+padding: 14px 0 6px;
 }
 
-/* container fills full width, height = width * 4/3 for 4:3 camera */
+#status {
+font-size: 0.65rem;
+letter-spacing: 0.1em;
+color: #8080ff99;
+padding: 0 0 8px;
+}
+
+/* Fixed container — does NOT resize after layout */
 #container {
 position: relative;
 width: 100%;
 max-width: 640px;
+/* Lock aspect ratio so container never jumps */
+aspect-ratio: 4 / 3;
+background: #000;
 border: 1px solid #8080ff33;
 overflow: hidden;
-background: #000;
+flex-shrink: 0;
 }
 
 #video {
-display: block;
-width: 100%;
-height: 100%;
-object-fit: cover;
-/* mirror for selfie — canvas will mirror too */
-transform: scaleX(-1);
-}
-
-/* canvas MUST match video exactly, no independent transform */
-#canvas {
+/* Fill container absolutely — no layout contribution */
 position: absolute;
 inset: 0;
 width: 100%;
 height: 100%;
+object-fit: cover;
+transform: scaleX(-1);
+}
+
+#canvas {
+position: absolute;
+inset: 0;
+/* canvas pixel size set via JS to match container */
+width: 100%;
+height: 100%;
 pointer-events: none;
-/* mirror canvas to match mirrored video */
 transform: scaleX(-1);
 }
 
@@ -66,7 +75,7 @@ bottom: 6px;
 left: 6px;
 right: 6px;
 font-size: 0.55rem;
-color: #44ff88bb;
+color: #44ff88cc;
 pointer-events: none;
 line-height: 1.7;
 }
@@ -90,24 +99,16 @@ color: #aac;
 padding: 8px 6px;
 font-family: ‘Space Mono’, monospace;
 font-size: 0.65rem;
-letter-spacing: 0.04em;
 cursor: pointer;
 border-radius: 3px;
 transition: all 0.15s;
 text-align: center;
 }
-.btn:hover, .btn.active {
+.btn.active, .btn:hover {
 background: #8080ff22;
 border-color: #8080ff;
 color: #fff;
 box-shadow: 0 0 10px #8080ff44;
-}
-
-#status {
-font-size: 0.65rem;
-letter-spacing: 0.1em;
-color: #8080ff99;
-padding: 4px 0 0;
 }
 </style>
 
@@ -167,38 +168,55 @@ document.querySelectorAll('.btn[data-mode]').forEach(btn => {
   });
 });
 
-// ── video + canvas elements ───────────────────────────────
+// ── elements ──────────────────────────────────────────────
 const video     = document.getElementById('video');
 const canvas    = document.getElementById('canvas');
 const ctx       = canvas.getContext('2d');
 const container = document.getElementById('container');
 
-// Track actual rendered size for coordinate mapping
+// renderW/H = canvas pixel dimensions, set ONCE and on window resize only
 let renderW = 0, renderH = 0;
 
 function syncCanvasSize() {
-  renderW = video.offsetWidth;
-  renderH = video.offsetHeight;
+  const w = container.offsetWidth;
+  const h = container.offsetHeight;
+  // Only update if actually changed — prevents layout feedback loop
+  if (w === renderW && h === renderH) return;
+  renderW = w;
+  renderH = h;
   canvas.width  = renderW;
   canvas.height = renderH;
-  // Sync container height so it doesn't collapse
-  container.style.height = renderH + 'px';
+  dbg(`canvas: ${renderW}×${renderH}`);
 }
 
-// ── coordinate helper ─────────────────────────────────────
-// MediaPipe returns normalised [0,1] coords relative to video source
-// We must scale them to the rendered canvas size
+// ── coordinate mapping ────────────────────────────────────
+// MediaPipe landmarks are normalised [0,1] relative to VIDEO source pixels.
+// Video is displayed with object-fit:cover inside the container, so we need
+// to account for the cover crop offset.
 function lm(lms, i) {
+  const p = lms[i];
+
+  // Video source resolution
+  const vw = video.videoWidth  || renderW;
+  const vh = video.videoHeight || renderH;
+
+  // Compute object-fit:cover scale and offset
+  const scaleX = renderW / vw;
+  const scaleY = renderH / vh;
+  const scale  = Math.max(scaleX, scaleY);          // cover = largest scale
+  const dx     = (renderW - vw * scale) / 2;        // horizontal offset
+  const dy     = (renderH - vh * scale) / 2;        // vertical offset
+
   return {
-    x: lms[i].x * renderW,
-    y: lms[i].y * renderH
+    x: p.x * vw * scale + dx,
+    y: p.y * vh * scale + dy,
   };
 }
 
 // ── smoothing ─────────────────────────────────────────────
 const S = {};
-function sm(k, v, a=0.32) {
-  S[k] = (S[k] === undefined) ? v : S[k]*(1-a) + v*a;
+function sm(k, v, a = 0.32) {
+  S[k] = S[k] === undefined ? v : S[k] * (1 - a) + v * a;
   return S[k];
 }
 
@@ -207,14 +225,12 @@ function drawHat(lms) {
   const top=lm(lms,10), l=lm(lms,234), r=lm(lms,454);
   const cx=sm('hx',(l.x+r.x)/2), cy=sm('hy',top.y), fw=sm('fw',Math.abs(r.x-l.x));
   const hw=fw*1.55, brimH=fw*0.17, hh=fw*1.0;
-
   ctx.save();
   ctx.beginPath();
   ctx.ellipse(cx, cy+brimH*.4, hw*.52, brimH*.48, 0, 0, Math.PI*2);
   const bg=ctx.createLinearGradient(cx-hw*.52,cy,cx+hw*.52,cy);
   bg.addColorStop(0,'#1a1a1a'); bg.addColorStop(.5,'#3c3c3c'); bg.addColorStop(1,'#111');
   ctx.fillStyle=bg; ctx.fill();
-
   const bx=cx-hw*.32, by=cy-hh*.88, bw=hw*.64, bh=hh*.88;
   ctx.beginPath();
   ctx.moveTo(bx+bw*.08,by+bh); ctx.lineTo(bx,by+bh);
@@ -235,7 +251,6 @@ function drawGlasses(lms) {
   const le=lm(lms,33), re=lm(lms,263);
   const lx=sm('glx',le.x), rx=sm('grx',re.x), cy=sm('gcy',(le.y+re.y)/2);
   const d=sm('gd',Math.abs(re.x-le.x)), r=d*.38;
-
   ctx.save(); ctx.lineWidth=d*.04;
   for (const ex of [lx, rx]) {
     ctx.beginPath(); ctx.ellipse(ex,cy,r,r*.7,0,0,Math.PI*2);
@@ -257,7 +272,6 @@ function drawCrown(lms) {
   const top=lm(lms,10), l=lm(lms,234), r=lm(lms,454);
   const cx=sm('crx',(l.x+r.x)/2), cy=sm('cry',top.y), fw=sm('cfw',Math.abs(r.x-l.x));
   const cw=fw*1.05, ch=fw*.52;
-
   ctx.save();
   const pts=[
     [cx-cw*.5,cy],[cx-cw*.5,cy-ch*.48],[cx-cw*.28,cy-ch*.3],[cx-cw*.14,cy-ch],
@@ -268,7 +282,6 @@ function drawCrown(lms) {
   const cg=ctx.createLinearGradient(cx,cy-ch,cx,cy);
   cg.addColorStop(0,'#ffe44a'); cg.addColorStop(.5,'#ffaa00'); cg.addColorStop(1,'#bb7700');
   ctx.fillStyle=cg; ctx.fill(); ctx.strokeStyle='#996600'; ctx.lineWidth=1.5; ctx.stroke();
-
   [[cx-cw*.14,cy-ch,'#ff3366'],[cx,cy-ch*.38,'#33aaff'],[cx+cw*.14,cy-ch,'#33ff88']].forEach(([gx,gy,gc])=>{
     ctx.beginPath(); ctx.arc(gx,gy,fw*.04,0,Math.PI*2);
     ctx.fillStyle=gc; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1; ctx.stroke();
@@ -296,14 +309,13 @@ function drawMesh(lms) {
   ctx.save();
   ctx.strokeStyle='rgba(100,130,255,0.35)'; ctx.lineWidth=.8;
   EDGES.forEach(([a,b])=>{
-    const p=lm(lms,a),q=lm(lms,b);
+    const p=lm(lms,a), q=lm(lms,b);
     ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke();
   });
-  ctx.fillStyle='rgba(140,200,255,0.65)';
+  ctx.fillStyle='rgba(140,200,255,0.7)';
   lms.forEach(p=>{
-    ctx.beginPath();
-    ctx.arc(p.x*renderW, p.y*renderH, 1.5, 0, Math.PI*2);
-    ctx.fill();
+    const mapped = lm(lms, lms.indexOf(p));
+    ctx.beginPath(); ctx.arc(mapped.x, mapped.y, 1.5, 0, Math.PI*2); ctx.fill();
   });
   ctx.restore();
 }
@@ -312,7 +324,6 @@ function drawMesh(lms) {
 async function startCamera() {
   let stream;
   try {
-    // Use exact: false so mobile can pick best available resolution
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
@@ -328,11 +339,17 @@ async function startCamera() {
   await new Promise(res => { video.onloadedmetadata = res; });
   await video.play();
 
-  // Sync canvas AFTER video has actual dimensions
+  // Sync canvas ONCE after video metadata is ready
   syncCanvasSize();
-  window.addEventListener('resize', syncCanvasSize);
 
-  dbg('Video playing ✓', '#44ff88');
+  // Re-sync only on genuine window resize (debounced)
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(syncCanvasSize, 200);
+  });
+
+  dbg(`video: ${video.videoWidth}×${video.videoHeight}`, '#44ff88');
   setStatus('กำลังโหลด face model...', null);
 
   const faceMesh = new FaceMesh({
@@ -356,10 +373,6 @@ async function startCamera() {
 
   let firstFrame = true;
   async function pump() {
-    // Re-sync size every frame in case layout changed
-    if (video.offsetWidth !== renderW || video.offsetHeight !== renderH) {
-      syncCanvasSize();
-    }
     if (video.readyState >= 2) {
       await faceMesh.send({ image: video });
       if (firstFrame) {
