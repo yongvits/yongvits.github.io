@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Hand Gestures Particles (Compact)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- นำเข้า MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a2e;
+            font-family: 'Sarabun', sans-serif;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        
+        /* --- Floating Camera Window --- */
+        #cameraContainer {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 200px; /* ย่อขนาดเริ่มต้นลง */
+            height: 240px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            resize: both;
+            min-width: 150px;
+            min-height: 180px;
+        }
+
+        #cameraContainer.active-cam {
+            display: flex;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #cameraHeader {
+            width: 100%;
+            height: 25px; /* ย่อ Header */
+            background: rgba(255, 255, 255, 0.1);
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+        #cameraHeader span {
+            color: #00ffff;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        #cameraHeader button {
+            color: white;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        #cameraPreview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            flex-grow: 1;
+        }
+
+        #gestureStatus {
+            height: 30px; /* ย่อแถบสถานะ */
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+            gap: 6px;
+        }
+        .gesture-icon { font-size: 16px; }
+
+        /* ปรับ Scrollbar ให้บางลงอีก */
+        .controls::-webkit-scrollbar { width: 4px; }
+        .controls::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.3); border-radius: 4px; }
+        
+        #loadingOverlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ffff;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 12px;
+            display: none;
+            z-index: 200;
+            font-size: 14px;
+            text-align: center;
+            border: 1px solid cyan;
+            pointer-events: none;
+        }
+
+        .ui-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-20px);
+        }
+        #uiPanel { transition: opacity 0.3s ease, transform 0.3s ease; }
+        
+        /* Custom Range Slider Styling (ให้เล็กลง) */
+        input[type=range] {
+            height: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            transform: scale(0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="particleCanvas"></canvas>
+    
+    <!-- Floating Camera Window -->
+    <div id="cameraContainer">
+        <div id="cameraHeader">
+            <span>📹 AI Gesture Cam</span>
+            <button id="closeCamWindowBtn" title="ซ่อนหน้าต่าง">_</button>
+        </div>
+        <video id="cameraPreview" playsinline></video>
+        <div id="gestureStatus">
+            <span id="currentGestureIcon">🖐</span>
+            <span id="currentGestureText">Normal</span>
+        </div>
+    </div>
+
+    <div id="loadingOverlay">
+        <div class="animate-spin text-2xl mb-2">⚙️</div>
+        Loading AI...
+    </div>
+
+    <!-- Toggle UI Button -->
+    <button id="toggleUiBtn" class="fixed top-4 right-4 z-[60] px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-white hover:bg-white/20 transition-all shadow-lg flex items-center gap-2 text-xs">
+        <span>👁️</span> <span id="toggleText" class="font-bold">ซ่อนเมนู</span>
+    </button>
+
+    <!-- UI Panel (Compact Version) -->
+    <!-- ปรับความกว้างจาก w-80 เป็น w-64 และลด padding -->
+    <div id="uiPanel" class="fixed top-14 right-4 w-64 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl shadow-xl text-white controls z-50">
+        <h2 class="text-lg font-bold mb-3 text-center text-cyan-300 drop-shadow-md">⚙️ AI Control</h2>
+        
+        <div class="flex flex-col gap-2 mb-3">
+            <button id="cameraBtn" class="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full font-bold shadow-lg hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105 active:scale-95 text-xs w-full">
+                📸 Start AI
+            </button>
+            
+            <div class="flex items-center justify-between bg-black/20 p-1.5 rounded-lg mt-1">
+                <span class="text-xs text-gray-300">กล้อง (Preview)</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="showCamCheckbox" class="sr-only peer" disabled>
+                    <div class="w-8 h-4 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-500"></div>
+                </label>
+            </div>
+            
+            <!-- Gesture Legend (Compact) -->
+            <div class="grid grid-cols-2 gap-1 text-[10px] text-gray-300 mt-1 bg-black/20 p-1.5 rounded-lg">
+                <div class="flex items-center gap-1"><span class="text-blue-400">👌OK</span>:ฟ้า</div>
+                <div class="flex items-center gap-1"><span class="text-green-400">✌️2นิ้ว</span>:เขียว</div>
+                <div class="flex items-center gap-1"><span class="text-purple-400">🖐4นิ้ว</span>:ม่วง</div>
+                <div class="flex items-center gap-1"><span class="text-red-400">✊กำ</span>:แดง</div>
+            </div>
+        </div>
+
+        <hr class="border-white/10 my-3">
+
+        <!-- Sliders (Compact) -->
+        <div class="space-y-3">
+            <div>
+                <div class="flex justify-between mb-0.5">
+                    <label class="text-xs font-medium">จำนวน</label>
+                    <span id="countValue" class="text-xs font-bold text-cyan-200">100</span>
+                </div>
+                <input type="range" id="countInput" min="10" max="300" value="100" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-0.5">
+                    <label class="text-xs font-medium">ความเร็ว</label>
+                    <span id="speedValue" class="text-xs font-bold text-pink-200">5</span>
+                </div>
+                <input type="range" id="speedInput" min="1" max="20" value="5" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-pink-400">
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-0.5">
+                    <label class="text-xs font-medium">ขนาด</label>
+                    <span id="sizeValue" class="text-xs font-bold text-yellow-200">1.0x</span>
+                </div>
+                <input type="range" id="sizeInput" min="0.5" max="3.0" step="0.1" value="1.0" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-yellow-400">
+            </div>
+            
+            <div>
+                <div class="flex justify-between mb-0.5">
+                    <label class="text-xs font-medium">รัศมี (Radius)</label>
+                    <span id="radiusValue" class="text-xs font-bold text-green-200">120</span>
+                </div>
+                <!-- ลดค่าเริ่มต้นเหลือ 120 -->
+                <input type="range" id="radiusInput" min="50" max="300" value="120" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-green-400">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Camera UI
+        const cameraContainer = document.getElementById('cameraContainer');
+        const cameraHeader = document.getElementById('cameraHeader');
+        const videoElement = document.getElementById('cameraPreview');
+        const closeCamWindowBtn = document.getElementById('closeCamWindowBtn');
+        const showCamCheckbox = document.getElementById('showCamCheckbox');
+        const gestureIcon = document.getElementById('currentGestureIcon');
+        const gestureText = document.getElementById('currentGestureText');
+        
+        // Main UI
+        const cameraBtn = document.getElementById('cameraBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const toggleUiBtn = document.getElementById('toggleUiBtn');
+        const uiPanel = document.getElementById('uiPanel');
+        const toggleText = document.getElementById('toggleText');
+
+        let particlesArray = [];
+        
+        // ลดรัศมีเริ่มต้นใน Logic ด้วย
+        const interaction = {
+            x: null,
+            y: null,
+            radius: 120, 
+            isActive: false,
+            gestureMode: 'normal' 
+        };
+        
+        const palettes = {
+            normal: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFE66D', '#FF8C42', '#F7FFF7', '#FF006E', '#3A86FF'],
+            fire:   ['#FF0000', '#FF4500', '#FF8C00', '#FFD700', '#B22222', '#800000'],
+            blue:   ['#0000FF', '#1E90FF', '#00BFFF', '#87CEFA', '#4682B4', '#00008B'],
+            green:  ['#008000', '#32CD32', '#00FF00', '#7CFC00', '#98FB98', '#006400'],
+            purple: ['#800080', '#9932CC', '#BA55D3', '#DA70D6', '#E6E6FA', '#4B0082']
+        };
+
+        const config = {
+            particleCount: 100,
+            speedMultiplier: 5,
+            sizeMultiplier: 1.0,
+            currentColors: palettes.normal,
+            shapes: ['circle', 'square', 'triangle', 'hexagon']
+        };
+
+        // --- Draggable Camera Logic ---
+        cameraHeader.onmousedown = function(event) {
+            if(event.target.tagName === 'BUTTON') return;
+            event.preventDefault();
+            let shiftX = event.clientX - cameraContainer.getBoundingClientRect().left;
+            let shiftY = event.clientY - cameraContainer.getBoundingClientRect().top;
+            cameraContainer.style.bottom = 'auto';
+            cameraContainer.style.right = 'auto';
+            function moveAt(pageX, pageY) {
+                cameraContainer.style.left = pageX - shiftX + 'px';
+                cameraContainer.style.top = pageY - shiftY + 'px';
+            }
+            function onMouseMove(event) { moveAt(event.clientX, event.clientY); }
+            document.addEventListener('mousemove', onMouseMove);
+            document.onmouseup = function() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.onmouseup = null;
+            };
+        };
+        cameraHeader.ondragstart = function() { return false; };
+
+        // --- Window Controls ---
+        closeCamWindowBtn.addEventListener('click', () => {
+            cameraContainer.classList.remove('active-cam');
+            setTimeout(() => { cameraContainer.style.display = 'none'; }, 300);
+            showCamCheckbox.checked = false;
+        });
+
+        showCamCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                cameraContainer.style.display = 'flex';
+                setTimeout(() => cameraContainer.classList.add('active-cam'), 10);
+            } else {
+                cameraContainer.classList.remove('active-cam');
+                setTimeout(() => { cameraContainer.style.display = 'none'; }, 300);
+            }
+        });
+
+        // --- Setup Canvas ---
+        const countInput = document.getElementById('countInput');
+        const countValue = document.getElementById('countValue');
+        const speedInput = document.getElementById('speedInput');
+        const speedValue = document.getElementById('speedValue');
+        const sizeInput = document.getElementById('sizeInput');
+        const sizeValue = document.getElementById('sizeValue');
+        const radiusInput = document.getElementById('radiusInput');
+        const radiusValue = document.getElementById('radiusValue');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initParticles();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- UI Toggle ---
+        toggleUiBtn.addEventListener('click', () => {
+            if (uiPanel.classList.contains('ui-hidden')) {
+                uiPanel.classList.remove('ui-hidden');
+                toggleText.innerText = 'ซ่อนเมนู';
+                toggleUiBtn.classList.remove('opacity-50');
+            } else {
+                uiPanel.classList.add('ui-hidden');
+                toggleText.innerText = 'แสดงเมนู';
+                toggleUiBtn.classList.add('opacity-50');
+            }
+        });
+
+        // --- MediaPipe & Gesture Logic ---
+        let hands;
+        let camera;
+        let isCameraRunning = false;
+
+        function detectGesture(landmarks) {
+            const isFingerExtended = (tipIdx, pipIdx) => landmarks[tipIdx].y < landmarks[pipIdx].y;
+            const dist = (p1, p2) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+            
+            const wrist = landmarks[0];
+            const thumbTip = landmarks[4];
+            const indexMcp = landmarks[5];
+            
+            const indexExt = isFingerExtended(8, 6);
+            const middleExt = isFingerExtended(12, 10);
+            const ringExt = isFingerExtended(16, 14);
+            const pinkyExt = isFingerExtended(20, 18);
+            const thumbExt = dist(thumbTip, indexMcp) > 0.15; 
+
+            const thumbIndexDist = dist(thumbTip, landmarks[8]);
+            
+            if (thumbIndexDist < 0.05 && middleExt && ringExt && pinkyExt) return 'ok';
+            if (indexExt && middleExt && !ringExt && !pinkyExt) return 'two_fingers';
+            if (indexExt && middleExt && ringExt && pinkyExt && !thumbExt) return 'four_fingers';
+            if (!indexExt && !middleExt && !ringExt && !pinkyExt) return 'fist';
+            
+            return 'normal';
+        }
+
+        function onResults(results) {
+            loadingOverlay.style.display = 'none';
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const palmX = 1 - landmarks[9].x; 
+                const palmY = landmarks[9].y;
+                const targetX = palmX * canvas.width;
+                const targetY = palmY * canvas.height;
+
+                if (interaction.x === null) {
+                    interaction.x = targetX;
+                    interaction.y = targetY;
+                } else {
+                    interaction.x += (targetX - interaction.x) * 0.15;
+                    interaction.y += (targetY - interaction.y) * 0.15;
+                }
+                interaction.isActive = true;
+
+                const gesture = detectGesture(landmarks);
+                interaction.gestureMode = gesture;
+                updateGestureUI(gesture);
+            }
+        }
+
+        function updateGestureUI(gesture) {
+            switch(gesture) {
+                case 'ok':
+                    config.currentColors = palettes.blue;
+                    gestureIcon.innerText = "👌";
+                    gestureText.innerText = "OK(Blue)";
+                    gestureText.className = "text-blue-400 font-bold";
+                    break;
+                case 'two_fingers':
+                    config.currentColors = palettes.green;
+                    gestureIcon.innerText = "✌️";
+                    gestureText.innerText = "2(Green)";
+                    gestureText.className = "text-green-400 font-bold";
+                    break;
+                case 'four_fingers':
+                    config.currentColors = palettes.purple;
+                    gestureIcon.innerText = "🖐";
+                    gestureText.innerText = "4(Purple)";
+                    gestureText.className = "text-purple-400 font-bold";
+                    break;
+                case 'fist':
+                    config.currentColors = palettes.fire;
+                    gestureIcon.innerText = "✊";
+                    gestureText.innerText = "Fist(Red)";
+                    gestureText.className = "text-red-500 font-bold";
+                    break;
+                default:
+                    config.currentColors = palettes.normal;
+                    gestureIcon.innerText = "🖐";
+                    gestureText.innerText = "Normal";
+                    gestureText.className = "text-white";
+                    break;
+            }
+        }
+
+        async function setupAI() {
+            loadingOverlay.style.display = 'block';
+            hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            hands.onResults(onResults);
+            camera = new Camera(videoElement, { onFrame: async () => { await hands.send({image: videoElement}); }, width: 320, height: 240 });
+            await camera.start();
+            isCameraRunning = true;
+        }
+
+        cameraBtn.addEventListener('click', () => {
+            if (!isCameraRunning) {
+                cameraBtn.innerText = "⏳ Connecting...";
+                cameraBtn.disabled = true;
+                setupAI().then(() => {
+                    cameraBtn.innerText = "🛑 Stop AI";
+                    cameraBtn.disabled = false;
+                    cameraBtn.classList.replace('from-purple-500', 'from-red-500');
+                    cameraBtn.classList.replace('to-pink-500', 'to-red-700');
+                    showCamCheckbox.disabled = false;
+                    showCamCheckbox.checked = true;
+                    cameraContainer.style.display = 'flex';
+                    setTimeout(() => cameraContainer.classList.add('active-cam'), 10);
+                }).catch(err => {
+                    console.error(err);
+                    alert("Error: " + err);
+                    cameraBtn.innerText = "📸 Start AI";
+                    cameraBtn.disabled = false;
+                    loadingOverlay.style.display = 'none';
+                });
+            } else {
+                location.reload(); 
+            }
+        });
+
+        // --- Particle System ---
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                const angle = Math.random() * Math.PI * 2;
+                const speedBase = (Math.random() * 0.5 + 0.2);
+                this.vx = Math.cos(angle) * speedBase;
+                this.vy = Math.sin(angle) * speedBase;
+                this.baseSize = Math.random() * 15 + 5;
+                this.size = this.baseSize * config.sizeMultiplier;
+                this.color = this.getRandomColor();
+                this.shape = config.shapes[Math.floor(Math.random() * config.shapes.length)];
+                this.angle = 0;
+                this.angleSpeed = (Math.random() - 0.5) * 0.1;
+                this.density = (Math.random() * 30) + 1;
+            }
+            getRandomColor() { return config.currentColors[Math.floor(Math.random() * config.currentColors.length)]; }
+            update() {
+                if (!config.currentColors.includes(this.color)) this.color = this.getRandomColor();
+                this.x += this.vx * (config.speedMultiplier / 2);
+                this.y += this.vy * (config.speedMultiplier / 2);
+                this.angle += this.angleSpeed;
+
+                if (interaction.isActive && interaction.x != null) {
+                    let dx = interaction.x - this.x;
+                    let dy = interaction.y - this.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < interaction.radius) {
+                        const force = (interaction.radius - dist) / interaction.radius;
+                        this.x -= (dx/dist) * force * this.density;
+                        this.y -= (dy/dist) * force * this.density;
+                    }
+                }
+
+                if (this.x + this.size > canvas.width || this.x - this.size < 0) this.vx = -this.vx;
+                if (this.y + this.size > canvas.height || this.y - this.size < 0) this.vy = -this.vy;
+                this.size = this.baseSize * config.sizeMultiplier;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                if (this.shape === 'circle') ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                else if (this.shape === 'square') ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+                else if (this.shape === 'triangle') {
+                    ctx.moveTo(0, -this.size);
+                    ctx.lineTo(this.size, this.size);
+                    ctx.lineTo(-this.size, this.size);
+                } else if (this.shape === 'hexagon') {
+                    for (let i = 0; i < 6; i++) ctx.lineTo(this.size * Math.cos(i*Math.PI/3), this.size * Math.sin(i*Math.PI/3));
+                }
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function initParticles() {
+            particlesArray = [];
+            for (let i = 0; i < config.particleCount; i++) particlesArray.push(new Particle());
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (interaction.isActive && interaction.x != null) {
+                ctx.beginPath();
+                ctx.arc(interaction.x, interaction.y, interaction.radius, 0, Math.PI * 2);
+                
+                let strokeColor = 'rgba(255, 255, 255, 0.5)';
+                if (interaction.gestureMode === 'ok') strokeColor = 'rgba(0, 191, 255, 0.8)';
+                else if (interaction.gestureMode === 'two_fingers') strokeColor = 'rgba(0, 255, 0, 0.8)';
+                else if (interaction.gestureMode === 'four_fingers') strokeColor = 'rgba(147, 112, 219, 0.8)';
+                else if (interaction.gestureMode === 'fist') strokeColor = 'rgba(255, 69, 0, 0.8)';
+                
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.fillStyle = strokeColor.replace('0.8', '0.1');
+                ctx.fill();
+                
+                ctx.beginPath(); 
+                ctx.arc(interaction.x, interaction.y, 5, 0, Math.PI * 2); 
+                ctx.fillStyle = 'white'; 
+                ctx.fill();
+            }
+
+            particlesArray.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isCameraRunning) { interaction.x = e.x; interaction.y = e.y; interaction.isActive = true; }
+        });
+        window.addEventListener('mouseout', () => { if(!isCameraRunning) interaction.isActive = false; });
+
+        countInput.addEventListener('input', function() {
+            config.particleCount = parseInt(this.value); countValue.innerText = this.value;
+            if (particlesArray.length < config.particleCount) 
+                for(let i=particlesArray.length; i<config.particleCount; i++) particlesArray.push(new Particle());
+            else particlesArray.splice(config.particleCount);
+        });
+        speedInput.addEventListener('input', function() { config.speedMultiplier = parseInt(this.value); speedValue.innerText = this.value; });
+        sizeInput.addEventListener('input', function() { config.sizeMultiplier = parseFloat(this.value); sizeValue.innerText = this.value + 'x'; });
+        radiusInput.addEventListener('input', function() { interaction.radius = parseInt(this.value); radiusValue.innerText = this.value; });
+
+        resizeCanvas();
+        animate();
+    </script>
+</body>
+</html>
+
+
