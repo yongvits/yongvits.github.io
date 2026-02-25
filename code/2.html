@@ -1,498 +1,563 @@
 <!DOCTYPE html>
-
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Face AR</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ทำนายดวงชะตากับ โยไค</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-body {
-background: #08080f;
-color: #dde;
-font-family: ‘Space Mono’, monospace;
-display: flex;
-flex-direction: column;
-align-items: center;
-min-height: 100dvh;
-overflow: hidden;
-}
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #111111;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-h1 {
-font-size: 0.7rem;
-letter-spacing: 0.3em;
-color: #8080ff;
-text-transform: uppercase;
-text-shadow: 0 0 16px #8080ff66;
-padding: 10px 0 4px;
-flex-shrink: 0;
-}
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
-#status {
-font-size: 0.6rem;
-letter-spacing: 0.1em;
-color: #8080ff99;
-padding: 0 0 6px;
-flex-shrink: 0;
-}
+        /* Card Styles */
+        .destiny-card {
+            background-color: #161616;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            border-radius: 16px;
+        }
 
-#container {
-position: relative;
-width: 100%;
-aspect-ratio: 9 / 16;
-max-height: calc(100dvh - 110px);
-max-width: calc((100dvh - 110px) * 9 / 16);
-background: #000;
-border: 1px solid #8080ff33;
-overflow: hidden;
-flex-shrink: 0;
-}
+        .info-box {
+            background-color: #2a1616;
+            border: 1px solid #4a2020;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
 
-/* Video is hidden — we draw it manually onto canvas so both
-the mirrored image and AR overlays share one coordinate system */
-#video {
-position: absolute;
-width: 1px; height: 1px;
-opacity: 0;
-pointer-events: none;
-}
+        .category-box {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
 
-#canvas {
-position: absolute;
-inset: 0;
-width: 100%;
-height: 100%;
-display: block;
-}
+        .action-bar {
+            background: rgba(17, 17, 17, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #333;
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
 
-#log {
-position: absolute;
-bottom: 6px; left: 6px; right: 6px;
-font-size: 0.5rem;
-color: #44ff88bb;
-pointer-events: none;
-line-height: 1.7;
-}
-
-#controls {
-display: flex;
-gap: 6px;
-padding: 8px;
-width: 100%;
-flex-shrink: 0;
-}
-
-.btn {
-flex: 1;
-background: transparent;
-border: 1px solid #8080ff55;
-color: #aac;
-padding: 7px 4px;
-font-family: ‘Space Mono’, monospace;
-font-size: 0.6rem;
-cursor: pointer;
-border-radius: 3px;
-transition: all 0.15s;
-text-align: center;
-}
-.btn.active, .btn:hover {
-background: #8080ff22;
-border-color: #8080ff;
-color: #fff;
-box-shadow: 0 0 10px #8080ff44;
-}
-</style>
-
+        .lang-btn.active {
+            background-color: #cc3333;
+            color: white;
+            border-color: #cc3333;
+        }
+    </style>
 </head>
-<body>
+<body class="flex flex-col items-center pb-24">
 
-<h1>✦ Face AR · Head Tracker</h1>
-<div id="status">กำลังเริ่มต้น...</div>
+    <!-- LANGUAGE SWITCHER (Fixed Top Right) -->
+    <div class="fixed top-4 right-4 z-[9999] flex gap-2">
+        <button onclick="setLang('th')" id="btnLangTH" class="lang-btn active bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1.5 rounded-full text-xs transition shadow-lg">TH</button>
+        <button onclick="setLang('en')" id="btnLangEN" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1.5 rounded-full text-xs transition shadow-lg">EN</button>
+        <button onclick="setLang('jp')" id="btnLangJP" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1.5 rounded-full text-xs transition shadow-lg">JP</button>
+    </div>
 
-<div id="container">
-  <video id="video" playsinline muted autoplay></video>
-  <canvas id="canvas"></canvas>
-  <div id="log"></div>
-</div>
+    <!-- MAIN APP WRAPPER -->
+    <main class="w-full max-w-md flex flex-col items-center">
+        
+        <!-- HEADER -->
+        <header class="w-full px-6 pt-16 pb-6 text-center">
+            <h1 class="text-3xl font-semibold text-white mb-2 leading-tight" id="mainTitle">ทำนายดวงชะตากับ<br>โยไค</h1>
+            <p class="text-sm text-gray-400" id="subTitle">ค้นพบชะตาชีวิตและโยไคผู้พิทักษ์ของคุณ</p>
+        </header>
 
-<div id="controls">
-  <button class="btn active" data-mode="hat">🎩 หมวก</button>
-  <button class="btn" data-mode="glasses">🕶️ แว่น</button>
-  <button class="btn" data-mode="crown">👑 มงกุฎ</button>
-  <button class="btn" data-mode="mesh">🔷 Mesh</button>
-</div>
+        <!-- INPUT FORM -->
+        <div id="inputSection" class="w-full px-4 relative z-10">
+            <div class="bg-[#1a1a1a] rounded-2xl p-6 shadow-lg border border-gray-800">
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-gray-300"></i>
+                    <h2 class="text-lg font-semibold text-white" id="formHeader">กรอกข้อมูลของคุณ</h2>
+                </div>
+                <p class="text-xs text-gray-400 mb-6" id="formSub">ข้อมูลของคุณจะปลุกโยไคและเปิดเผยดวงชะตา</p>
 
-<script>
-// ─── Logger ──────────────────────────────────────────────────────
-const logEl    = document.getElementById('log');
-const statusEl = document.getElementById('status');
-const lines    = [];
-function dbg(msg, color) {
-  lines.push(`<span style="color:${color||'#44ff88bb'}">${msg}</span>`);
-  if (lines.length > 5) lines.shift();
-  logEl.innerHTML = lines.join('<br>');
-}
-function setStatus(msg, state) {
-  statusEl.textContent = msg;
-  statusEl.style.color = state === true ? '#44ff88' : state === false ? '#ff4466' : '#8080ff99';
-}
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-sm text-gray-300 font-medium mb-1.5 block" id="lblNickname">ชื่อเล่น</label>
+                        <input type="text" id="nickname" class="w-full bg-[#111] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#cc3333] outline-none transition" placeholder="ป้อนชื่อเล่น...">
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-300 font-medium mb-1.5 block" id="lblDob">วัน/เดือน/ปีเกิด</label>
+                        <input type="date" id="dob" class="w-full bg-[#111] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#cc3333] outline-none transition [color-scheme:dark]">
+                    </div>
+                    <button onclick="calculateDestiny()" class="w-full mt-4 bg-[#cc3333] hover:bg-[#aa2222] text-white py-4 rounded-lg font-medium transition flex items-center justify-center gap-2 active:scale-95 shadow-lg">
+                        <i class="fa-solid fa-sparkles text-sm"></i> <span id="btnSubmit">ทำนายดวงชะตา</span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
-function loadScript(src) {
-  return new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload  = () => { dbg('✓ ' + src.split('/').pop()); res(); };
-    s.onerror = () => { dbg('✗ ' + src.split('/').pop(), '#ff4466'); rej(); };
-    document.head.appendChild(s);
-  });
-}
+        <!-- LOADING STATE -->
+        <div id="loadingState" class="hidden flex-col justify-center items-center w-full py-24">
+            <div class="w-12 h-12 border-4 border-gray-800 border-t-[#cc3333] rounded-full animate-spin"></div>
+            <p class="text-sm text-gray-400 mt-6 animate-pulse" id="loadingText">กำลังอัญเชิญโยไคผู้พิทักษ์...</p>
+        </div>
 
-// ─── Mode toggle ─────────────────────────────────────────────────
-let mode = 'hat';
-document.querySelectorAll('.btn[data-mode]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    mode = btn.dataset.mode;
-  });
-});
+        <!-- RESULT CARD -->
+        <div id="resultContainer" class="hidden w-full px-4 mt-4">
+            
+            <!-- การ์ดที่จะถูกนำไปเซฟเป็นรูป -->
+            <div id="destinyCard" class="destiny-card pb-6">
+                
+                <!-- IMAGE SECTION (เต็มรูป ไม่ครอบ) -->
+                <div class="w-full bg-black relative flex justify-center items-center overflow-hidden" style="min-height: 280px; max-height: 380px;">
+                    <img id="yokaiImage" class="w-full h-full object-contain p-2" alt="Yokai">
+                </div>
 
-// ─── Canvas setup ────────────────────────────────────────────────
-const video     = document.getElementById('video');
-const canvas    = document.getElementById('canvas');
-const ctx       = canvas.getContext('2d');
-const container = document.getElementById('container');
+                <!-- YOKAI TITLE -->
+                <div class="text-center pt-6 pb-4 px-4">
+                    <h2 id="yokaiNameTitle" class="text-3xl font-bold text-white mb-1 drop-shadow-md">Yokai Name</h2>
+                    <p class="text-sm text-gray-400 italic" id="yokaiGuardianLabel">โยไคผู้พิทักษ์ของ คุณ...</p>
+                </div>
 
-let renderW = 0, renderH = 0;
+                <div class="px-5">
+                    <!-- IDENTITY TEXT (กล่องแดง) -->
+                    <div class="info-box shadow-md">
+                        <p id="textYokai" class="text-sm text-gray-200 leading-relaxed text-center font-light">
+                            ...
+                        </p>
+                    </div>
 
-function syncCanvasSize() {
-  const w = container.offsetWidth;
-  const h = container.offsetHeight;
-  if (w === renderW && h === renderH) return;
-  renderW = w; renderH = h;
-  canvas.width  = renderW;
-  canvas.height = renderH;
-  dbg(`canvas: ${renderW}×${renderH}`);
-}
+                    <!-- LUCKY NUMBERS (แนวตั้งตามเรฟเฟอเรนซ์) -->
+                    <div class="mb-6">
+                        <!-- 2 Digits -->
+                        <div class="stat-box shadow-sm">
+                            <i class="fa-solid fa-gift text-[#cc3333] mb-2 text-lg"></i>
+                            <span class="block text-xs text-gray-400 mb-1" id="lblL2">เลขนำโชค 2 ตัว</span>
+                            <span id="lucky2" class="text-4xl font-bold text-[#cc3333] block mb-1">00</span>
+                            <span id="desc2" class="text-[11px] text-gray-500">...</span>
+                        </div>
+                        <!-- 3 Digits -->
+                        <div class="stat-box shadow-sm">
+                            <i class="fa-solid fa-gift text-[#cc3333] mb-2 text-lg"></i>
+                            <span class="block text-xs text-gray-400 mb-1" id="lblL3">เลขนำโชค 3 ตัว</span>
+                            <span id="lucky3" class="text-4xl font-bold text-[#cc3333] block mb-1">000</span>
+                            <span id="desc3" class="text-[11px] text-gray-500">...</span>
+                        </div>
+                        <!-- 6 Digits -->
+                        <div class="stat-box shadow-sm">
+                            <i class="fa-solid fa-gift text-[#cc3333] mb-2 text-lg"></i>
+                            <span class="block text-xs text-gray-400 mb-1" id="lblL6">เลขนำโชค 6 ตัว</span>
+                            <span id="lucky6" class="text-4xl font-bold text-[#cc3333] block mb-1 tracking-widest">000000</span>
+                            <span id="desc6" class="text-[11px] text-gray-500">...</span>
+                        </div>
+                    </div>
 
-// ─── Coordinate mapping ──────────────────────────────────────────
-//
-// KEY DESIGN DECISION:
-//   • The <video> element is invisible (opacity:0, 1px).
-//   • Each frame we draw the video onto <canvas> with ctx.scale(-1,1)
-//     so the mirrored selfie image is rendered directly into canvas pixels.
-//   • MediaPipe landmarks are in raw (un-mirrored) video space [0,1].
-//   • We flip landmark X → (1 - nx) so it matches the mirrored canvas image.
-//   • Then apply object-fit:cover scale+offset so landmarks align with
-//     how the video is cropped inside the canvas.
-//
-// This way there is exactly ONE coordinate system and NO CSS transforms
-// are fighting each other. Rotation axes are therefore correct.
+                    <!-- HOROSCOPE CATEGORIES (งาน, เงิน, รัก, สุขภาพ) -->
+                    <div class="space-y-4">
+                        <div class="text-center mb-4">
+                            <span id="cardDailyDate" class="inline-block bg-gray-800 text-gray-300 text-sm px-5 py-2 rounded-full border border-gray-700">
+                                คำทำนายประจำวันที่ ...
+                            </span>
+                        </div>
 
-function coverMap(nx, ny) {
-  const vw = video.videoWidth  || renderW;
-  const vh = video.videoHeight || renderH;
+                        <!-- Work -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-briefcase text-blue-400"></i> <span id="lblWork">ชะตาการงาน</span>
+                            </h3>
+                            <p id="textWork" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
 
-  // Mirror X to match the flipped video drawn on canvas
-  const mx = 1 - nx;
+                        <!-- Finance -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-coins text-yellow-500"></i> <span id="lblFinance">ชะตาการเงิน</span>
+                            </h3>
+                            <p id="textFinance" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
 
-  const scale = Math.max(renderW / vw, renderH / vh);
-  const dx    = (renderW - vw * scale) / 2;
-  const dy    = (renderH - vh * scale) / 2;
+                        <!-- Love -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-heart text-pink-500"></i> <span id="lblLove">ชะตาความรัก</span>
+                            </h3>
+                            <p id="textLove" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
 
-  return {
-    x: mx * vw * scale + dx,
-    y: ny * vh * scale + dy,
-    s: scale
-  };
-}
+                        <!-- Health -->
+                        <div class="category-box">
+                            <h3 class="text-base font-semibold text-white mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-notes-medical text-green-500"></i> <span id="lblHealth">ชะตาสุขภาพ</span>
+                            </h3>
+                            <p id="textHealth" class="text-sm text-gray-300 leading-relaxed font-light text-justify">...</p>
+                        </div>
+                    </div>
 
-function lm(lms, i) { return coverMap(lms[i].x, lms[i].y); }
+                </div>
+                
+                <div class="text-center pt-6 pb-2">
+                    <p class="text-[10px] text-gray-600" id="brandFooter">Generated by ดูดวงกับ Yokai</p>
+                </div>
+            </div>
 
-// ─── Smoothing ───────────────────────────────────────────────────
-const S = {};
-function sm(k, v, a = 0.3) {
-  S[k] = S[k] === undefined ? v : S[k] * (1 - a) + v * a;
-  return S[k];
-}
+        </div>
+    </main>
 
-// ─── Head pose (6DOF) ────────────────────────────────────────────
-function getHeadPose(lms) {
-  const noseTip    = lm(lms, 1);
-  const chin       = lm(lms, 152);
-  const forehead   = lm(lms, 10);
-  const leftCheek  = lm(lms, 454);  // swapped because X is mirrored
-  const rightCheek = lm(lms, 234);
-  const leftEye    = lm(lms, 263);  // swapped
-  const rightEye   = lm(lms, 33);
+    <!-- STICKY ACTION BAR -->
+    <div id="actionBar" class="fixed bottom-0 left-0 right-0 w-full action-bar hidden z-50">
+        <div class="max-w-md mx-auto px-4 pt-3 flex gap-3">
+            <button onclick="resetApp()" class="flex-1 bg-[#1a1a1a] border border-gray-700 hover:bg-gray-800 text-white py-3.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 active:scale-95">
+                <i class="fa-solid fa-rotate-left"></i> <span id="btnRetry">ดูใหม่</span>
+            </button>
+            <button onclick="saveCard()" id="btnSave" class="flex-1 bg-[#cc3333] hover:bg-[#aa2222] text-white py-3.5 rounded-xl text-sm font-medium transition flex items-center justify-center gap-2 active:scale-95 shadow-lg">
+                <i class="fa-solid fa-download"></i> <span id="btnSaveTxt">บันทึกรูป</span>
+            </button>
+        </div>
+    </div>
 
-  const faceW = Math.abs(rightCheek.x - leftCheek.x);
-  const faceH = Math.abs(chin.y - forehead.y);
-  const cx    = (leftCheek.x + rightCheek.x) / 2;
-  const cy    = (forehead.y  + chin.y)        / 2;
+    <script>
+        document.documentElement.style.setProperty('--sat', 'env(safe-area-inset-top)');
+        document.documentElement.style.setProperty('--sab', 'env(safe-area-inset-bottom)');
 
-  // Roll: angle of the eye line — positive = head tilted right
-  const eyeDx = rightEye.x - leftEye.x;
-  const eyeDy = rightEye.y - leftEye.y;
-  const roll  = Math.atan2(eyeDy, eyeDx);
+        let curLang = 'th';
 
-  // Yaw: nose tip offset from face centre; after mirror flip this is correct
-  const yawRaw = (noseTip.x - cx) / (faceW * 0.5);
-  const yaw    = yawRaw * (Math.PI / 2.5);
+        // --- DICTIONARY ---
+        const dict = {
+            th: {
+                mainTitle: "ทำนายดวงชะตากับ<br>โยไค", subTitle: "ค้นพบชะตาชีวิตและโยไคผู้พิทักษ์ของคุณ",
+                formHeader: "กรอกข้อมูลของคุณ", formSub: "ข้อมูลของคุณจะปลุกโยไคและเปิดเผยดวงชะตา",
+                lblNickname: "ชื่อเล่น", lblDob: "วัน/เดือน/ปีเกิด", btnSubmit: "ทำนายดวงชะตา",
+                loading: "กำลังอัญเชิญโยไคผู้พิทักษ์...",
+                guardian: "โยไคผู้พิทักษ์ของ", 
+                l2: "เลขนำโชค 2 ตัว", l3: "เลขนำโชค 3 ตัว", l6: "เลขนำโชค 6 ตัว",
+                lblWork: "ชะตาการงาน", lblFinance: "ชะตาการเงิน", lblLove: "ชะตาความรัก", lblHealth: "ชะตาสุขภาพ",
+                btnRetry: "ดูใหม่", btnSave: "บันทึกรูป",
+                datePrefix: "คำทำนายประจำวันที่",
+                numMeanings: ["เลขแห่งเสน่ห์และความร่วมมือ", "เลขแห่งการสร้างสรรค์และความสมดุล", "เลขแห่งความสำเร็จและความมั่นคง", "เลขแห่งโชคลาภและการเสี่ยงดวง", "เลขแห่งอำนาจบารมีและการเติบโต"]
+            },
+            en: {
+                mainTitle: "Yokai<br>Horoscope", subTitle: "Discover your fate and guardian Yokai",
+                formHeader: "Enter Your Details", formSub: "Your data will awaken your Yokai guardian",
+                lblNickname: "Nickname", lblDob: "Date of Birth", btnSubmit: "Read Fortune",
+                loading: "Summoning Guardian Spirit...",
+                guardian: "Guardian Spirit of", 
+                l2: "Lucky 2 Digits", l3: "Lucky 3 Digits", l6: "Lucky 6 Digits",
+                lblWork: "Career Fate", lblFinance: "Financial Fate", lblLove: "Love Fate", lblHealth: "Health Fate",
+                btnRetry: "Retry", btnSave: "Save Image",
+                datePrefix: "Horoscope for",
+                numMeanings: ["Number of Charm & Cooperation", "Number of Creation & Balance", "Number of Success & Stability", "Number of Fortune & Risk", "Number of Power & Growth"]
+            },
+            jp: {
+                mainTitle: "妖怪<br>運勢占い", subTitle: "あなたの運命と守護妖怪を発見する",
+                formHeader: "詳細を入力", formSub: "あなたの情報が守護妖怪を目覚めさせます",
+                lblNickname: "ニックネーム", lblDob: "生年月日", btnSubmit: "運勢を占う",
+                loading: "守護霊を召喚中...",
+                guardian: "の守護霊", 
+                l2: "ラッキー2桁", l3: "ラッキー3桁", l6: "ラッキー6桁",
+                lblWork: "仕事運", lblFinance: "金運", lblLove: "恋愛運", lblHealth: "健康運",
+                btnRetry: "もう一度", btnSave: "画像を保存",
+                datePrefix: "今日の運勢:",
+                numMeanings: ["魅力と協力の数字", "創造と調和の数字", "成功と安定の数字", "幸運と勝負の数字", "権力と成長の数字"]
+            }
+        };
 
-  // Pitch: nose-tip vertical relative to eye midpoint
-  const eyeMidY  = (leftEye.y + rightEye.y) / 2;
-  const pitchRaw = (noseTip.y - eyeMidY) / (faceH * 0.5);
-  const pitch    = (pitchRaw - 0.55) * (Math.PI / 1.8);
+        // --- STABLE DIRECT URLS (NO REDIRECTS) ---
+        const yokaiGallery = [
+            { name: "Akakuchi (อากาคุจิ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Suushi_Akakuchi.jpg/640px-Suushi_Akakuchi.jpg" },
+            { name: "Furaribi (ฟุราริบิ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Suushi_Furaribi.jpg/640px-Suushi_Furaribi.jpg" },
+            { name: "Gagoze (กาโกเซะ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Suushi_Gagoze.jpg/640px-Suushi_Gagoze.jpg" },
+            { name: "Hyosube (ฮโยซึเบะ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Suushi_Hyosube.jpg/640px-Suushi_Hyosube.jpg" },
+            { name: "Inugami (อินุกามิ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Suushi_Inugami.jpg/640px-Suushi_Inugami.jpg" },
+            { name: "Kamikiri (คามิคิริ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Suushi_Kamikiri.jpg/640px-Suushi_Kamikiri.jpg" },
+            { name: "Kappa (กัปปะ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Suushi_Kappa.jpg/640px-Suushi_Kappa.jpg" },
+            { name: "Kasha (คาฉะ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Suushi_Kasha.jpg/640px-Suushi_Kasha.jpg" },
+            { name: "Mikoshi-nyudo", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Suushi_Mikoshi-nyudo.jpg/640px-Suushi_Mikoshi-nyudo.jpg" },
+            { name: "Nekomata (เนโกะมาตะ)", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Suushi_Nekomata.jpg/640px-Suushi_Nekomata.jpg" }
+        ];
 
-  return {
-    cx:    sm('px', cx),
-    cy:    sm('py', cy),
-    faceW: sm('fw', faceW),
-    faceH: sm('fh', faceH),
-    roll:  sm('rl', roll,  0.25),
-    yaw:   sm('yw', yaw,   0.25),
-    pitch: sm('pt', pitch, 0.25),
-  };
-}
+        // --- LONG PREDICTIONS (3-4 Lines) ---
+        const contentDB = {
+            yokai: {
+                th: "ความซื่อสัตย์ ความจงรักภักดี และความทุ่มเทที่คุณมีต่อเป้าหมาย จะได้รับการตอบแทนอย่างยิ่งใหญ่และสมเกียรติ แม้บางครั้งอาจต้องใช้เวลา แต่จงเชื่อมั่นว่าความดีและความจริงใจของคุณจะไม่ถูกลืมเลือน และผลตอบแทนที่ได้รับจะคุ้มค่ากับการรอคอยอย่างแน่นอน",
+                en: "Your honesty, loyalty, and dedication to your goals will be greatly and honorably rewarded. Even though it may take time, believe that your goodness and sincerity will never be forgotten. The rewards you receive will definitely be worth the wait.",
+                jp: "あなたの目標に対する誠実さ、忠誠心、そして献身は、大きく名誉ある形で報われるでしょう。時間がかかることもありますが、あなたの善良さと誠実さが忘れられることは決してないと信じてください。得られる報酬は待つだけの価値があるはずです。"
+            },
+            work: {
+                th: [
+                    "การงานของคุณในช่วงนี้มีความโดดเด่นเป็นพิเศษ จะมีผู้ใหญ่คอยให้การสนับสนุนและมอบหมายโปรเจกต์สำคัญให้ทำ แม้ว่างานจะหนักและต้องใช้ความรับผิดชอบสูง แต่ผลลัพธ์ที่ได้จะนำมาซึ่งความสำเร็จและชื่อเสียง ขอให้ระวังเรื่องการสื่อสารกับเพื่อนร่วมงานเพื่อป้องกันความเข้าใจผิด",
+                    "ช่วงเวลานี้เป็นจังหวะแห่งการเปลี่ยนแปลงในหน้าที่การงาน อาจมีการโยกย้ายตำแหน่งหรือได้รับข้อเสนอใหม่ที่ท้าทายกว่าเดิม คุณจะต้องใช้ความอดทนและการปรับตัวอย่างมากในช่วงแรก แต่ขอให้เชื่อมั่นในศักยภาพของตนเอง แล้วคุณจะสามารถผ่านพ้นอุปสรรคทุกอย่างไปได้อย่างสวยงาม"
+                ],
+                en: [
+                    "Your career is currently outstanding. You will receive strong support from seniors and be assigned important projects. Although the workload is heavy, the results will certainly bring success and reputation. Please be careful with communication among colleagues.",
+                    "This is a period of transition in your career. There might be a change in position or a new, challenging offer. You will need a lot of patience and adaptability at first, but believe in your potential. You will beautifully overcome all obstacles and thrive."
+                ],
+                jp: [
+                    "この時期、あなたの仕事運は特に際立っています。目上の人からの支援があり、重要なプロジェクトを任されるでしょう。仕事は大変ですが、その結果は必ず成功と名声をもたらします。同僚との誤解を防ぐため、コミュニケーションには十分注意してください。",
+                    "今は仕事上の変化の時期です。部署異動や、より挑戦的な新しいオファーを受ける可能性があります。最初は多くの忍耐と適応力が必要になりますが、自分の可能性を信じてください。そうすれば、すべての障害を見事に乗り越えることができるでしょう。"
+                ]
+            },
+            finance: {
+                th: [
+                    "ดวงการเงินกำลังเปิดกว้าง มีเกณฑ์ได้รับลาภลอยหรือเงินก้อนโตจากแหล่งที่คุณไม่คาดคิด เหมาะสำหรับการลงทุนระยะสั้นหรือการเก็งกำไร อย่างไรก็ตามควรระมัดระวังเรื่องการใช้จ่ายตามอารมณ์ เพราะอาจทำให้เงินที่หามาได้หมดไปกับสิ่งของที่ไม่จำเป็น ควรแบ่งเงินส่วนหนึ่งไว้เป็นเงินออม",
+                    "การเงินของคุณอยู่ในสภาวะทรงตัว รายรับและรายจ่ายมีความสมดุลกันดี หากใครที่เคยเป็นหนี้คุณเขาจะนำเงินมาคืนให้ในเร็วๆ นี้ เป็นช่วงเวลาที่ดีในการเริ่มต้นศึกษาเรื่องการวางแผนการเงินหรือการลงทุนระยะยาวเพื่อสร้างความมั่นคงในอนาคต"
+                ],
+                en: [
+                    "Your financial luck is wide open. There's a chance of receiving sudden windfalls or a large sum of money from unexpected sources. It's suitable for short-term investments. However, be cautious about emotional spending, as it might drain your money on unnecessary things.",
+                    "Your finances are in a stable condition. Income and expenses are well balanced. If someone owes you money, they will return it to you very soon. It is a great time to start learning about financial planning or long-term investments to build future stability."
+                ],
+                jp: [
+                    "金運が開けています。思いがけないところから臨時収入や大金を得る予感があります。短期投資や投機に適しています。しかし、感情的な出費には注意してください。不必要なものにお金を使ってしまう可能性があります。一部を貯蓄に回すことをお勧めします。",
+                    "金運は安定した状態にあります。収入と支出のバランスが良く取れています。もしあなたに借金をしている人がいれば、近いうちに返済されるでしょう。将来の安定のために、財務計画や長期投資について学び始めるのに非常に良い時期です。"
+                ]
+            },
+            love: {
+                th: [
+                    "สำหรับคนโสดมีโอกาสได้พบเจอคนที่มีเสน่ห์ดึงดูดจากการเดินทางหรือการทำงาน ซึ่งอาจพัฒนาไปสู่ความสัมพันธ์ที่ดีได้ในอนาคต ส่วนคนมีคู่ควรหาเวลาเติมความหวานให้กัน ระวังความหงุดหงิดหรือเรื่องจุกจิกเล็กน้อยที่อาจบานปลายกลายเป็นปัญหาใหญ่ได้ ให้ใช้เหตุผลและรับฟังกันให้มากขึ้น",
+                    "เสน่ห์ของคุณในช่วงนี้แรงเป็นพิเศษ ทำให้มีคนเข้ามาขายขนมจีบมากมาย แต่ต้องระวังให้ดีเพราะอาจมีคนที่มีเจ้าของแล้วเข้ามาพัวพันให้เกิดปัญหาความรักซ้อนได้ สำหรับคนที่มีครอบครัวแล้ว ความสัมพันธ์จะมีความมั่นคงและเป็นที่พึ่งพิงทางใจให้กันและกันได้อย่างดีเยี่ยม"
+                ],
+                en: [
+                    "For singles, there is a chance to meet someone highly attractive through travel or work, which could develop into a good relationship. Couples should find time to add sweetness to their relationship. Beware of minor irritations that could escalate. Listen to each other more.",
+                    "Your charm is extraordinarily strong right now, attracting many admirers. However, be very careful as someone who is already taken might get involved, causing a complicated love triangle. For those with a family, the relationship will be highly stable and supportive."
+                ],
+                jp: [
+                    "独身者は、旅行や仕事を通じて魅力的な人と出会うチャンスがあります。これは将来、良い関係に発展する可能性があります。カップルは、お互いに甘い時間を作るべきです。些細なイライラが大きな問題に発展する可能性があるので注意してください。",
+                    "この時期、あなたの魅力は特別に高く、多くの人がアプローチしてくるでしょう。しかし、すでにパートナーがいる人が関わってきて、複雑な恋愛問題を引き起こす可能性があるので十分に注意してください。すでに家族がいる人は、関係が安定し、良い支えとなるでしょう。"
+                ]
+            },
+            health: {
+                th: [
+                    "สุขภาพร่างกายโดยรวมอยู่ในเกณฑ์ที่ดี มีพลังงานเหลือล้นพร้อมรับมือกับทุกสถานการณ์ แต่ควรระมัดระวังเรื่องความเครียดสะสมจากการทำงานที่อาจส่งผลให้เกิดอาการปวดไมเกรน หรือออฟฟิศซินโดรมบริเวณคอบ่าไหล่ ควรหาเวลาพักผ่อน ยืดเส้นยืดสาย และดื่มน้ำให้เพียงพอในแต่ละวัน",
+                    "ดวงสุขภาพช่วงนี้ค่อนข้างอ่อนแอ มีเกณฑ์ล้มป่วยด้วยโรคตามฤดูกาลหรือโรคภูมิแพ้กำเริบ ควรหลีกเลี่ยงการอยู่ในที่ที่มีฝุ่นควันหรืออากาศแปรปรวน นอกจากนี้ให้ระมัดระวังอุบัติเหตุเล็กๆ น้อยๆ จากความรีบร้อนหรือความประมาทในการเดินทาง แนะนำให้สวดมนต์ก่อนออกจากบ้าน"
+                ],
+                en: [
+                    "Overall health is in good condition, with abundant energy ready to handle any situation. However, you should be cautious about accumulated stress from work, which may lead to migraines or office syndrome around the neck. Find time to rest, stretch, and drink enough water.",
+                    "Health luck is quite weak right now. You are prone to seasonal illnesses or allergy flare-ups. Avoid being in dusty areas or extreme weather changes. Additionally, be careful of minor accidents caused by rushing or carelessness while traveling. Stay calm."
+                ],
+                jp: [
+                    "全体的な健康状態は良好で、どんな状況にも対応できるエネルギーに満ち溢れています。しかし、仕事からの蓄積されたストレスが偏頭痛や首の凝りを引き起こす可能性があるので注意が必要です。休息の時間を持ち、ストレッチをし、十分な水分を補給してください。",
+                    "この時期の健康運はやや弱いです。季節性の病気やアレルギーの悪化で体調を崩す可能性があります。ほこりっぽい場所や天候の変動が激しい場所は避けてください。また、焦りや不注意による小さな事故にも注意が必要です。外出前に祈ることをお勧めします。"
+                ]
+            }
+        };
 
-// ─── Pose transform ───────────────────────────────────────────────
-// Translates ctx to face anchor, applies roll+yaw+pitch as 2D transform,
-// then scales by face size so all graphics are drawn in "face-space" units.
-function applyPoseTransform(pose, anchorOffsetY = 0) {
-  const { cx, cy, faceW, roll, yaw, pitch } = pose;
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-  ctx.translate(cx, cy + anchorOffsetY);
-  ctx.rotate(roll);
+        // --- APP LOGIC ---
 
-  // Perspective shear: simulates 3-D rotation on a 2-D canvas
-  const kYaw   =  Math.tan(yaw)   * 0.55;
-  const kPitch = -Math.tan(pitch) * 0.45;  // negative: pitch up = graphic leans back
+        function setLang(lang) {
+            curLang = lang;
+            const t = dict[lang];
+            
+            document.getElementById('mainTitle').innerHTML = t.mainTitle;
+            document.getElementById('subTitle').innerText = t.subTitle;
+            document.getElementById('formHeader').innerText = t.formHeader;
+            document.getElementById('formSub').innerText = t.formSub;
+            document.getElementById('lblNickname').innerText = t.lblNickname;
+            document.getElementById('lblDob').innerText = t.lblDob;
+            document.getElementById('btnSubmit').innerText = t.btnSubmit;
+            document.getElementById('loadingText').innerText = t.loading;
+            
+            document.getElementById('lblL2').innerText = t.l2;
+            document.getElementById('lblL3').innerText = t.l3;
+            document.getElementById('lblL6').innerText = t.l6;
+            
+            document.getElementById('lblWork').innerText = t.lblWork;
+            document.getElementById('lblFinance').innerText = t.lblFinance;
+            document.getElementById('lblLove').innerText = t.lblLove;
+            document.getElementById('lblHealth').innerText = t.lblHealth;
+            
+            document.getElementById('btnRetry').innerText = t.btnRetry;
+            document.getElementById('btnSaveTxt').innerText = t.btnSave;
 
-  ctx.transform(1, kPitch, kYaw, 1, 0, 0);
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-[#cc3333]', 'text-white', 'border-[#cc3333]');
+            });
+            const activeBtn = document.getElementById(`btnLang${lang.toUpperCase()}`);
+            activeBtn.classList.add('active', 'bg-[#cc3333]', 'text-white', 'border-[#cc3333]');
+        }
 
-  // Scale so graphics auto-size with distance
-  const baseScale = faceW / 220;
-  ctx.scale(baseScale, baseScale);
-}
+        function getDateFormatted() {
+            const today = new Date();
+            if(curLang === 'th') {
+                const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+                return `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear() + 543}`;
+            } else if (curLang === 'jp') {
+                return `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+            } else {
+                return today.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+        }
 
-// ─── Draw: Mirrored video frame ───────────────────────────────────
-function drawVideoFrame() {
-  if (video.readyState < 2) return;
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  const scale = Math.max(renderW / vw, renderH / vh);
-  const dw    = vw * scale, dh = vh * scale;
-  const dx    = (renderW - dw) / 2;
-  const dy    = (renderH - dh) / 2;
+        // --- BULLETPROOF IMAGE LOADER (Fetch Base64 to bypass CORS issues when saving) ---
+        async function fetchImageAsBase64(url) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (e) {
+                console.error("Base64 fetch failed, falling back to original URL", e);
+                return url; 
+            }
+        }
 
-  ctx.save();
-  // Flip horizontally around the canvas centre
-  ctx.translate(renderW, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, dx, dy, dw, dh);
-  ctx.restore();
-}
+        async function calculateDestiny() {
+            const name = document.getElementById('nickname').value.trim();
+            const dob = document.getElementById('dob').value;
 
-// ─── Draw: Hat ────────────────────────────────────────────────────
-function drawHat(lms, pose) {
-  const top     = lm(lms, 10);
-  const offsetY = top.y - pose.cy - pose.faceH * 0.12;
+            if (!name || !dob) { 
+                alert(curLang === 'th' ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill all fields"); 
+                return; 
+            }
 
-  ctx.save();
-  applyPoseTransform(pose, offsetY);
+            document.getElementById('inputSection').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('loadingState').classList.add('flex');
+            
+            window.scrollTo(0,0);
 
-  const hw = 170, hh = 190, brimH = 30;
+            // 1. Pick Yokai
+            const yokaiObj = pick(yokaiGallery);
+            
+            // 2. Fetch image safely as Base64 (Allows 100% reliable saving)
+            const safeImageUrl = await fetchImageAsBase64(yokaiObj.url);
+            
+            const img = document.getElementById('yokaiImage');
+            img.src = safeImageUrl;
 
-  ctx.beginPath();
-  ctx.ellipse(0, brimH * 0.3, hw * 0.52, brimH * 0.5, 0, 0, Math.PI * 2);
-  const brimG = ctx.createLinearGradient(-hw * 0.52, 0, hw * 0.52, 0);
-  brimG.addColorStop(0, '#1a1a1a'); brimG.addColorStop(.5, '#3c3c3c'); brimG.addColorStop(1, '#111');
-  ctx.fillStyle = brimG; ctx.fill();
+            // 3. Populate Texts
+            document.getElementById('yokaiNameTitle').innerText = yokaiObj.name;
+            const guardianTxt = dict[curLang].guardian;
+            document.getElementById('yokaiGuardianLabel').innerText = curLang === 'jp' ? `${name} ${guardianTxt}` : `${guardianTxt} ${name}`;
+            
+            document.getElementById('textYokai').innerText = contentDB.yokai[curLang];
+            document.getElementById('textWork').innerText = pick(contentDB.work[curLang]);
+            document.getElementById('textFinance').innerText = pick(contentDB.finance[curLang]);
+            document.getElementById('textLove').innerText = pick(contentDB.love[curLang]);
+            document.getElementById('textHealth').innerText = pick(contentDB.health[curLang]);
+            
+            document.getElementById('cardDailyDate').innerText = `${dict[curLang].datePrefix} ${getDateFormatted()}`;
 
-  const bx = -hw * 0.32, by = -hh * 0.88, bw = hw * 0.64, bh = hh * 0.88;
-  ctx.beginPath();
-  ctx.moveTo(bx + bw * .08, by + bh); ctx.lineTo(bx, by + bh);
-  ctx.quadraticCurveTo(bx - bw * .04, by + bh * .5, bx + bw * .1, by);
-  ctx.quadraticCurveTo(0, by - bh * .07, bx + bw * .9, by);
-  ctx.quadraticCurveTo(bx + bw * 1.04, by + bh * .5, bx + bw, by + bh);
-  ctx.lineTo(bx + bw * .92, by + bh); ctx.closePath();
-  const bodyG = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
-  bodyG.addColorStop(0, '#2d2d2d'); bodyG.addColorStop(.4, '#555'); bodyG.addColorStop(1, '#111');
-  ctx.fillStyle = bodyG; ctx.fill();
+            document.getElementById('lucky2').innerText = Math.floor(Math.random()*90 + 10).toString();
+            document.getElementById('lucky3').innerText = Math.floor(Math.random()*900 + 100).toString();
+            document.getElementById('lucky6').innerText = Math.floor(Math.random()*900000 + 100000).toString();
+            
+            const meanings = dict[curLang].numMeanings;
+            document.getElementById('desc2').innerText = pick(meanings);
+            document.getElementById('desc3').innerText = pick(meanings);
+            document.getElementById('desc6').innerText = pick(meanings);
 
-  ctx.fillStyle = '#7070ff';
-  ctx.fillRect(bx + bw * .02, by + bh * .85, bw * .96, bh * .09);
-  ctx.restore();
-}
+            // 4. Reveal UI
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('flex');
+            
+            const res = document.getElementById('resultContainer');
+            const action = document.getElementById('actionBar');
+            
+            res.classList.remove('hidden');
+            res.classList.add('fade-in');
+            action.classList.remove('hidden');
+        }
 
-// ─── Draw: Glasses ────────────────────────────────────────────────
-function drawGlasses(lms, pose) {
-  const le = lm(lms, 263), re = lm(lms, 33);  // mirrored: 263=left, 33=right
-  const offsetY  = ((le.y + re.y) / 2) - pose.cy;
-  const eyeSpan  = Math.abs(re.x - le.x);
-  const poseUnit = pose.faceW / 220;
-  const r        = (eyeSpan / poseUnit) * 0.38;
-  const halfSpan = (eyeSpan / poseUnit) * 0.5;
-  const lx = -halfSpan, rx = halfSpan;
+        function resetApp() {
+            document.getElementById('resultContainer').classList.add('hidden');
+            document.getElementById('resultContainer').classList.remove('fade-in');
+            document.getElementById('actionBar').classList.add('hidden');
+            document.getElementById('inputSection').classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
 
-  ctx.save();
-  applyPoseTransform(pose, offsetY);
-  ctx.lineWidth = r * 0.09;
+        async function saveCard() {
+            const btnTxt = document.getElementById('btnSaveTxt');
+            const originalText = btnTxt.innerText;
+            btnTxt.innerText = curLang === 'th' ? "กำลังบันทึก..." : "Saving...";
+            
+            const actionBar = document.getElementById('actionBar');
+            actionBar.style.display = 'none';
+            
+            await new Promise(resolve => setTimeout(resolve, 200)); // Wait for bar to hide
+            
+            const card = document.getElementById('destinyCard');
+            
+            try {
+                const canvas = await html2canvas(card, { 
+                    scale: 2, 
+                    useCORS: true,       
+                    backgroundColor: "#161616"
+                });
 
-  for (const ex of [lx, rx]) {
-    ctx.beginPath(); ctx.ellipse(ex, 0, r, r * .7, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(80,80,255,0.18)'; ctx.fill();
-    ctx.strokeStyle = '#3030ee'; ctx.stroke();
-    ctx.save();
-    ctx.beginPath(); ctx.arc(ex - r * .2, -r * .2, r * .18, Math.PI * 1.1, Math.PI * 1.55);
-    ctx.strokeStyle = 'rgba(220,220,255,.5)'; ctx.lineWidth = r * .035; ctx.stroke();
-    ctx.restore();
-  }
-  ctx.lineWidth = r * 0.09;
-  ctx.beginPath(); ctx.moveTo(lx + r, 0); ctx.lineTo(rx - r, 0); ctx.strokeStyle = '#5050ff'; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(lx - r, 0); ctx.lineTo(lx - r * 2.4, -r * .3); ctx.strokeStyle = '#3030ee'; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(rx + r, 0); ctx.lineTo(rx + r * 2.4, -r * .3); ctx.stroke();
-  ctx.restore();
-}
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                
+                const response = await fetch(dataUrl);
+                const blob = await response.blob();
+                const file = new File([blob], `Yokai-Fate-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
-// ─── Draw: Crown ──────────────────────────────────────────────────
-function drawCrown(lms, pose) {
-  const top     = lm(lms, 10);
-  const offsetY = top.y - pose.cy - pose.faceH * 0.05;
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: 'ดูดวงกับ Yokai',
+                            text: 'ดวงชะตาวันนี้ของฉัน'
+                        });
+                        btnTxt.innerText = curLang === 'th' ? "สำเร็จ!" : "Done!";
+                    } catch (err) {
+                        triggerDownload(dataUrl, btnTxt);
+                    }
+                } else {
+                    triggerDownload(dataUrl, btnTxt);
+                }
 
-  ctx.save();
-  applyPoseTransform(pose, offsetY);
+            } catch (e) {
+                console.error("Save error:", e);
+                alert(curLang === 'th' ? "เกิดปัญหาตอนบันทึก กรุณาใช้วิธี 'แคปหน้าจอ' (Screenshot) แทนครับ" : "Please use Screenshot.");
+                btnTxt.innerText = "Error";
+            }
 
-  const cw = 130, ch = 90;
-  const pts = [
-    [-cw, 0], [-cw, -ch * .5], [-cw * .6, -ch * .3], [-cw * .3, -ch],
-    [0, -ch * .4],
-    [cw * .3, -ch], [cw * .6, -ch * .3], [cw, -ch * .5], [cw, 0],
-  ];
-  ctx.beginPath(); ctx.moveTo(...pts[0]);
-  pts.slice(1).forEach(p => ctx.lineTo(...p));
-  ctx.closePath();
-  const cg = ctx.createLinearGradient(0, -ch, 0, 0);
-  cg.addColorStop(0, '#ffe44a'); cg.addColorStop(.5, '#ffaa00'); cg.addColorStop(1, '#bb7700');
-  ctx.fillStyle = cg; ctx.fill(); ctx.strokeStyle = '#996600'; ctx.lineWidth = 2; ctx.stroke();
+            setTimeout(() => {
+                btnTxt.innerText = originalText;
+                actionBar.style.display = 'flex';
+            }, 2500);
+        }
 
-  [[-cw * .3, -ch, '#ff3366'], [0, -ch * .4, '#33aaff'], [cw * .3, -ch, '#33ff88']].forEach(([gx, gy, gc]) => {
-    ctx.beginPath(); ctx.arc(gx, gy, 8, 0, Math.PI * 2);
-    ctx.fillStyle = gc; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
-  });
-  ctx.restore();
-}
+        function triggerDownload(dataUrl, btnTxt) {
+            const link = document.createElement('a');
+            link.download = `Yokai-Fate-${Date.now()}.jpg`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            btnTxt.innerText = curLang === 'th' ? "บันทึกแล้ว!" : "Saved!";
+        }
 
-// ─── Draw: Mesh ───────────────────────────────────────────────────
-function drawMesh(lms) {
-  const EDGES = [
-    [10,338],[338,297],[297,332],[332,284],[284,251],[251,389],[389,356],
-    [356,454],[454,323],[323,361],[361,288],[288,397],[397,365],[365,379],
-    [379,378],[378,400],[400,377],[377,152],[152,148],[148,176],[176,149],
-    [149,150],[150,136],[136,172],[172,58],[58,132],[132,93],[93,234],
-    [234,127],[127,162],[162,21],[21,54],[54,103],[103,67],[67,109],[109,10],
-    [33,7],[7,163],[163,144],[144,145],[145,153],[153,154],[154,155],[155,133],
-    [133,173],[173,157],[157,158],[158,159],[159,160],[160,161],[161,246],[246,33],
-    [362,382],[382,381],[381,380],[380,374],[374,373],[373,390],[390,249],[249,263],
-    [263,466],[466,388],[388,387],[387,386],[386,385],[385,384],[384,398],[398,362],
-    [78,95],[95,88],[88,178],[178,87],[87,14],[14,317],[317,402],[402,318],
-    [318,324],[324,308],[308,415],[415,310],[310,311],[311,312],[312,13],
-    [13,82],[82,81],[81,80],[80,191],[191,78],
-    [168,6],[6,197],[197,195],[195,5],[5,4],[4,1],[1,19],[19,94],
-  ];
-  ctx.save();
-  ctx.strokeStyle = 'rgba(100,130,255,0.35)'; ctx.lineWidth = 0.8;
-  EDGES.forEach(([a, b]) => {
-    const p = lm(lms, a), q = lm(lms, b);
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
-  });
-  ctx.fillStyle = 'rgba(140,200,255,0.7)';
-  lms.forEach(p => {
-    const m = coverMap(p.x, p.y);
-    ctx.beginPath(); ctx.arc(m.x, m.y, 1.5, 0, Math.PI * 2); ctx.fill();
-  });
-  ctx.restore();
-}
-
-// ─── Camera + MediaPipe ───────────────────────────────────────────
-async function startCamera() {
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
-      audio: false
-    });
-    const s = stream.getVideoTracks()[0].getSettings();
-    dbg(`Camera ${s.width}×${s.height} ✓`, '#44ff88');
-  } catch (e) {
-    dbg('Camera: ' + e.message, '#ff4466');
-    setStatus('ไม่สามารถเปิดกล้อง: ' + e.message, false);
-    return;
-  }
-
-  video.srcObject = stream;
-  await new Promise(res => { video.onloadedmetadata = res; });
-  await video.play();
-
-  syncCanvasSize();
-  let resizeTimer;
-  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(syncCanvasSize, 200); });
-
-  dbg(`video: ${video.videoWidth}×${video.videoHeight}`, '#44ff88');
-  setStatus('กำลังโหลด face model...', null);
-
-  const faceMesh = new FaceMesh({
-    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`
-  });
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-
-  faceMesh.onResults(results => {
-    ctx.clearRect(0, 0, renderW, renderH);
-
-    // Always draw the mirrored video frame first
-    drawVideoFrame();
-
-    if (!results.multiFaceLandmarks?.length) return;
-    const lms  = results.multiFaceLandmarks[0];
-    const pose = getHeadPose(lms);
-
-    if      (mode === 'hat')     drawHat(lms, pose);
-    else if (mode === 'glasses') drawGlasses(lms, pose);
-    else if (mode === 'crown')   drawCrown(lms, pose);
-    else if (mode === 'mesh')    drawMesh(lms);
-  });
-
-  let firstFrame = true;
-  async function pump() {
-    if (video.readyState >= 2) {
-      await faceMesh.send({ image: video });
-      if (firstFrame) {
-        firstFrame = false;
-        dbg('Tracking active ✓', '#44ff88');
-        setStatus('● tracking active', true);
-      }
-    }
-    requestAnimationFrame(pump);
-  }
-  pump();
-}
-
-async function bootstrap() {
-  setStatus('กำลังโหลด MediaPipe...');
-  dbg('Loading scripts...');
-  try {
-    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js');
-    await startCamera();
-  } catch (e) {
-    setStatus('โหลดไม่สำเร็จ', false);
-  }
-}
-
-bootstrap();
-</script>
-
+        // Initialize Language
+        setLang('th');
+    </script>
 </body>
 </html>
+
+
