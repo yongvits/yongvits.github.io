@@ -1,492 +1,498 @@
 <!DOCTYPE html>
+
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ดูดวงกับ Yokai (V10.5)</title>
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&family=Shojumaru&family=Chakra+Petch:wght@400;600&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Face AR</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
 
-    <style>
-        body {
-            font-family: 'Sarabun', 'Noto Sans JP', sans-serif;
-            background-color: #050505;
-            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
-            color: #e2e8f0;
-            overflow-x: hidden;
-        }
-        .jp-font { font-family: 'Shojumaru', cursive; }
-        .tech-font { font-family: 'Chakra Petch', sans-serif; }
-        
-        .modal-enter { animation: zoomIn 0.4s ease-out forwards; }
-        @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+body {
+background: #08080f;
+color: #dde;
+font-family: ‘Space Mono’, monospace;
+display: flex;
+flex-direction: column;
+align-items: center;
+min-height: 100dvh;
+overflow: hidden;
+}
 
-        .destiny-card {
-            background: linear-gradient(180deg, #1a0b0b 0%, #0f0505 100%);
-            border: 1px solid #450a0a;
-            box-shadow: 0 0 60px rgba(220, 38, 38, 0.15);
-            position: relative;
-            overflow: hidden;
-        }
-        .section-box {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-        }
-        .section-title {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-    </style>
+h1 {
+font-size: 0.7rem;
+letter-spacing: 0.3em;
+color: #8080ff;
+text-transform: uppercase;
+text-shadow: 0 0 16px #8080ff66;
+padding: 10px 0 4px;
+flex-shrink: 0;
+}
+
+#status {
+font-size: 0.6rem;
+letter-spacing: 0.1em;
+color: #8080ff99;
+padding: 0 0 6px;
+flex-shrink: 0;
+}
+
+#container {
+position: relative;
+width: 100%;
+aspect-ratio: 9 / 16;
+max-height: calc(100dvh - 110px);
+max-width: calc((100dvh - 110px) * 9 / 16);
+background: #000;
+border: 1px solid #8080ff33;
+overflow: hidden;
+flex-shrink: 0;
+}
+
+/* Video is hidden — we draw it manually onto canvas so both
+the mirrored image and AR overlays share one coordinate system */
+#video {
+position: absolute;
+width: 1px; height: 1px;
+opacity: 0;
+pointer-events: none;
+}
+
+#canvas {
+position: absolute;
+inset: 0;
+width: 100%;
+height: 100%;
+display: block;
+}
+
+#log {
+position: absolute;
+bottom: 6px; left: 6px; right: 6px;
+font-size: 0.5rem;
+color: #44ff88bb;
+pointer-events: none;
+line-height: 1.7;
+}
+
+#controls {
+display: flex;
+gap: 6px;
+padding: 8px;
+width: 100%;
+flex-shrink: 0;
+}
+
+.btn {
+flex: 1;
+background: transparent;
+border: 1px solid #8080ff55;
+color: #aac;
+padding: 7px 4px;
+font-family: ‘Space Mono’, monospace;
+font-size: 0.6rem;
+cursor: pointer;
+border-radius: 3px;
+transition: all 0.15s;
+text-align: center;
+}
+.btn.active, .btn:hover {
+background: #8080ff22;
+border-color: #8080ff;
+color: #fff;
+box-shadow: 0 0 10px #8080ff44;
+}
+</style>
+
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center py-10">
+<body>
 
-    <!-- LANGUAGE SWITCHER -->
-    <div class="fixed top-4 right-4 z-[110] flex gap-2">
-        <button onclick="setLang('th')" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1 rounded text-xs hover:bg-red-900 hover:text-white transition">TH</button>
-        <button onclick="setLang('jp')" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1 rounded text-xs hover:bg-red-900 hover:text-white transition">JP</button>
-        <button onclick="setLang('en')" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1 rounded text-xs hover:bg-red-900 hover:text-white transition">EN</button>
-    </div>
+<h1>✦ Face AR · Head Tracker</h1>
+<div id="status">กำลังเริ่มต้น...</div>
 
-    <!-- 1. POPUP WELCOME -->
-    <div id="welcomeModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 modal-enter p-4">
-        <div class="max-w-sm w-full bg-[#111] border border-red-900/50 p-6 rounded-2xl text-center relative overflow-hidden shadow-[0_0_50px_rgba(220,38,38,0.3)]">
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-red-600/20 rounded-full blur-[50px]"></div>
-            <div class="relative z-10">
-                <i class="fa-solid fa-torii-gate text-5xl text-red-500 mb-4 drop-shadow-lg animate-pulse"></i>
-                <h1 class="text-2xl font-bold text-white jp-font mb-2 tracking-widest">ดูดวงกับ Yokai</h1>
-                
-                <!-- VERSION BADGE ADDED HERE -->
-                <div class="inline-block bg-red-900/50 border border-red-500/50 rounded px-2 py-1 mb-2">
-                    <span class="text-xs text-red-300 font-bold tracking-widest">VERSION 10.5</span>
-                </div>
+<div id="container">
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="canvas"></canvas>
+  <div id="log"></div>
+</div>
 
-                <p class="text-gray-400 text-xs mb-6 tech-font border-y border-gray-800 py-2">
-                    Concise Horoscope Edition
-                </p>
-                <div class="text-[10px] text-gray-500 mb-4">
-                    <i class="fa-solid fa-compress-arrows-alt"></i> คำทำนายกระชับ ได้ใจความ
-                </div>
-                <button onclick="closeModal()" class="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg shadow-lg tech-font uppercase transition" id="btnStart">
-                    เริ่มต้นทำนาย
-                </button>
-            </div>
-        </div>
-    </div>
+<div id="controls">
+  <button class="btn active" data-mode="hat">🎩 หมวก</button>
+  <button class="btn" data-mode="glasses">🕶️ แว่น</button>
+  <button class="btn" data-mode="crown">👑 มงกุฎ</button>
+  <button class="btn" data-mode="mesh">🔷 Mesh</button>
+</div>
 
-    <!-- MAIN APP -->
-    <main class="w-full max-w-lg px-4 flex flex-col items-center">
-        
-        <!-- Header -->
-        <header class="text-center mb-6 mt-8">
-            <h2 class="text-4xl jp-font text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500" id="headerTitle">
-                ดูดวงกับ Yokai
-            </h2>
-            <p class="text-[10px] text-gray-500 uppercase tracking-[0.3em]" id="headerSub">Identity System V10.5</p>
-        </header>
+<script>
+// ─── Logger ──────────────────────────────────────────────────────
+const logEl    = document.getElementById('log');
+const statusEl = document.getElementById('status');
+const lines    = [];
+function dbg(msg, color) {
+  lines.push(`<span style="color:${color||'#44ff88bb'}">${msg}</span>`);
+  if (lines.length > 5) lines.shift();
+  logEl.innerHTML = lines.join('<br>');
+}
+function setStatus(msg, state) {
+  statusEl.textContent = msg;
+  statusEl.style.color = state === true ? '#44ff88' : state === false ? '#ff4466' : '#8080ff99';
+}
 
-        <!-- Input Form -->
-        <div id="inputSection" class="w-full bg-gray-900/80 border border-red-900/30 p-6 rounded-xl shadow-2xl backdrop-blur-md relative z-10">
-            <div class="space-y-4">
-                <div class="relative">
-                    <label class="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] text-red-400 font-bold uppercase" id="lblFullname">Full Name</label>
-                    <input type="text" id="fullName" class="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-sm text-white focus:border-red-500 outline-none transition" placeholder="...">
-                </div>
-                <div class="relative">
-                    <label class="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] text-orange-400 font-bold uppercase" id="lblDob">Date of Birth</label>
-                    <input type="date" id="dob" class="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-sm text-white focus:border-orange-500 outline-none transition [color-scheme:dark]">
-                </div>
-                <button onclick="calculateDestiny()" class="w-full mt-2 bg-gradient-to-r from-red-900 to-orange-700 text-white py-4 rounded-lg font-bold uppercase tracking-wider shadow-lg hover:shadow-red-900/40 transition flex items-center justify-center gap-2 group">
-                    <i class="fa-solid fa-dice"></i> <span id="btnRandom">RANDOM PREDICTION</span>
-                </button>
-            </div>
-        </div>
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload  = () => { dbg('✓ ' + src.split('/').pop()); res(); };
+    s.onerror = () => { dbg('✗ ' + src.split('/').pop(), '#ff4466'); rej(); };
+    document.head.appendChild(s);
+  });
+}
 
-        <!-- Loading -->
-        <div id="loadingState" class="hidden my-12 text-center">
-            <div class="w-16 h-16 border-4 border-gray-800 border-t-red-500 border-b-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
-            <p class="text-xs text-gray-400 tech-font animate-pulse">ANALYZING...</p>
-        </div>
+// ─── Mode toggle ─────────────────────────────────────────────────
+let mode = 'hat';
+document.querySelectorAll('.btn[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+  });
+});
 
-        <!-- Result Area -->
-        <div id="resultContainer" class="hidden w-full mt-4 transform transition-all duration-700 opacity-0 translate-y-10 mb-20">
-            
-            <div id="destinyCard" class="destiny-card rounded-xl p-0">
-                
-                <!-- 1. Header (Compact) -->
-                <div class="bg-[#111] p-3 flex justify-between items-center border-b border-gray-800">
-                    <div>
-                        <h2 id="cardName" class="text-lg font-bold text-white tech-font leading-tight truncate max-w-[180px]">NAME</h2>
-                        <p id="cardDob" class="text-[9px] text-gray-400 font-mono">BIRTH: 0000-00-00</p>
-                    </div>
-                    <div class="text-right">
-                         <div class="text-[8px] text-gray-500 uppercase">ID</div>
-                         <div id="cardId" class="text-base font-bold text-red-500 font-mono">#0000</div>
-                    </div>
-                </div>
+// ─── Canvas setup ────────────────────────────────────────────────
+const video     = document.getElementById('video');
+const canvas    = document.getElementById('canvas');
+const ctx       = canvas.getContext('2d');
+const container = document.getElementById('container');
 
-                <!-- 2. FULL IMAGE -->
-                <div class="relative w-full aspect-square bg-black overflow-hidden group">
-                    <img id="yokaiImage" src="" 
-                         class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                         alt="Yokai" 
-                         referrerpolicy="no-referrer"
-                         onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Bakemono_no_e.jpg/640px-Bakemono_no_e.jpg';">
-                    
-                    <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/70 to-transparent pt-10 pb-2 px-4">
-                        <span id="yokaiNameTitle" class="text-base font-bold text-white uppercase block drop-shadow-md">Yokai Name</span>
-                        <span class="text-[9px] text-red-300 uppercase tracking-widest">Spirit Guardian</span>
-                    </div>
-                </div>
+let renderW = 0, renderH = 0;
 
-                <!-- 3. STATS GRID -->
-                <div class="grid grid-cols-4 border-b border-gray-800 bg-[#0f0505]">
-                    <div class="p-2 text-center border-r border-gray-800">
-                        <span class="block text-[8px] text-gray-500 uppercase" id="lblZodiac">Zodiac</span>
-                        <span id="valZodiac" class="text-xs font-bold text-yellow-500">...</span>
-                    </div>
-                    <div class="p-2 text-center border-r border-gray-800">
-                        <span class="block text-[8px] text-gray-500 uppercase" id="lblElement">Element</span>
-                        <span id="valElement" class="text-xs font-bold text-red-500">...</span>
-                    </div>
-                    <div class="p-2 text-center border-r border-gray-800">
-                        <span class="block text-[8px] text-gray-500 uppercase" id="lblDay">Day</span>
-                        <span id="valDay" class="text-xs font-bold text-blue-500">...</span>
-                    </div>
-                    <div class="p-2 text-center">
-                        <span class="block text-[8px] text-gray-500 uppercase" id="lblLuck">Luck</span>
-                        <span id="valLuck" class="text-xs font-bold text-green-500">...</span>
-                    </div>
-                </div>
+function syncCanvasSize() {
+  const w = container.offsetWidth;
+  const h = container.offsetHeight;
+  if (w === renderW && h === renderH) return;
+  renderW = w; renderH = h;
+  canvas.width  = renderW;
+  canvas.height = renderH;
+  dbg(`canvas: ${renderW}×${renderH}`);
+}
 
-                <!-- 4. DETAILED CONTENT (Concise Version) -->
-                <div class="p-4 space-y-2">
-                    
-                    <div class="section-box border-l-2 border-l-red-600">
-                        <div class="section-title text-red-400"><i class="fa-solid fa-ghost"></i> <span id="headYokai">IDENTITY</span></div>
-                        <p id="textYokai" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
-                    </div>
+// ─── Coordinate mapping ──────────────────────────────────────────
+//
+// KEY DESIGN DECISION:
+//   • The <video> element is invisible (opacity:0, 1px).
+//   • Each frame we draw the video onto <canvas> with ctx.scale(-1,1)
+//     so the mirrored selfie image is rendered directly into canvas pixels.
+//   • MediaPipe landmarks are in raw (un-mirrored) video space [0,1].
+//   • We flip landmark X → (1 - nx) so it matches the mirrored canvas image.
+//   • Then apply object-fit:cover scale+offset so landmarks align with
+//     how the video is cropped inside the canvas.
+//
+// This way there is exactly ONE coordinate system and NO CSS transforms
+// are fighting each other. Rotation axes are therefore correct.
 
-                    <div class="section-box border-l-2 border-l-blue-600">
-                        <div class="section-title text-blue-400"><i class="fa-regular fa-calendar"></i> <span id="headDay">DAY FATE</span></div>
-                        <p id="textDayFate" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
-                    </div>
+function coverMap(nx, ny) {
+  const vw = video.videoWidth  || renderW;
+  const vh = video.videoHeight || renderH;
 
-                    <div class="section-box border-l-2 border-l-purple-600">
-                        <div class="section-title text-purple-400"><i class="fa-regular fa-moon"></i> <span id="headMonth">MONTH FATE</span></div>
-                        <p id="textMonthFate" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
-                    </div>
+  // Mirror X to match the flipped video drawn on canvas
+  const mx = 1 - nx;
 
-                    <div class="section-box border-l-2 border-l-green-600">
-                        <div class="section-title text-green-400"><i class="fa-solid fa-chart-line"></i> <span id="headOverall">OVERVIEW</span></div>
-                        <p id="textOverall" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
-                    </div>
+  const scale = Math.max(renderW / vw, renderH / vh);
+  const dx    = (renderW - vw * scale) / 2;
+  const dy    = (renderH - vh * scale) / 2;
 
-                    <div class="section-box bg-gray-900/50 border border-orange-600/30">
-                        <div class="section-title text-center justify-center mb-1 text-orange-400"><i class="fa-solid fa-dice"></i> <span id="headLucky">LUCKY NUMBERS</span></div>
-                        <div class="grid grid-cols-3 gap-2 text-center divide-x divide-gray-700">
-                            <div>
-                                <span class="block text-[8px] text-gray-500">2 Digits</span>
-                                <span id="lucky2" class="text-lg font-bold text-white font-mono">00</span>
-                                <span id="desc2" class="block text-[8px] text-orange-400">...</span>
-                            </div>
-                            <div>
-                                <span class="block text-[8px] text-gray-500">3 Digits</span>
-                                <span id="lucky3" class="text-lg font-bold text-white font-mono">000</span>
-                                <span id="desc3" class="block text-[8px] text-orange-400">...</span>
-                            </div>
-                            <div>
-                                <span class="block text-[8px] text-gray-500">6 Digits</span>
-                                <span id="lucky6" class="text-xs font-bold text-white font-mono mt-1">000000</span>
-                                <span id="desc6" class="block text-[8px] text-orange-400">...</span>
-                            </div>
-                        </div>
-                    </div>
+  return {
+    x: mx * vw * scale + dx,
+    y: ny * vh * scale + dy,
+    s: scale
+  };
+}
 
-                </div>
+function lm(lms, i) { return coverMap(lms[i].x, lms[i].y); }
 
-                <div class="pb-2 text-center">
-                    <p class="text-[8px] text-gray-700">ดูดวงกับ Yokai V10.5</p>
-                </div>
-            </div>
+// ─── Smoothing ───────────────────────────────────────────────────
+const S = {};
+function sm(k, v, a = 0.3) {
+  S[k] = S[k] === undefined ? v : S[k] * (1 - a) + v * a;
+  return S[k];
+}
 
-            <div class="mt-6 flex gap-3">
-                <button onclick="saveCard()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-download"></i> <span id="btnSave">Save</span>
-                </button>
-                <button onclick="resetApp()" class="flex-1 bg-red-900 hover:bg-red-800 text-white py-3 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-shuffle"></i> <span id="btnRetry">Re-Roll</span>
-                </button>
-            </div>
-            <p class="text-center text-[10px] text-gray-500 mt-2 pb-10" id="noteSave">*Use screenshot if save fails</p>
+// ─── Head pose (6DOF) ────────────────────────────────────────────
+function getHeadPose(lms) {
+  const noseTip    = lm(lms, 1);
+  const chin       = lm(lms, 152);
+  const forehead   = lm(lms, 10);
+  const leftCheek  = lm(lms, 454);  // swapped because X is mirrored
+  const rightCheek = lm(lms, 234);
+  const leftEye    = lm(lms, 263);  // swapped
+  const rightEye   = lm(lms, 33);
 
-        </div>
-    </main>
+  const faceW = Math.abs(rightCheek.x - leftCheek.x);
+  const faceH = Math.abs(chin.y - forehead.y);
+  const cx    = (leftCheek.x + rightCheek.x) / 2;
+  const cy    = (forehead.y  + chin.y)        / 2;
 
-    <script>
-        // --- DATA ---
-        let curLang = 'th';
+  // Roll: angle of the eye line — positive = head tilted right
+  const eyeDx = rightEye.x - leftEye.x;
+  const eyeDy = rightEye.y - leftEye.y;
+  const roll  = Math.atan2(eyeDy, eyeDx);
 
-        // Filtered Gallery (Stable)
-        const yokaiGallery = [
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Akakuchi.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Furaribi.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Gagoze.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Hyosube.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Inugami.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kamikiri.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kappa.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kasha.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Mikoshi-nyudo.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nekomata.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nukekubi.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuppeppo.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nurarihyon.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nure-onna.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuribotoke.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Otoroshi.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ouni.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Shokera.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ubume.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ushioni.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Uwan.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Waira.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yako.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-biko.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-uba.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-warau.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yuki-onna.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yume-no-seirei.jpg",
-            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yurei.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Bakemono_no_e.jpg"
-        ];
+  // Yaw: nose tip offset from face centre; after mirror flip this is correct
+  const yawRaw = (noseTip.x - cx) / (faceW * 0.5);
+  const yaw    = yawRaw * (Math.PI / 2.5);
 
-        const langData = {
-            th: {
-                title: "ดูดวงกับ Yokai", sub: "ระบบทำนายดวงชะตา",
-                lblFullname: "ชื่อ-นามสกุล", lblDob: "วัน/เดือน/ปีเกิด",
-                btnRandom: "สุ่มทำนายดวงชะตา",
-                lblZodiac: "ปีนักษัตร", lblElement: "ธาตุ", lblDay: "วันเกิด", lblLuck: "ความโชคดี",
-                headYokai: "ตัวตนทางวิญญาณ", headDay: "ชะตาตามวันเกิด", headMonth: "ชะตาตามเดือนเกิด", headOverall: "ภาพรวมช่วงนี้", headLucky: "เลขนำโชค",
-                btnSave: "บันทึกรูป", btnRetry: "สุ่มใหม่", noteSave: "*หากบันทึกไม่ได้ ให้ใช้การแคปหน้าจอ",
-                numMeanings: ["การงาน", "การเงิน", "ความรัก", "โชคลาภ", "สุขภาพ", "บารมี", "เดินทาง", "เสี่ยงโชค", "ครอบครัว", "แก้เคล็ด"]
-            },
-            jp: {
-                title: "妖怪占い", sub: "運命予測システム",
-                lblFullname: "氏名 (Full Name)", lblDob: "生年月日",
-                btnRandom: "運勢を占う (START)",
-                lblZodiac: "干支", lblElement: "元素", lblDay: "曜日", lblLuck: "幸運度",
-                headYokai: "妖怪の正体", headDay: "誕生日の運勢", headMonth: "誕生月の運勢", headOverall: "全体運", headLucky: "ラッキーナンバー",
-                btnSave: "保存する", btnRetry: "もう一度", noteSave: "*保存できない場合はスクリーンショットを使用してください",
-                numMeanings: ["仕事", "金運", "恋愛", "幸運", "健康", "権力", "旅行", "賭け", "家族", "厄除"]
-            },
-            en: {
-                title: "Yokai Horoscope", sub: "Identity System",
-                lblFullname: "Full Name", lblDob: "Date of Birth",
-                btnRandom: "RANDOM PREDICTION",
-                lblZodiac: "Zodiac", lblElement: "Element", lblDay: "Day", lblLuck: "Luck",
-                headYokai: "SPIRIT IDENTITY", headDay: "BIRTH DAY FATE", headMonth: "BIRTH MONTH FATE", headOverall: "OVERVIEW", headLucky: "LUCKY NUMBERS",
-                btnSave: "Save Image", btnRetry: "Re-Roll", noteSave: "*Use screenshot if save fails",
-                numMeanings: ["Career", "Wealth", "Love", "Fortune", "Health", "Power", "Travel", "Risk", "Family", "Karma"]
-            }
-        };
+  // Pitch: nose-tip vertical relative to eye midpoint
+  const eyeMidY  = (leftEye.y + rightEye.y) / 2;
+  const pitchRaw = (noseTip.y - eyeMidY) / (faceH * 0.5);
+  const pitch    = (pitchRaw - 0.55) * (Math.PI / 1.8);
 
-        const contentDB = {
-            situations: {
-                th: ["การเงินกำลังดี มีลาภลอย", "ระวังคำพูดสร้างศัตรู", "มีเกณฑ์เดินทางไกล", "ความรักสดใส", "ระวังปัญหาสุขภาพ", "ศัตรูจะแพ้ภัย", "งานหนักแต่คุ้มค่า", "จะได้ของขวัญใหญ่"],
-                jp: ["金運上昇中", "言葉に注意", "遠出の予感", "恋愛運好調", "健康に注意", "敵が自滅", "仕事は順調", "贈り物あり"],
-                en: ["Finances rising", "Watch words", "Travel expected", "Love blooms", "Watch health", "Enemies fall", "Work pays off", "Gifts coming"]
-            },
-            advice: {
-                th: ["ทำบุญแสงสว่าง", "พักผ่อนใกล้แหล่งน้ำ", "จัดโต๊ะทำงานใหม่", "สวดมนต์ก่อนนอน", "วางแผนการเงิน", "ระวังเรื่องชู้สาว", "ไหว้พระวัดเก่า", "พกเครื่องรางนก"],
-                jp: ["明かりを奉納", "水辺で休息", "机を整理", "寝る前に祈る", "出費を管理", "浮気注意", "古寺参拝", "鳥のお守り"],
-                en: ["Offer light", "Rest near water", "Clean desk", "Pray nightly", "Plan budget", "Avoid triangles", "Visit temple", "Bird charm"]
-            },
-            overallTemplates: {
-                th: ["กราฟชีวิตพุ่งขึ้น", "โอกาสทองมาถึง", "อดทนแล้วจะดี", "มีเกณฑ์เปลี่ยนแปลง"],
-                jp: ["運気上昇中", "好機到来", "忍耐が必要", "変化の兆し"],
-                en: ["Life soaring", "Golden chance", "Be patient", "Changes ahead"]
-            },
-            traits: {
-                th: ["ผู้นำ", "อ่อนโยน", "นักสู้", "ฉลาด", "ยุติธรรม", "ศิลปิน", "อดทน"],
-                jp: ["リーダー", "優しい", "戦士", "賢い", "正義", "芸術家", "忍耐強い"],
-                en: ["Leader", "Gentle", "Fighter", "Clever", "Just", "Artist", "Patient"]
-            }
-        };
+  return {
+    cx:    sm('px', cx),
+    cy:    sm('py', cy),
+    faceW: sm('fw', faceW),
+    faceH: sm('fh', faceH),
+    roll:  sm('rl', roll,  0.25),
+    yaw:   sm('yw', yaw,   0.25),
+    pitch: sm('pt', pitch, 0.25),
+  };
+}
 
-        const zodiacs = {
-            th: ["วอก", "ระกา", "จอ", "กุน", "ชวด", "ฉลู", "ขาล", "เถาะ", "มะโรง", "มะเส็ง", "มะเมีย", "มะแม"],
-            jp: ["申", "酉", "戌", "亥", "子", "丑", "寅", "卯", "辰", "巳", "午", "未"],
-            en: ["Monkey", "Rooster", "Dog", "Pig", "Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat"]
-        };
-        const elements = {
-            th: ["ทอง", "ทอง", "น้ำ", "น้ำ", "ไม้", "ไม้", "ไฟ", "ไฟ", "ดิน", "ดิน"],
-            jp: ["金", "金", "水", "水", "木", "木", "火", "火", "土", "土"],
-            en: ["Metal", "Metal", "Water", "Water", "Wood", "Wood", "Fire", "Fire", "Earth", "Earth"]
-        };
-        const days = {
-            th: ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"],
-            jp: ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"],
-            en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-        };
+// ─── Pose transform ───────────────────────────────────────────────
+// Translates ctx to face anchor, applies roll+yaw+pitch as 2D transform,
+// then scales by face size so all graphics are drawn in "face-space" units.
+function applyPoseTransform(pose, anchorOffsetY = 0) {
+  const { cx, cy, faceW, roll, yaw, pitch } = pose;
 
-        function setLang(lang) {
-            curLang = lang;
-            const t = langData[lang];
-            
-            document.getElementById('headerTitle').innerText = t.title;
-            document.getElementById('headerSub').innerText = t.sub;
-            document.getElementById('lblFullname').innerText = t.lblFullname;
-            document.getElementById('lblDob').innerText = t.lblDob;
-            document.getElementById('btnRandom').innerText = t.btnRandom;
-            
-            document.getElementById('lblZodiac').innerText = t.lblZodiac;
-            document.getElementById('lblElement').innerText = t.lblElement;
-            document.getElementById('lblDay').innerText = t.lblDay;
-            document.getElementById('lblLuck').innerText = t.lblLuck;
-            
-            document.getElementById('headYokai').innerText = t.headYokai;
-            document.getElementById('headDay').innerText = t.headDay;
-            document.getElementById('headMonth').innerText = t.headMonth;
-            document.getElementById('headOverall').innerText = t.headOverall;
-            document.getElementById('headLucky').innerText = t.headLucky;
-            
-            document.getElementById('btnSave').innerText = t.btnSave;
-            document.getElementById('btnRetry').innerText = t.btnRetry;
-            document.getElementById('noteSave').innerText = t.noteSave;
+  ctx.translate(cx, cy + anchorOffsetY);
+  ctx.rotate(roll);
 
-            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('bg-red-900', 'text-white'));
-            const btnIndex = lang === 'th' ? 0 : lang === 'jp' ? 1 : 2;
-            document.querySelectorAll('.lang-btn')[btnIndex].classList.add('bg-red-900', 'text-white');
-        }
+  // Perspective shear: simulates 3-D rotation on a 2-D canvas
+  const kYaw   =  Math.tan(yaw)   * 0.55;
+  const kPitch = -Math.tan(pitch) * 0.45;  // negative: pitch up = graphic leans back
 
-        function closeModal() { document.getElementById('welcomeModal').style.display = 'none'; }
-        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  ctx.transform(1, kPitch, kYaw, 1, 0, 0);
 
-        function getYokaiNameFromUrl(url) {
-            try {
-                let clean = decodeURIComponent(url).split('/').pop().replace(/^(640px-|File:|Suushi_|Kyakkai_Zukan_|Bakemono_|Tsuchigumo_Ekotoba_-_)/gi, '').replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ').replace(/Illustrated by.*/, '');
-                return clean.trim();
-            } catch (e) { return "Spirit"; }
-        }
+  // Scale so graphics auto-size with distance
+  const baseScale = faceW / 220;
+  ctx.scale(baseScale, baseScale);
+}
 
-        function calculateDestiny() {
-            const name = document.getElementById('fullName').value.trim();
-            const dob = document.getElementById('dob').value;
+// ─── Draw: Mirrored video frame ───────────────────────────────────
+function drawVideoFrame() {
+  if (video.readyState < 2) return;
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const scale = Math.max(renderW / vw, renderH / vh);
+  const dw    = vw * scale, dh = vh * scale;
+  const dx    = (renderW - dw) / 2;
+  const dy    = (renderH - dh) / 2;
 
-            if (!name || !dob) { alert("Please fill all fields"); return; }
+  ctx.save();
+  // Flip horizontally around the canvas centre
+  ctx.translate(renderW, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, dx, dy, dw, dh);
+  ctx.restore();
+}
 
-            document.getElementById('inputSection').classList.add('hidden');
-            document.getElementById('loadingState').classList.remove('hidden');
+// ─── Draw: Hat ────────────────────────────────────────────────────
+function drawHat(lms, pose) {
+  const top     = lm(lms, 10);
+  const offsetY = top.y - pose.cy - pose.faceH * 0.12;
 
-            setTimeout(() => {
-                const dateObj = new Date(dob);
-                const year = dateObj.getFullYear();
-                const dayIndex = dateObj.getDay();
-                
-                const zArr = zodiacs[curLang];
-                const eArr = elements[curLang];
-                const dArr = days[curLang];
-                const mArr = langData[curLang].numMeanings;
-                
-                const imgUrl = pick(yokaiGallery);
-                const yokaiName = getYokaiNameFromUrl(imgUrl);
-                
-                const trait = contentDB.traits[curLang][dayIndex];
-                const sit = pick(contentDB.situations[curLang]);
-                const adv = pick(contentDB.advice[curLang]);
-                const overallBase = pick(contentDB.overallTemplates[curLang]);
-                
-                let txtYokai, txtDay, txtMonth, txtOver;
-                
-                if (curLang === 'th') {
-                    // Concise logic
-                    txtYokai = `วิญญาณคือ "${yokaiName}" สะท้อนตัวตนที่มุ่งมั่น ${sit} ปีศาจตนนี้จะช่วยปัดเป่าภัย ระวังอารมณ์`;
-                    txtDay = `คนเกิดวัน${dArr[dayIndex]} พื้นดวง${trait} เป็นที่พึ่งคนรอบข้าง ช่วงนี้${sit} ตั้งสติให้มั่น ${adv}`;
-                    txtMonth = `เดือนเกิดนี้ธาตุ${eArr[parseInt(year.toString().slice(-1))]} ชีวิตเปลี่ยนแปลงเร็ว ${sit} เหมาะเริ่มสิ่งใหม่ ${adv} ระวังสุขภาพ`;
-                    txtOver = `${overallBase} อุปสรรคคือบททดสอบ ${sit} โดยเฉพาะความสัมพันธ์ ${adv} ความดีจะช่วยให้ผ่านวิกฤต`;
-                } else if (curLang === 'jp') {
-                    txtYokai = `守護霊は「${yokaiName}」。強い意志を象徴。${sit}。直感を信じて。感情に注意。`;
-                    txtDay = `${dArr[dayIndex]}生まれは${trait}。頼られる存在。${sit}。冷静に。${adv}。`;
-                    txtMonth = `今月生まれは${eArr[parseInt(year.toString().slice(-1))]}の要素。変化が速い。${sit}。${adv}。健康第一。`;
-                    txtOver = `${overallBase}。試練は成長の糧。${sit}。人間関係に注意。${adv}。善行が実を結ぶ。`;
-                } else {
-                    txtYokai = `Spirit: "${yokaiName}". Determined soul. ${sit}. Trust intuition. Avoid emotional choices.`;
-                    txtDay = `Born ${dArr[dayIndex]}, naturally ${trait}. ${sit}. Stay calm. ${adv}.`;
-                    txtMonth = `Element: ${eArr[parseInt(year.toString().slice(-1))]}. Rapid changes. ${sit}. Start new things. ${adv}. Watch health.`;
-                    txtOver = `${overallBase}. Obstacles test you. ${sit}. Watch relationships. ${adv}. Good deeds pay off.`;
-                }
+  ctx.save();
+  applyPoseTransform(pose, offsetY);
 
-                document.getElementById('cardName').innerText = name.toUpperCase();
-                document.getElementById('cardDob').innerText = dob;
-                document.getElementById('cardId').innerText = `#${Math.floor(Math.random() * 9999)}`;
-                
-                const img = document.getElementById('yokaiImage');
-                img.src = imgUrl; 
-                img.onerror = function() { 
-                    this.onerror = null; 
-                    this.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Bakemono_no_e.jpg/640px-Bakemono_no_e.jpg'; 
-                    document.getElementById('yokaiNameTitle').innerText = "Unknown Spirit";
-                };
-                
-                document.getElementById('yokaiNameTitle').innerText = yokaiName;
+  const hw = 170, hh = 190, brimH = 30;
 
-                document.getElementById('valZodiac').innerText = zArr[year % 12];
-                document.getElementById('valElement').innerText = eArr[parseInt(year.toString().slice(-1))];
-                document.getElementById('valDay').innerText = dArr[dayIndex];
-                document.getElementById('valLuck').innerText = Math.floor(Math.random()*100) + "%";
+  ctx.beginPath();
+  ctx.ellipse(0, brimH * 0.3, hw * 0.52, brimH * 0.5, 0, 0, Math.PI * 2);
+  const brimG = ctx.createLinearGradient(-hw * 0.52, 0, hw * 0.52, 0);
+  brimG.addColorStop(0, '#1a1a1a'); brimG.addColorStop(.5, '#3c3c3c'); brimG.addColorStop(1, '#111');
+  ctx.fillStyle = brimG; ctx.fill();
 
-                document.getElementById('textYokai').innerText = txtYokai;
-                document.getElementById('textDayFate').innerText = txtDay;
-                document.getElementById('textMonthFate').innerText = txtMonth;
-                document.getElementById('textOverall').innerText = txtOver;
+  const bx = -hw * 0.32, by = -hh * 0.88, bw = hw * 0.64, bh = hh * 0.88;
+  ctx.beginPath();
+  ctx.moveTo(bx + bw * .08, by + bh); ctx.lineTo(bx, by + bh);
+  ctx.quadraticCurveTo(bx - bw * .04, by + bh * .5, bx + bw * .1, by);
+  ctx.quadraticCurveTo(0, by - bh * .07, bx + bw * .9, by);
+  ctx.quadraticCurveTo(bx + bw * 1.04, by + bh * .5, bx + bw, by + bh);
+  ctx.lineTo(bx + bw * .92, by + bh); ctx.closePath();
+  const bodyG = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+  bodyG.addColorStop(0, '#2d2d2d'); bodyG.addColorStop(.4, '#555'); bodyG.addColorStop(1, '#111');
+  ctx.fillStyle = bodyG; ctx.fill();
 
-                document.getElementById('lucky2').innerText = Math.floor(Math.random()*100).toString().padStart(2,'0');
-                document.getElementById('lucky3').innerText = Math.floor(Math.random()*1000).toString().padStart(3,'0');
-                document.getElementById('lucky6').innerText = Math.floor(Math.random()*1000000).toString().padStart(6,'0');
-                
-                document.getElementById('desc2').innerText = pick(mArr);
-                document.getElementById('desc3').innerText = pick(mArr);
-                document.getElementById('desc6').innerText = pick(mArr);
+  ctx.fillStyle = '#7070ff';
+  ctx.fillRect(bx + bw * .02, by + bh * .85, bw * .96, bh * .09);
+  ctx.restore();
+}
 
-                document.getElementById('loadingState').classList.add('hidden');
-                const res = document.getElementById('resultContainer');
-                res.classList.remove('hidden');
-                setTimeout(() => res.classList.remove('translate-y-10', 'opacity-0'), 50);
+// ─── Draw: Glasses ────────────────────────────────────────────────
+function drawGlasses(lms, pose) {
+  const le = lm(lms, 263), re = lm(lms, 33);  // mirrored: 263=left, 33=right
+  const offsetY  = ((le.y + re.y) / 2) - pose.cy;
+  const eyeSpan  = Math.abs(re.x - le.x);
+  const poseUnit = pose.faceW / 220;
+  const r        = (eyeSpan / poseUnit) * 0.38;
+  const halfSpan = (eyeSpan / poseUnit) * 0.5;
+  const lx = -halfSpan, rx = halfSpan;
 
-            }, 1500);
-        }
+  ctx.save();
+  applyPoseTransform(pose, offsetY);
+  ctx.lineWidth = r * 0.09;
 
-        function resetApp() {
-            const res = document.getElementById('resultContainer');
-            res.classList.add('translate-y-10', 'opacity-0');
-            setTimeout(() => {
-                res.classList.add('hidden');
-                document.getElementById('inputSection').classList.remove('hidden');
-            }, 500);
-        }
+  for (const ex of [lx, rx]) {
+    ctx.beginPath(); ctx.ellipse(ex, 0, r, r * .7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(80,80,255,0.18)'; ctx.fill();
+    ctx.strokeStyle = '#3030ee'; ctx.stroke();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(ex - r * .2, -r * .2, r * .18, Math.PI * 1.1, Math.PI * 1.55);
+    ctx.strokeStyle = 'rgba(220,220,255,.5)'; ctx.lineWidth = r * .035; ctx.stroke();
+    ctx.restore();
+  }
+  ctx.lineWidth = r * 0.09;
+  ctx.beginPath(); ctx.moveTo(lx + r, 0); ctx.lineTo(rx - r, 0); ctx.strokeStyle = '#5050ff'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lx - r, 0); ctx.lineTo(lx - r * 2.4, -r * .3); ctx.strokeStyle = '#3030ee'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rx + r, 0); ctx.lineTo(rx + r * 2.4, -r * .3); ctx.stroke();
+  ctx.restore();
+}
 
-        function saveCard() {
-            const card = document.getElementById('destinyCard');
-            const btn = document.querySelector('#btnSave');
-            btn.innerText = "Saving...";
-            
-            html2canvas(card, { scale: 2, useCORS: true, backgroundColor: null, allowTaint: true })
-            .then(canvas => {
-                const link = document.createElement('a');
-                link.download = `Destiny-V10.5-${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                btn.innerText = "Saved!";
-                setTimeout(() => setLang(curLang), 2000);
-            }).catch(e => {
-                alert("Cannot save automatically. Please screenshot.");
-                setLang(curLang);
-            });
-        }
+// ─── Draw: Crown ──────────────────────────────────────────────────
+function drawCrown(lms, pose) {
+  const top     = lm(lms, 10);
+  const offsetY = top.y - pose.cy - pose.faceH * 0.05;
 
-        setLang('th');
-    </script>
+  ctx.save();
+  applyPoseTransform(pose, offsetY);
+
+  const cw = 130, ch = 90;
+  const pts = [
+    [-cw, 0], [-cw, -ch * .5], [-cw * .6, -ch * .3], [-cw * .3, -ch],
+    [0, -ch * .4],
+    [cw * .3, -ch], [cw * .6, -ch * .3], [cw, -ch * .5], [cw, 0],
+  ];
+  ctx.beginPath(); ctx.moveTo(...pts[0]);
+  pts.slice(1).forEach(p => ctx.lineTo(...p));
+  ctx.closePath();
+  const cg = ctx.createLinearGradient(0, -ch, 0, 0);
+  cg.addColorStop(0, '#ffe44a'); cg.addColorStop(.5, '#ffaa00'); cg.addColorStop(1, '#bb7700');
+  ctx.fillStyle = cg; ctx.fill(); ctx.strokeStyle = '#996600'; ctx.lineWidth = 2; ctx.stroke();
+
+  [[-cw * .3, -ch, '#ff3366'], [0, -ch * .4, '#33aaff'], [cw * .3, -ch, '#33ff88']].forEach(([gx, gy, gc]) => {
+    ctx.beginPath(); ctx.arc(gx, gy, 8, 0, Math.PI * 2);
+    ctx.fillStyle = gc; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// ─── Draw: Mesh ───────────────────────────────────────────────────
+function drawMesh(lms) {
+  const EDGES = [
+    [10,338],[338,297],[297,332],[332,284],[284,251],[251,389],[389,356],
+    [356,454],[454,323],[323,361],[361,288],[288,397],[397,365],[365,379],
+    [379,378],[378,400],[400,377],[377,152],[152,148],[148,176],[176,149],
+    [149,150],[150,136],[136,172],[172,58],[58,132],[132,93],[93,234],
+    [234,127],[127,162],[162,21],[21,54],[54,103],[103,67],[67,109],[109,10],
+    [33,7],[7,163],[163,144],[144,145],[145,153],[153,154],[154,155],[155,133],
+    [133,173],[173,157],[157,158],[158,159],[159,160],[160,161],[161,246],[246,33],
+    [362,382],[382,381],[381,380],[380,374],[374,373],[373,390],[390,249],[249,263],
+    [263,466],[466,388],[388,387],[387,386],[386,385],[385,384],[384,398],[398,362],
+    [78,95],[95,88],[88,178],[178,87],[87,14],[14,317],[317,402],[402,318],
+    [318,324],[324,308],[308,415],[415,310],[310,311],[311,312],[312,13],
+    [13,82],[82,81],[81,80],[80,191],[191,78],
+    [168,6],[6,197],[197,195],[195,5],[5,4],[4,1],[1,19],[19,94],
+  ];
+  ctx.save();
+  ctx.strokeStyle = 'rgba(100,130,255,0.35)'; ctx.lineWidth = 0.8;
+  EDGES.forEach(([a, b]) => {
+    const p = lm(lms, a), q = lm(lms, b);
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+  });
+  ctx.fillStyle = 'rgba(140,200,255,0.7)';
+  lms.forEach(p => {
+    const m = coverMap(p.x, p.y);
+    ctx.beginPath(); ctx.arc(m.x, m.y, 1.5, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+// ─── Camera + MediaPipe ───────────────────────────────────────────
+async function startCamera() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } },
+      audio: false
+    });
+    const s = stream.getVideoTracks()[0].getSettings();
+    dbg(`Camera ${s.width}×${s.height} ✓`, '#44ff88');
+  } catch (e) {
+    dbg('Camera: ' + e.message, '#ff4466');
+    setStatus('ไม่สามารถเปิดกล้อง: ' + e.message, false);
+    return;
+  }
+
+  video.srcObject = stream;
+  await new Promise(res => { video.onloadedmetadata = res; });
+  await video.play();
+
+  syncCanvasSize();
+  let resizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(syncCanvasSize, 200); });
+
+  dbg(`video: ${video.videoWidth}×${video.videoHeight}`, '#44ff88');
+  setStatus('กำลังโหลด face model...', null);
+
+  const faceMesh = new FaceMesh({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`
+  });
+  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+
+  faceMesh.onResults(results => {
+    ctx.clearRect(0, 0, renderW, renderH);
+
+    // Always draw the mirrored video frame first
+    drawVideoFrame();
+
+    if (!results.multiFaceLandmarks?.length) return;
+    const lms  = results.multiFaceLandmarks[0];
+    const pose = getHeadPose(lms);
+
+    if      (mode === 'hat')     drawHat(lms, pose);
+    else if (mode === 'glasses') drawGlasses(lms, pose);
+    else if (mode === 'crown')   drawCrown(lms, pose);
+    else if (mode === 'mesh')    drawMesh(lms);
+  });
+
+  let firstFrame = true;
+  async function pump() {
+    if (video.readyState >= 2) {
+      await faceMesh.send({ image: video });
+      if (firstFrame) {
+        firstFrame = false;
+        dbg('Tracking active ✓', '#44ff88');
+        setStatus('● tracking active', true);
+      }
+    }
+    requestAnimationFrame(pump);
+  }
+  pump();
+}
+
+async function bootstrap() {
+  setStatus('กำลังโหลด MediaPipe...');
+  dbg('Loading scripts...');
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js');
+    await startCamera();
+  } catch (e) {
+    setStatus('โหลดไม่สำเร็จ', false);
+  }
+}
+
+bootstrap();
+</script>
+
 </body>
 </html>
-
-
