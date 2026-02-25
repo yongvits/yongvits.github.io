@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ดูดวงกับ Yokai (V10.5)</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&family=Shojumaru&family=Chakra+Petch:wght@400;600&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Sarabun', 'Noto Sans JP', sans-serif;
+            background-color: #050505;
+            background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png');
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        .jp-font { font-family: 'Shojumaru', cursive; }
+        .tech-font { font-family: 'Chakra Petch', sans-serif; }
+        
+        .modal-enter { animation: zoomIn 0.4s ease-out forwards; }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+        .destiny-card {
+            background: linear-gradient(180deg, #1a0b0b 0%, #0f0505 100%);
+            border: 1px solid #450a0a;
+            box-shadow: 0 0 60px rgba(220, 38, 38, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+        .section-box {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        .section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center py-10">
+
+    <!-- LANGUAGE SWITCHER -->
+    <div class="fixed top-4 right-4 z-[110] flex gap-2">
+        <button onclick="setLang('th')" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1 rounded text-xs hover:bg-red-900 hover:text-white transition">TH</button>
+        <button onclick="setLang('jp')" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1 rounded text-xs hover:bg-red-900 hover:text-white transition">JP</button>
+        <button onclick="setLang('en')" class="lang-btn bg-gray-900 border border-gray-600 text-gray-300 px-3 py-1 rounded text-xs hover:bg-red-900 hover:text-white transition">EN</button>
+    </div>
+
+    <!-- 1. POPUP WELCOME -->
+    <div id="welcomeModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 modal-enter p-4">
+        <div class="max-w-sm w-full bg-[#111] border border-red-900/50 p-6 rounded-2xl text-center relative overflow-hidden shadow-[0_0_50px_rgba(220,38,38,0.3)]">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-red-600/20 rounded-full blur-[50px]"></div>
+            <div class="relative z-10">
+                <i class="fa-solid fa-torii-gate text-5xl text-red-500 mb-4 drop-shadow-lg animate-pulse"></i>
+                <h1 class="text-2xl font-bold text-white jp-font mb-2 tracking-widest">ดูดวงกับ Yokai</h1>
+                
+                <!-- VERSION BADGE ADDED HERE -->
+                <div class="inline-block bg-red-900/50 border border-red-500/50 rounded px-2 py-1 mb-2">
+                    <span class="text-xs text-red-300 font-bold tracking-widest">VERSION 10.5</span>
+                </div>
+
+                <p class="text-gray-400 text-xs mb-6 tech-font border-y border-gray-800 py-2">
+                    Concise Horoscope Edition
+                </p>
+                <div class="text-[10px] text-gray-500 mb-4">
+                    <i class="fa-solid fa-compress-arrows-alt"></i> คำทำนายกระชับ ได้ใจความ
+                </div>
+                <button onclick="closeModal()" class="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-3 rounded-lg shadow-lg tech-font uppercase transition" id="btnStart">
+                    เริ่มต้นทำนาย
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <main class="w-full max-w-lg px-4 flex flex-col items-center">
+        
+        <!-- Header -->
+        <header class="text-center mb-6 mt-8">
+            <h2 class="text-4xl jp-font text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500" id="headerTitle">
+                ดูดวงกับ Yokai
+            </h2>
+            <p class="text-[10px] text-gray-500 uppercase tracking-[0.3em]" id="headerSub">Identity System V10.5</p>
+        </header>
+
+        <!-- Input Form -->
+        <div id="inputSection" class="w-full bg-gray-900/80 border border-red-900/30 p-6 rounded-xl shadow-2xl backdrop-blur-md relative z-10">
+            <div class="space-y-4">
+                <div class="relative">
+                    <label class="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] text-red-400 font-bold uppercase" id="lblFullname">Full Name</label>
+                    <input type="text" id="fullName" class="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-sm text-white focus:border-red-500 outline-none transition" placeholder="...">
+                </div>
+                <div class="relative">
+                    <label class="absolute -top-2 left-3 bg-gray-900 px-1 text-[10px] text-orange-400 font-bold uppercase" id="lblDob">Date of Birth</label>
+                    <input type="date" id="dob" class="w-full bg-black/40 border border-gray-700 rounded-lg px-4 py-3 text-sm text-white focus:border-orange-500 outline-none transition [color-scheme:dark]">
+                </div>
+                <button onclick="calculateDestiny()" class="w-full mt-2 bg-gradient-to-r from-red-900 to-orange-700 text-white py-4 rounded-lg font-bold uppercase tracking-wider shadow-lg hover:shadow-red-900/40 transition flex items-center justify-center gap-2 group">
+                    <i class="fa-solid fa-dice"></i> <span id="btnRandom">RANDOM PREDICTION</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingState" class="hidden my-12 text-center">
+            <div class="w-16 h-16 border-4 border-gray-800 border-t-red-500 border-b-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-xs text-gray-400 tech-font animate-pulse">ANALYZING...</p>
+        </div>
+
+        <!-- Result Area -->
+        <div id="resultContainer" class="hidden w-full mt-4 transform transition-all duration-700 opacity-0 translate-y-10 mb-20">
+            
+            <div id="destinyCard" class="destiny-card rounded-xl p-0">
+                
+                <!-- 1. Header (Compact) -->
+                <div class="bg-[#111] p-3 flex justify-between items-center border-b border-gray-800">
+                    <div>
+                        <h2 id="cardName" class="text-lg font-bold text-white tech-font leading-tight truncate max-w-[180px]">NAME</h2>
+                        <p id="cardDob" class="text-[9px] text-gray-400 font-mono">BIRTH: 0000-00-00</p>
+                    </div>
+                    <div class="text-right">
+                         <div class="text-[8px] text-gray-500 uppercase">ID</div>
+                         <div id="cardId" class="text-base font-bold text-red-500 font-mono">#0000</div>
+                    </div>
+                </div>
+
+                <!-- 2. FULL IMAGE -->
+                <div class="relative w-full aspect-square bg-black overflow-hidden group">
+                    <img id="yokaiImage" src="" 
+                         class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                         alt="Yokai" 
+                         referrerpolicy="no-referrer"
+                         onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Bakemono_no_e.jpg/640px-Bakemono_no_e.jpg';">
+                    
+                    <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/70 to-transparent pt-10 pb-2 px-4">
+                        <span id="yokaiNameTitle" class="text-base font-bold text-white uppercase block drop-shadow-md">Yokai Name</span>
+                        <span class="text-[9px] text-red-300 uppercase tracking-widest">Spirit Guardian</span>
+                    </div>
+                </div>
+
+                <!-- 3. STATS GRID -->
+                <div class="grid grid-cols-4 border-b border-gray-800 bg-[#0f0505]">
+                    <div class="p-2 text-center border-r border-gray-800">
+                        <span class="block text-[8px] text-gray-500 uppercase" id="lblZodiac">Zodiac</span>
+                        <span id="valZodiac" class="text-xs font-bold text-yellow-500">...</span>
+                    </div>
+                    <div class="p-2 text-center border-r border-gray-800">
+                        <span class="block text-[8px] text-gray-500 uppercase" id="lblElement">Element</span>
+                        <span id="valElement" class="text-xs font-bold text-red-500">...</span>
+                    </div>
+                    <div class="p-2 text-center border-r border-gray-800">
+                        <span class="block text-[8px] text-gray-500 uppercase" id="lblDay">Day</span>
+                        <span id="valDay" class="text-xs font-bold text-blue-500">...</span>
+                    </div>
+                    <div class="p-2 text-center">
+                        <span class="block text-[8px] text-gray-500 uppercase" id="lblLuck">Luck</span>
+                        <span id="valLuck" class="text-xs font-bold text-green-500">...</span>
+                    </div>
+                </div>
+
+                <!-- 4. DETAILED CONTENT (Concise Version) -->
+                <div class="p-4 space-y-2">
+                    
+                    <div class="section-box border-l-2 border-l-red-600">
+                        <div class="section-title text-red-400"><i class="fa-solid fa-ghost"></i> <span id="headYokai">IDENTITY</span></div>
+                        <p id="textYokai" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
+                    </div>
+
+                    <div class="section-box border-l-2 border-l-blue-600">
+                        <div class="section-title text-blue-400"><i class="fa-regular fa-calendar"></i> <span id="headDay">DAY FATE</span></div>
+                        <p id="textDayFate" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
+                    </div>
+
+                    <div class="section-box border-l-2 border-l-purple-600">
+                        <div class="section-title text-purple-400"><i class="fa-regular fa-moon"></i> <span id="headMonth">MONTH FATE</span></div>
+                        <p id="textMonthFate" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
+                    </div>
+
+                    <div class="section-box border-l-2 border-l-green-600">
+                        <div class="section-title text-green-400"><i class="fa-solid fa-chart-line"></i> <span id="headOverall">OVERVIEW</span></div>
+                        <p id="textOverall" class="text-[10px] text-gray-300 leading-snug text-justify font-light">...</p>
+                    </div>
+
+                    <div class="section-box bg-gray-900/50 border border-orange-600/30">
+                        <div class="section-title text-center justify-center mb-1 text-orange-400"><i class="fa-solid fa-dice"></i> <span id="headLucky">LUCKY NUMBERS</span></div>
+                        <div class="grid grid-cols-3 gap-2 text-center divide-x divide-gray-700">
+                            <div>
+                                <span class="block text-[8px] text-gray-500">2 Digits</span>
+                                <span id="lucky2" class="text-lg font-bold text-white font-mono">00</span>
+                                <span id="desc2" class="block text-[8px] text-orange-400">...</span>
+                            </div>
+                            <div>
+                                <span class="block text-[8px] text-gray-500">3 Digits</span>
+                                <span id="lucky3" class="text-lg font-bold text-white font-mono">000</span>
+                                <span id="desc3" class="block text-[8px] text-orange-400">...</span>
+                            </div>
+                            <div>
+                                <span class="block text-[8px] text-gray-500">6 Digits</span>
+                                <span id="lucky6" class="text-xs font-bold text-white font-mono mt-1">000000</span>
+                                <span id="desc6" class="block text-[8px] text-orange-400">...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="pb-2 text-center">
+                    <p class="text-[8px] text-gray-700">ดูดวงกับ Yokai V10.5</p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex gap-3">
+                <button onclick="saveCard()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-download"></i> <span id="btnSave">Save</span>
+                </button>
+                <button onclick="resetApp()" class="flex-1 bg-red-900 hover:bg-red-800 text-white py-3 rounded-lg text-xs font-bold uppercase transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-shuffle"></i> <span id="btnRetry">Re-Roll</span>
+                </button>
+            </div>
+            <p class="text-center text-[10px] text-gray-500 mt-2 pb-10" id="noteSave">*Use screenshot if save fails</p>
+
+        </div>
+    </main>
+
+    <script>
+        // --- DATA ---
+        let curLang = 'th';
+
+        // Filtered Gallery (Stable)
+        const yokaiGallery = [
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Akakuchi.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Furaribi.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Gagoze.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Hyosube.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Inugami.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kamikiri.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kappa.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Kasha.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Mikoshi-nyudo.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nekomata.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nukekubi.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuppeppo.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nurarihyon.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nure-onna.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Nuribotoke.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Otoroshi.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ouni.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Shokera.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ubume.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Ushioni.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Uwan.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Waira.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yako.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-biko.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-uba.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yama-warau.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yuki-onna.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yume-no-seirei.jpg",
+            "https://commons.wikimedia.org/wiki/Special:FilePath/Suushi_Yurei.jpg", "https://commons.wikimedia.org/wiki/Special:FilePath/Bakemono_no_e.jpg"
+        ];
+
+        const langData = {
+            th: {
+                title: "ดูดวงกับ Yokai", sub: "ระบบทำนายดวงชะตา",
+                lblFullname: "ชื่อ-นามสกุล", lblDob: "วัน/เดือน/ปีเกิด",
+                btnRandom: "สุ่มทำนายดวงชะตา",
+                lblZodiac: "ปีนักษัตร", lblElement: "ธาตุ", lblDay: "วันเกิด", lblLuck: "ความโชคดี",
+                headYokai: "ตัวตนทางวิญญาณ", headDay: "ชะตาตามวันเกิด", headMonth: "ชะตาตามเดือนเกิด", headOverall: "ภาพรวมช่วงนี้", headLucky: "เลขนำโชค",
+                btnSave: "บันทึกรูป", btnRetry: "สุ่มใหม่", noteSave: "*หากบันทึกไม่ได้ ให้ใช้การแคปหน้าจอ",
+                numMeanings: ["การงาน", "การเงิน", "ความรัก", "โชคลาภ", "สุขภาพ", "บารมี", "เดินทาง", "เสี่ยงโชค", "ครอบครัว", "แก้เคล็ด"]
+            },
+            jp: {
+                title: "妖怪占い", sub: "運命予測システム",
+                lblFullname: "氏名 (Full Name)", lblDob: "生年月日",
+                btnRandom: "運勢を占う (START)",
+                lblZodiac: "干支", lblElement: "元素", lblDay: "曜日", lblLuck: "幸運度",
+                headYokai: "妖怪の正体", headDay: "誕生日の運勢", headMonth: "誕生月の運勢", headOverall: "全体運", headLucky: "ラッキーナンバー",
+                btnSave: "保存する", btnRetry: "もう一度", noteSave: "*保存できない場合はスクリーンショットを使用してください",
+                numMeanings: ["仕事", "金運", "恋愛", "幸運", "健康", "権力", "旅行", "賭け", "家族", "厄除"]
+            },
+            en: {
+                title: "Yokai Horoscope", sub: "Identity System",
+                lblFullname: "Full Name", lblDob: "Date of Birth",
+                btnRandom: "RANDOM PREDICTION",
+                lblZodiac: "Zodiac", lblElement: "Element", lblDay: "Day", lblLuck: "Luck",
+                headYokai: "SPIRIT IDENTITY", headDay: "BIRTH DAY FATE", headMonth: "BIRTH MONTH FATE", headOverall: "OVERVIEW", headLucky: "LUCKY NUMBERS",
+                btnSave: "Save Image", btnRetry: "Re-Roll", noteSave: "*Use screenshot if save fails",
+                numMeanings: ["Career", "Wealth", "Love", "Fortune", "Health", "Power", "Travel", "Risk", "Family", "Karma"]
+            }
+        };
+
+        const contentDB = {
+            situations: {
+                th: ["การเงินกำลังดี มีลาภลอย", "ระวังคำพูดสร้างศัตรู", "มีเกณฑ์เดินทางไกล", "ความรักสดใส", "ระวังปัญหาสุขภาพ", "ศัตรูจะแพ้ภัย", "งานหนักแต่คุ้มค่า", "จะได้ของขวัญใหญ่"],
+                jp: ["金運上昇中", "言葉に注意", "遠出の予感", "恋愛運好調", "健康に注意", "敵が自滅", "仕事は順調", "贈り物あり"],
+                en: ["Finances rising", "Watch words", "Travel expected", "Love blooms", "Watch health", "Enemies fall", "Work pays off", "Gifts coming"]
+            },
+            advice: {
+                th: ["ทำบุญแสงสว่าง", "พักผ่อนใกล้แหล่งน้ำ", "จัดโต๊ะทำงานใหม่", "สวดมนต์ก่อนนอน", "วางแผนการเงิน", "ระวังเรื่องชู้สาว", "ไหว้พระวัดเก่า", "พกเครื่องรางนก"],
+                jp: ["明かりを奉納", "水辺で休息", "机を整理", "寝る前に祈る", "出費を管理", "浮気注意", "古寺参拝", "鳥のお守り"],
+                en: ["Offer light", "Rest near water", "Clean desk", "Pray nightly", "Plan budget", "Avoid triangles", "Visit temple", "Bird charm"]
+            },
+            overallTemplates: {
+                th: ["กราฟชีวิตพุ่งขึ้น", "โอกาสทองมาถึง", "อดทนแล้วจะดี", "มีเกณฑ์เปลี่ยนแปลง"],
+                jp: ["運気上昇中", "好機到来", "忍耐が必要", "変化の兆し"],
+                en: ["Life soaring", "Golden chance", "Be patient", "Changes ahead"]
+            },
+            traits: {
+                th: ["ผู้นำ", "อ่อนโยน", "นักสู้", "ฉลาด", "ยุติธรรม", "ศิลปิน", "อดทน"],
+                jp: ["リーダー", "優しい", "戦士", "賢い", "正義", "芸術家", "忍耐強い"],
+                en: ["Leader", "Gentle", "Fighter", "Clever", "Just", "Artist", "Patient"]
+            }
+        };
+
+        const zodiacs = {
+            th: ["วอก", "ระกา", "จอ", "กุน", "ชวด", "ฉลู", "ขาล", "เถาะ", "มะโรง", "มะเส็ง", "มะเมีย", "มะแม"],
+            jp: ["申", "酉", "戌", "亥", "子", "丑", "寅", "卯", "辰", "巳", "午", "未"],
+            en: ["Monkey", "Rooster", "Dog", "Pig", "Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat"]
+        };
+        const elements = {
+            th: ["ทอง", "ทอง", "น้ำ", "น้ำ", "ไม้", "ไม้", "ไฟ", "ไฟ", "ดิน", "ดิน"],
+            jp: ["金", "金", "水", "水", "木", "木", "火", "火", "土", "土"],
+            en: ["Metal", "Metal", "Water", "Water", "Wood", "Wood", "Fire", "Fire", "Earth", "Earth"]
+        };
+        const days = {
+            th: ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"],
+            jp: ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"],
+            en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        };
+
+        function setLang(lang) {
+            curLang = lang;
+            const t = langData[lang];
+            
+            document.getElementById('headerTitle').innerText = t.title;
+            document.getElementById('headerSub').innerText = t.sub;
+            document.getElementById('lblFullname').innerText = t.lblFullname;
+            document.getElementById('lblDob').innerText = t.lblDob;
+            document.getElementById('btnRandom').innerText = t.btnRandom;
+            
+            document.getElementById('lblZodiac').innerText = t.lblZodiac;
+            document.getElementById('lblElement').innerText = t.lblElement;
+            document.getElementById('lblDay').innerText = t.lblDay;
+            document.getElementById('lblLuck').innerText = t.lblLuck;
+            
+            document.getElementById('headYokai').innerText = t.headYokai;
+            document.getElementById('headDay').innerText = t.headDay;
+            document.getElementById('headMonth').innerText = t.headMonth;
+            document.getElementById('headOverall').innerText = t.headOverall;
+            document.getElementById('headLucky').innerText = t.headLucky;
+            
+            document.getElementById('btnSave').innerText = t.btnSave;
+            document.getElementById('btnRetry').innerText = t.btnRetry;
+            document.getElementById('noteSave').innerText = t.noteSave;
+
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('bg-red-900', 'text-white'));
+            const btnIndex = lang === 'th' ? 0 : lang === 'jp' ? 1 : 2;
+            document.querySelectorAll('.lang-btn')[btnIndex].classList.add('bg-red-900', 'text-white');
+        }
+
+        function closeModal() { document.getElementById('welcomeModal').style.display = 'none'; }
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        function getYokaiNameFromUrl(url) {
+            try {
+                let clean = decodeURIComponent(url).split('/').pop().replace(/^(640px-|File:|Suushi_|Kyakkai_Zukan_|Bakemono_|Tsuchigumo_Ekotoba_-_)/gi, '').replace(/\.(jpg|jpeg|png|gif)$/i, '').replace(/_/g, ' ').replace(/Illustrated by.*/, '');
+                return clean.trim();
+            } catch (e) { return "Spirit"; }
+        }
+
+        function calculateDestiny() {
+            const name = document.getElementById('fullName').value.trim();
+            const dob = document.getElementById('dob').value;
+
+            if (!name || !dob) { alert("Please fill all fields"); return; }
+
+            document.getElementById('inputSection').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+
+            setTimeout(() => {
+                const dateObj = new Date(dob);
+                const year = dateObj.getFullYear();
+                const dayIndex = dateObj.getDay();
+                
+                const zArr = zodiacs[curLang];
+                const eArr = elements[curLang];
+                const dArr = days[curLang];
+                const mArr = langData[curLang].numMeanings;
+                
+                const imgUrl = pick(yokaiGallery);
+                const yokaiName = getYokaiNameFromUrl(imgUrl);
+                
+                const trait = contentDB.traits[curLang][dayIndex];
+                const sit = pick(contentDB.situations[curLang]);
+                const adv = pick(contentDB.advice[curLang]);
+                const overallBase = pick(contentDB.overallTemplates[curLang]);
+                
+                let txtYokai, txtDay, txtMonth, txtOver;
+                
+                if (curLang === 'th') {
+                    // Concise logic
+                    txtYokai = `วิญญาณคือ "${yokaiName}" สะท้อนตัวตนที่มุ่งมั่น ${sit} ปีศาจตนนี้จะช่วยปัดเป่าภัย ระวังอารมณ์`;
+                    txtDay = `คนเกิดวัน${dArr[dayIndex]} พื้นดวง${trait} เป็นที่พึ่งคนรอบข้าง ช่วงนี้${sit} ตั้งสติให้มั่น ${adv}`;
+                    txtMonth = `เดือนเกิดนี้ธาตุ${eArr[parseInt(year.toString().slice(-1))]} ชีวิตเปลี่ยนแปลงเร็ว ${sit} เหมาะเริ่มสิ่งใหม่ ${adv} ระวังสุขภาพ`;
+                    txtOver = `${overallBase} อุปสรรคคือบททดสอบ ${sit} โดยเฉพาะความสัมพันธ์ ${adv} ความดีจะช่วยให้ผ่านวิกฤต`;
+                } else if (curLang === 'jp') {
+                    txtYokai = `守護霊は「${yokaiName}」。強い意志を象徴。${sit}。直感を信じて。感情に注意。`;
+                    txtDay = `${dArr[dayIndex]}生まれは${trait}。頼られる存在。${sit}。冷静に。${adv}。`;
+                    txtMonth = `今月生まれは${eArr[parseInt(year.toString().slice(-1))]}の要素。変化が速い。${sit}。${adv}。健康第一。`;
+                    txtOver = `${overallBase}。試練は成長の糧。${sit}。人間関係に注意。${adv}。善行が実を結ぶ。`;
+                } else {
+                    txtYokai = `Spirit: "${yokaiName}". Determined soul. ${sit}. Trust intuition. Avoid emotional choices.`;
+                    txtDay = `Born ${dArr[dayIndex]}, naturally ${trait}. ${sit}. Stay calm. ${adv}.`;
+                    txtMonth = `Element: ${eArr[parseInt(year.toString().slice(-1))]}. Rapid changes. ${sit}. Start new things. ${adv}. Watch health.`;
+                    txtOver = `${overallBase}. Obstacles test you. ${sit}. Watch relationships. ${adv}. Good deeds pay off.`;
+                }
+
+                document.getElementById('cardName').innerText = name.toUpperCase();
+                document.getElementById('cardDob').innerText = dob;
+                document.getElementById('cardId').innerText = `#${Math.floor(Math.random() * 9999)}`;
+                
+                const img = document.getElementById('yokaiImage');
+                img.src = imgUrl; 
+                img.onerror = function() { 
+                    this.onerror = null; 
+                    this.src = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Bakemono_no_e.jpg/640px-Bakemono_no_e.jpg'; 
+                    document.getElementById('yokaiNameTitle').innerText = "Unknown Spirit";
+                };
+                
+                document.getElementById('yokaiNameTitle').innerText = yokaiName;
+
+                document.getElementById('valZodiac').innerText = zArr[year % 12];
+                document.getElementById('valElement').innerText = eArr[parseInt(year.toString().slice(-1))];
+                document.getElementById('valDay').innerText = dArr[dayIndex];
+                document.getElementById('valLuck').innerText = Math.floor(Math.random()*100) + "%";
+
+                document.getElementById('textYokai').innerText = txtYokai;
+                document.getElementById('textDayFate').innerText = txtDay;
+                document.getElementById('textMonthFate').innerText = txtMonth;
+                document.getElementById('textOverall').innerText = txtOver;
+
+                document.getElementById('lucky2').innerText = Math.floor(Math.random()*100).toString().padStart(2,'0');
+                document.getElementById('lucky3').innerText = Math.floor(Math.random()*1000).toString().padStart(3,'0');
+                document.getElementById('lucky6').innerText = Math.floor(Math.random()*1000000).toString().padStart(6,'0');
+                
+                document.getElementById('desc2').innerText = pick(mArr);
+                document.getElementById('desc3').innerText = pick(mArr);
+                document.getElementById('desc6').innerText = pick(mArr);
+
+                document.getElementById('loadingState').classList.add('hidden');
+                const res = document.getElementById('resultContainer');
+                res.classList.remove('hidden');
+                setTimeout(() => res.classList.remove('translate-y-10', 'opacity-0'), 50);
+
+            }, 1500);
+        }
+
+        function resetApp() {
+            const res = document.getElementById('resultContainer');
+            res.classList.add('translate-y-10', 'opacity-0');
+            setTimeout(() => {
+                res.classList.add('hidden');
+                document.getElementById('inputSection').classList.remove('hidden');
+            }, 500);
+        }
+
+        function saveCard() {
+            const card = document.getElementById('destinyCard');
+            const btn = document.querySelector('#btnSave');
+            btn.innerText = "Saving...";
+            
+            html2canvas(card, { scale: 2, useCORS: true, backgroundColor: null, allowTaint: true })
+            .then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Destiny-V10.5-${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                btn.innerText = "Saved!";
+                setTimeout(() => setLang(curLang), 2000);
+            }).catch(e => {
+                alert("Cannot save automatically. Please screenshot.");
+                setLang(curLang);
+            });
+        }
+
+        setLang('th');
+    </script>
+</body>
+</html>
+
+
