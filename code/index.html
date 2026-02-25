@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Face AR</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+background: #08080f;
+color: #dde;
+font-family: ‘Space Mono’, monospace;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+min-height: 100vh;
+gap: 14px;
+}
+
+h1 {
+font-size: 0.9rem;
+letter-spacing: 0.35em;
+color: #8080ff;
+text-transform: uppercase;
+text-shadow: 0 0 18px #8080ff66;
+}
+
+#container {
+position: relative;
+border: 1px solid #8080ff33;
+border-radius: 6px;
+overflow: hidden;
+box-shadow: 0 0 40px #8080ff18;
+}
+
+#video {
+display: block;
+transform: scaleX(-1);
+background: #000;
+}
+
+#canvas {
+position: absolute;
+inset: 0;
+transform: scaleX(-1);
+pointer-events: none;
+}
+
+#log {
+position: absolute;
+bottom: 8px;
+left: 8px;
+right: 8px;
+font-size: 0.6rem;
+color: #8080ffbb;
+pointer-events: none;
+line-height: 1.6;
+}
+
+#controls {
+display: flex;
+gap: 8px;
+flex-wrap: wrap;
+justify-content: center;
+}
+
+.btn {
+background: transparent;
+border: 1px solid #8080ff55;
+color: #aac;
+padding: 7px 14px;
+font-family: ‘Space Mono’, monospace;
+font-size: 0.68rem;
+letter-spacing: 0.08em;
+cursor: pointer;
+border-radius: 3px;
+transition: all 0.15s;
+}
+.btn:hover, .btn.active {
+background: #8080ff22;
+border-color: #8080ff;
+color: #fff;
+box-shadow: 0 0 10px #8080ff44;
+}
+
+#status {
+font-size: 0.68rem;
+letter-spacing: 0.12em;
+color: #8080ff99;
+}
+</style>
+
+</head>
+<body>
+
+<h1>✦ Face AR · Head Tracker</h1>
+
+<div id="container">
+  <video id="video" playsinline muted width="640" height="480"></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+  <div id="log"></div>
+</div>
+
+<div id="status">กำลังเริ่มต้น...</div>
+
+<div id="controls">
+  <button class="btn active" data-mode="hat">🎩 หมวก</button>
+  <button class="btn" data-mode="glasses">🕶️ แว่น</button>
+  <button class="btn" data-mode="crown">👑 มงกุฎ</button>
+  <button class="btn" data-mode="mesh">🔷 Mesh</button>
+</div>
+
+<script>
+// ── screen logger ────────────────────────────────────────
+const logEl    = document.getElementById('log');
+const statusEl = document.getElementById('status');
+const lines    = [];
+
+function dbg(msg, color) {
+  console.log(msg);
+  lines.push(`<span style="color:${color||'#8080ffbb'}">${msg}</span>`);
+  if (lines.length > 6) lines.shift();
+  logEl.innerHTML = lines.join('<br>');
+}
+function setStatus(msg, state) {
+  statusEl.textContent = msg;
+  statusEl.style.color = state === true ? '#44ff88' : state === false ? '#ff4466' : '#8080ff99';
+}
+
+// ── sequential script loader ─────────────────────────────
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src    = src;
+    s.onload  = () => { dbg('✓ ' + src.split('/').pop()); res(); };
+    s.onerror = () => { dbg('✗ ' + src.split('/').pop(), '#ff4466'); rej(new Error('load fail')); };
+    document.head.appendChild(s);
+  });
+}
+
+// ── mode toggle ──────────────────────────────────────────
+let mode = 'hat';
+document.querySelectorAll('.btn[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+  });
+});
+
+// ── canvas / smoothing ───────────────────────────────────
+const video  = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const W = 640, H = 480;
+
+const S = {};
+function sm(k, v, a=0.32) {
+  S[k] = (S[k] === undefined) ? v : S[k]*(1-a) + v*a;
+  return S[k];
+}
+function lm(lms, i) { return { x: lms[i].x*W, y: lms[i].y*H }; }
+
+// ── AR draw functions ────────────────────────────────────
+function drawHat(lms) {
+  const top=lm(lms,10), l=lm(lms,234), r=lm(lms,454);
+  const cx=sm('hx',(l.x+r.x)/2), cy=sm('hy',top.y), fw=sm('fw',Math.abs(r.x-l.x));
+  const hw=fw*1.55, brimH=fw*0.17, hh=fw*1.0;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy+brimH*.4, hw*.52, brimH*.48, 0, 0, Math.PI*2);
+  const bg=ctx.createLinearGradient(cx-hw*.52,cy,cx+hw*.52,cy);
+  bg.addColorStop(0,'#1a1a1a'); bg.addColorStop(.5,'#3c3c3c'); bg.addColorStop(1,'#111');
+  ctx.fillStyle=bg; ctx.fill();
+
+  const bx=cx-hw*.32, by=cy-hh*.88, bw=hw*.64, bh=hh*.88;
+  ctx.beginPath();
+  ctx.moveTo(bx+bw*.08,by+bh); ctx.lineTo(bx,by+bh);
+  ctx.quadraticCurveTo(bx-bw*.04,by+bh*.5,bx+bw*.1,by);
+  ctx.quadraticCurveTo(cx,by-bh*.07,bx+bw*.9,by);
+  ctx.quadraticCurveTo(bx+bw*1.04,by+bh*.5,bx+bw,by+bh);
+  ctx.lineTo(bx+bw*.92,by+bh); ctx.closePath();
+  const bodyG=ctx.createLinearGradient(bx,by,bx+bw,by+bh);
+  bodyG.addColorStop(0,'#2d2d2d'); bodyG.addColorStop(.4,'#444'); bodyG.addColorStop(1,'#111');
+  ctx.fillStyle=bodyG; ctx.fill();
+  ctx.fillStyle='#7070ff';
+  ctx.fillRect(bx+bw*.02,by+bh*.85,bw*.96,bh*.09);
+  ctx.restore();
+}
+
+function drawGlasses(lms) {
+  const le=lm(lms,33), re=lm(lms,263);
+  const lx=sm('glx',le.x), rx=sm('grx',re.x), cy=sm('gcy',(le.y+re.y)/2);
+  const d=sm('gd',Math.abs(re.x-le.x)), r=d*.38;
+
+  ctx.save(); ctx.lineWidth=d*.04;
+  for (const ex of [lx, rx]) {
+    ctx.beginPath(); ctx.ellipse(ex,cy,r,r*.7,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(80,80,255,0.18)'; ctx.fill();
+    ctx.strokeStyle='#3030ee'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(ex-r*.2,cy-r*.2,r*.18,Math.PI*1.1,Math.PI*1.55);
+    ctx.strokeStyle='rgba(220,220,255,.5)'; ctx.lineWidth=d*.012; ctx.stroke();
+    ctx.lineWidth=d*.04;
+  }
+  ctx.beginPath(); ctx.moveTo(lx+r,cy); ctx.lineTo(rx-r,cy);
+  ctx.strokeStyle='#5050ff'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lx-r,cy); ctx.lineTo(lx-r*2.4,cy-r*.3); ctx.strokeStyle='#3030ee'; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rx+r,cy); ctx.lineTo(rx+r*2.4,cy-r*.3); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCrown(lms) {
+  const top=lm(lms,10), l=lm(lms,234), r=lm(lms,454);
+  const cx=sm('crx',(l.x+r.x)/2), cy=sm('cry',top.y), fw=sm('cfw',Math.abs(r.x-l.x));
+  const cw=fw*1.05, ch=fw*.52;
+
+  ctx.save();
+  const pts=[
+    [cx-cw*.5,cy],[cx-cw*.5,cy-ch*.48],[cx-cw*.28,cy-ch*.3],[cx-cw*.14,cy-ch],
+    [cx,cy-ch*.38],[cx+cw*.14,cy-ch],[cx+cw*.28,cy-ch*.3],[cx+cw*.5,cy-ch*.48],[cx+cw*.5,cy],
+  ];
+  ctx.beginPath(); ctx.moveTo(...pts[0]);
+  pts.slice(1).forEach(p=>ctx.lineTo(...p)); ctx.closePath();
+  const cg=ctx.createLinearGradient(cx,cy-ch,cx,cy);
+  cg.addColorStop(0,'#ffe44a'); cg.addColorStop(.5,'#ffaa00'); cg.addColorStop(1,'#bb7700');
+  ctx.fillStyle=cg; ctx.fill(); ctx.strokeStyle='#996600'; ctx.lineWidth=1.5; ctx.stroke();
+
+  [[cx-cw*.14,cy-ch,'#ff3366'],[cx,cy-ch*.38,'#33aaff'],[cx+cw*.14,cy-ch,'#33ff88']].forEach(([gx,gy,gc])=>{
+    ctx.beginPath(); ctx.arc(gx,gy,fw*.04,0,Math.PI*2);
+    ctx.fillStyle=gc; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1; ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function drawMesh(lms) {
+  const EDGES=[
+    [10,338],[338,297],[297,332],[332,284],[284,251],[251,389],[389,356],
+    [356,454],[454,323],[323,361],[361,288],[288,397],[397,365],[365,379],
+    [379,378],[378,400],[400,377],[377,152],[152,148],[148,176],[176,149],
+    [149,150],[150,136],[136,172],[172,58],[58,132],[132,93],[93,234],
+    [234,127],[127,162],[162,21],[21,54],[54,103],[103,67],[67,109],[109,10],
+    [33,7],[7,163],[163,144],[144,145],[145,153],[153,154],[154,155],[155,133],
+    [133,173],[173,157],[157,158],[158,159],[159,160],[160,161],[161,246],[246,33],
+    [362,382],[382,381],[381,380],[380,374],[374,373],[373,390],[390,249],[249,263],
+    [263,466],[466,388],[388,387],[387,386],[386,385],[385,384],[384,398],[398,362],
+    [78,95],[95,88],[88,178],[178,87],[87,14],[14,317],[317,402],[402,318],
+    [318,324],[324,308],[308,415],[415,310],[310,311],[311,312],[312,13],
+    [13,82],[82,81],[81,80],[80,191],[191,78],
+    [168,6],[6,197],[197,195],[195,5],[5,4],[4,1],[1,19],[19,94],
+  ];
+  ctx.save();
+  ctx.strokeStyle='rgba(100,130,255,0.3)'; ctx.lineWidth=.7;
+  EDGES.forEach(([a,b])=>{
+    const p=lm(lms,a),q=lm(lms,b);
+    ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke();
+  });
+  ctx.fillStyle='rgba(140,200,255,0.6)';
+  lms.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x*W,p.y*H,1.2,0,Math.PI*2); ctx.fill(); });
+  ctx.restore();
+}
+
+// ── camera + mediapipe init ──────────────────────────────
+async function startCamera() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480, facingMode:'user' }, audio:false });
+    dbg('Camera OK ✓', '#44ff88');
+  } catch(e) {
+    dbg('Camera error: ' + e.message, '#ff4466');
+    setStatus('ไม่สามารถเปิดกล้อง: ' + e.message, false);
+    return;
+  }
+
+  video.srcObject = stream;
+  await new Promise(res => { video.onloadedmetadata = res; });
+  await video.play();
+  dbg('Video playing ✓', '#44ff88');
+  setStatus('กำลังโหลด face model...', null);
+
+  const faceMesh = new FaceMesh({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`
+  });
+  faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:false, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  faceMesh.onResults(results => {
+    ctx.clearRect(0,0,W,H);
+    if (!results.multiFaceLandmarks?.length) return;
+    const lms = results.multiFaceLandmarks[0];
+    if      (mode==='hat')     drawHat(lms);
+    else if (mode==='glasses') drawGlasses(lms);
+    else if (mode==='crown')   drawCrown(lms);
+    else if (mode==='mesh')    drawMesh(lms);
+  });
+
+  let firstFrame = true;
+  async function pump() {
+    if (video.readyState >= 2) {
+      await faceMesh.send({ image: video });
+      if (firstFrame) {
+        firstFrame = false;
+        dbg('Face tracking active ✓', '#44ff88');
+        setStatus('● tracking active', true);
+      }
+    }
+    requestAnimationFrame(pump);
+  }
+  pump();
+}
+
+// ── bootstrap: load mediapipe then start ─────────────────
+async function bootstrap() {
+  setStatus('กำลังโหลด MediaPipe...');
+  dbg('Loading scripts...');
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js');
+    await startCamera();
+  } catch(e) {
+    dbg('Error: ' + e.message, '#ff4466');
+    setStatus('โหลดไม่สำเร็จ: ' + e.message, false);
+  }
+}
+
+bootstrap();
+</script>
+
+</body>
+</html>
