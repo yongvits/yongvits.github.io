@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>MR Mapping v44 (fit to footage)</title>
+    <title>MR Mapping v47 (Multi-Screen & Full Sync)</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background-color: #050505; 
@@ -57,6 +57,7 @@
             background: #444; color: white; border: none; padding: 8px; width: 100%; 
             cursor: pointer; font-size: 11px; border-radius: 4px; margin-bottom: 6px;
             display: flex; align-items: center; justify-content: center; gap: 5px; 
+            transition: 0.3s;
         }
         .btn:active { transform: scale(0.98); }
         .btn-primary { background: linear-gradient(45deg, #00ffaa, #00cc88); color: #000; font-weight: bold; }
@@ -144,8 +145,8 @@
     <div id="restore-overlay" onclick="togglePresentationMode()"></div>
 
     <div id="start-overlay" onclick="startApp()">
-        <h2>MR MAPPING v44</h2>
-        <p>▶ Click to Start (Multi-Media)</p>
+        <h2>MR MAPPING v47</h2>
+        <p>▶ Click to Start</p>
     </div>
     
     <div id="sync-indicator">📡 SYNC ACTIVE</div>
@@ -159,8 +160,9 @@
     </div>
 
     <div class="right-toggles">
-        <button class="tool-btn cast" onclick="openProjectorWindow()" title="Open Projector Window">🖥️</button>
+        <button class="tool-btn cast" onclick="openProjectorWindow()" title="Open Projector Window on Extended Display">🖥️</button>
         <button class="tool-btn" id="pan-toggle" onclick="togglePanMode()" title="Pan View">✋</button>
+        <button class="tool-btn" id="multi-toggle" onclick="toggleMultiSelect()" title="Multi-Select Points">🔗</button>
         <div class="switch-container" onclick="togglePresentationMode()">
             <span class="switch-label">GUIDES</span>
             <div class="switch-btn active" id="vis-switch"></div>
@@ -176,14 +178,14 @@
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>MR Mapping</h1>
-                <span style="font-size:10px; color:#666">v44.2 Stable Edit</span>
+                <span style="font-size:10px; color:#666">v47.0 Ultimate</span>
             </div>
         </div>
 
         <div style="padding: 8px 8px 0 8px;">
              <div class="row">
-                <button class="btn btn-tool" onclick="saveProject()">💾 Save</button>
-                <label class="btn btn-tool">📂 Load <input type="file" id="jsonInput" accept=".json"></label>
+                <button class="btn btn-tool" id="btn-save" onclick="saveProject()">💾 Save Project</button>
+                <label class="btn btn-tool">📂 Load Project<input type="file" id="jsonInput" accept=".json"></label>
              </div>
         </div>
 
@@ -200,7 +202,10 @@
         <div id="layer-list"></div>
 
         <div class="controls">
-            <label class="btn" style="background: #2266aa; border: 1px solid #4488dd;">🎥 Upload VDO/Image to Layer <input type="file" id="mediaInput" accept="video/*,image/*"></label>
+            <label class="btn" style="background: #2266aa; border: 1px solid #4488dd;">
+                <span id="upload-label-text">🎥 Upload VDO/Image to Layer</span> 
+                <input type="file" id="mediaInput" accept="video/*,image/*">
+            </label>
             
             <div class="row" style="margin-top:8px;">
                 <button class="btn btn-tool" id="btn-playpause" onclick="togglePlayPause()" style="flex:1;">⏸️ Pause All</button>
@@ -219,14 +224,18 @@
             <button class="btn btn-tool" id="btn-checker" onclick="toggleCheckerPattern()" style="margin-top:8px;">🏁 Toggle Checker</button>
             
             <div class="row" style="margin-top:8px;">
-                <button class="btn" onclick="resetCurrentLayer()" style="background: #00ffaa; color: #000; font-weight: bold;">Reset Layer</button>
-                <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete Layer</button>
+                <button class="btn" id="btn-reset" onclick="resetCurrentLayer()" style="background: #00ffaa; color: #000; font-weight: bold;">Reset OUTPUT</button>
+                <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete</button>
             </div>
             
+            <button class="btn btn-tool" onclick="clearAutoSave()" style="margin-top:8px; border-color: #ffaa00; color: #ffaa00;">🗑️ Clear Auto-Save</button>
+            
             <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
-                <span style="color:#00ffaa; font-weight:bold;">วิธีใช้งาน:</span><br>
-                • <b>Reset Layer:</b> ปรับจอให้พอดีกับภาพ 100%<br>
-                • <b>แก้บัคเด้งแล้ว:</b> ลากจุดได้ไหลลื่นกว่าเดิม
+                <span style="color:#00ffaa; font-weight:bold;">v47 สรุปการอัปเกรด:</span><br>
+                • <b>Auto-Placement 🖥️:</b> กดยิงจอ ไปเด้ง iPad อัตโนมัติ<br>
+                • <b>Save Project:</b> ฝังวิดีโอ 100% ตรงจุด<br>
+                • <b>Multi-Select 🔗:</b> เลือกดึงพร้อมกันหลายจุด/เส้น<br>
+                • <b>Fast Sync:</b> ดึงจุดลื่นไหล ไม่กระตุก
             </div>
         </div>
     </div>
@@ -234,9 +243,54 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
+        // --- 0. INDEXED DB (AUTO-SAVE SYSTEM WITH FILE STORAGE) ---
+        const DB = {
+            db: null,
+            async init() {
+                if(this.db) return;
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('MRMappingDB_V3', 1);
+                    req.onupgradeneeded = e => {
+                        if (!e.target.result.objectStoreNames.contains('saves')) {
+                            e.target.result.createObjectStore('saves');
+                        }
+                    };
+                    req.onsuccess = e => { this.db = e.target.result; resolve(); };
+                    req.onerror = reject;
+                });
+            },
+            async save(stateData, fileData) {
+                await this.init();
+                const tx = this.db.transaction('saves', 'readwrite');
+                tx.objectStore('saves').put({ data: stateData, files: fileData }, 'autosave');
+            },
+            async load() {
+                await this.init();
+                return new Promise((resolve) => {
+                    const tx = this.db.transaction('saves', 'readonly');
+                    const req = tx.objectStore('saves').get('autosave');
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            },
+            async clear() {
+                await this.init();
+                const tx = this.db.transaction('saves', 'readwrite');
+                tx.objectStore('saves').clear();
+            }
+        };
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
         // --- 1. GLOBALS & CONFIG ---
-        // ลด snapDist ลงเพื่อให้ไม่กระชากหรือรู้สึกเด้งตอนลาก
-        const config = { segments: 24, snapDist: 0.25, mergeDist: 0.35 }; 
+        const config = { segments: 24, snapDist: 0.35, mergeDist: 0.45 }; 
         let mode = 'OUTPUT';
         let layers = [];
         let activeLayerId = null;
@@ -247,6 +301,7 @@
         let appStarted = false;
         let showGuides = true;
         let isPanMode = false;
+        let isMultiSelect = false;
         
         const channel = new BroadcastChannel('mr_mapping_sync_v44');
         let isProjectorMode = new URLSearchParams(window.location.search).get('projector') === 'true';
@@ -255,9 +310,10 @@
         let historyStack = []; let redoStack = []; let isHistoryPaused = false;
 
         let isDragging = false, isGesture = false, selectedObject = null;
-        let activeHandle = null; 
-        let dragStartOffset = new THREE.Vector3(); 
+        let selectedNodes = []; 
+        let selectedPart = null; 
         let previousWorldPos = new THREE.Vector3(); 
+        let dragStartOffset = new THREE.Vector3(); 
         let planeNormal = new THREE.Vector3(0, 0, 1);
         let panStart = new THREE.Vector2();
         let lastTapTime = 0;
@@ -266,58 +322,29 @@
         window.startApp = function() {
             document.getElementById('start-overlay').style.display = 'none';
             appStarted = true;
-            // Play all active layer videos
-            layers.forEach(l => {
-                if(l.videoElement) l.videoElement.play().catch(e=>console.log("Autoplay blocked."));
-            });
-            updateMediaUI();
-            broadcastSync();
+            layers.forEach(l => { if(l.videoElement) l.videoElement.play().catch(e=>{}); });
+            updateMediaUI(); broadcastSync(true);
         };
-
-        // User Interaction Fallback
-        document.body.addEventListener('click', function() {
-            if(appStarted && !isProjectorMode) {
-                layers.forEach(l => {
-                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
-                });
-                updateMediaUI();
-            }
-        }, {passive: true});
-        
-        document.body.addEventListener('touchstart', function() {
-            if(appStarted && !isProjectorMode) {
-                layers.forEach(l => {
-                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
-                });
-                updateMediaUI();
-            }
-        }, {passive: true});
 
         // --- MEDIA CONTROLS ---
         function togglePlayPause() {
             let anyPlaying = false;
             layers.forEach(l => { if(l.videoElement && !l.videoElement.paused) anyPlaying = true; });
-            
             layers.forEach(l => {
                 if(l.videoElement) {
                     if(anyPlaying) l.videoElement.pause();
                     else l.videoElement.play().catch(e=>{});
                 }
             });
-            updateMediaUI();
-            broadcastPlaybackState();
+            updateMediaUI(); broadcastPlaybackState();
         }
 
         function toggleMute() {
             let anyMuted = true;
-            layers.forEach(l => {
-                if(l.videoElement && !l.videoElement.muted) anyMuted = false;
-            });
+            layers.forEach(l => { if(l.videoElement && !l.videoElement.muted) anyMuted = false; });
             let newState = !anyMuted; 
-            
             layers.forEach(l => { if(l.videoElement) l.videoElement.muted = newState; });
-            updateMediaUI(); 
-            broadcastPlaybackState();
+            updateMediaUI(); broadcastPlaybackState();
         }
 
         function toggleLayerPlayPause() {
@@ -325,23 +352,25 @@
             if(!l || !l.videoElement) return;
             if(l.videoElement.paused) l.videoElement.play().catch(e=>{});
             else l.videoElement.pause();
-            updateMediaUI();
-            broadcastPlaybackState();
+            updateMediaUI(); broadcastPlaybackState();
         }
 
         function toggleLayerMute() {
             const l = getActiveLayer();
             if(!l || !l.videoElement) return;
             l.videoElement.muted = !l.videoElement.muted;
-            updateMediaUI();
-            broadcastPlaybackState();
+            updateMediaUI(); broadcastPlaybackState();
+        }
+
+        function toggleMultiSelect() {
+            if(isProjectorMode) return;
+            isMultiSelect = !isMultiSelect;
+            const btn = document.getElementById('multi-toggle');
+            if(isMultiSelect) btn.classList.add('active'); else btn.classList.remove('active');
         }
 
         function updateMediaUI() {
-            let anyVdo = false;
-            let anyPlaying = false;
-            let anyMuted = true;
-
+            let anyVdo = false, anyPlaying = false, anyMuted = true;
             layers.forEach(l => { 
                 if(l.videoElement) {
                     anyVdo = true;
@@ -350,56 +379,38 @@
                 }
             });
 
-            // Global UI
             const btnPlay = document.getElementById('btn-playpause');
             const btnMute = document.getElementById('btn-mute');
             
-            if(!anyVdo) {
-                btnPlay.style.opacity = '0.5'; btnMute.style.opacity = '0.5';
-            } else {
-                btnPlay.style.opacity = '1.0'; btnMute.style.opacity = '1.0';
-            }
+            if(!anyVdo) { btnPlay.style.opacity = '0.5'; btnMute.style.opacity = '0.5'; } 
+            else { btnPlay.style.opacity = '1.0'; btnMute.style.opacity = '1.0'; }
 
             if(!anyPlaying) { 
-                btnPlay.innerHTML = '▶️ Play All'; 
-                btnPlay.style.background = '#333'; btnPlay.style.color = '#fff';
+                btnPlay.innerHTML = '▶️ Play All'; btnPlay.style.background = '#333'; btnPlay.style.color = '#fff';
             } else { 
-                btnPlay.innerHTML = '⏸️ Pause All'; 
-                btnPlay.style.background = '#00ffaa'; btnPlay.style.color = '#000';
+                btnPlay.innerHTML = '⏸️ Pause All'; btnPlay.style.background = '#00ffaa'; btnPlay.style.color = '#000';
             }
 
             if(anyMuted) { 
-                btnMute.innerHTML = '🔇 Unmute All'; 
-                btnMute.style.background = '#333'; btnMute.style.color = '#fff';
+                btnMute.innerHTML = '🔇 Unmute All'; btnMute.style.background = '#333'; btnMute.style.color = '#fff';
             } else { 
-                btnMute.innerHTML = '🔊 Mute All'; 
-                btnMute.style.background = '#00ffaa'; btnMute.style.color = '#000';
+                btnMute.innerHTML = '🔊 Mute All'; btnMute.style.background = '#00ffaa'; btnMute.style.color = '#000';
             }
 
-            // Layer Specific UI
             const l = getActiveLayer();
             const layerSec = document.getElementById('layer-media-section');
             if (l && l.videoElement && !l.isMask) {
                 layerSec.style.display = 'block';
                 document.getElementById('layer-control-name').innerText = l.name;
-                
                 const bPlay = document.getElementById('btn-layer-playpause');
                 const bMute = document.getElementById('btn-layer-mute');
 
-                if(l.videoElement.paused) {
-                    bPlay.innerHTML = '▶️ Play Screen'; bPlay.style.background = '#333'; bPlay.style.color = '#fff';
-                } else {
-                    bPlay.innerHTML = '⏸️ Pause Screen'; bPlay.style.background = '#0088cc'; bPlay.style.color = '#fff';
-                }
+                if(l.videoElement.paused) { bPlay.innerHTML = '▶️ Play Screen'; bPlay.style.background = '#333'; bPlay.style.color = '#fff'; } 
+                else { bPlay.innerHTML = '⏸️ Pause Screen'; bPlay.style.background = '#0088cc'; bPlay.style.color = '#fff'; }
 
-                if(l.videoElement.muted) {
-                    bMute.innerHTML = '🔇 Unmute Screen'; bMute.style.background = '#333'; bMute.style.color = '#fff';
-                } else {
-                    bMute.innerHTML = '🔊 Mute Screen'; bMute.style.background = '#0088cc'; bMute.style.color = '#fff';
-                }
-            } else {
-                layerSec.style.display = 'none';
-            }
+                if(l.videoElement.muted) { bMute.innerHTML = '🔇 Unmute Screen'; bMute.style.background = '#333'; bMute.style.color = '#fff'; } 
+                else { bMute.innerHTML = '🔊 Mute Screen'; bMute.style.background = '#0088cc'; bMute.style.color = '#fff'; }
+            } else { layerSec.style.display = 'none'; }
         }
 
         function broadcastPlaybackState() {
@@ -430,6 +441,47 @@
 
             const n0 = pts[i], n1 = pts[i+1];
             return cubicBezier(n0.pos, new THREE.Vector3().addVectors(n0.pos, n0.h2), new THREE.Vector3().addVectors(n1.pos, n1.h1), n1.pos, localT);
+        }
+
+        function getClosestPointOnSegment(p, v, w) {
+            const line = new THREE.Line3(v, w);
+            const closest = new THREE.Vector3();
+            line.closestPointToPoint(p, true, closest);
+            return closest;
+        }
+
+        function getSnapDelta(movingPoints, rawDelta, excludeLayerId) {
+            let bestDelta = rawDelta.clone(); let minDist = config.snapDist; let snapped = false; let snapPoint = new THREE.Vector3();
+
+            for(let p of movingPoints) {
+                const predPos = p.clone().add(rawDelta); predPos.z = 0; 
+                layers.forEach(layer => {
+                    if(layer.id === excludeLayerId) return;
+                    const otherPts = mode === 'OUTPUT' ? layer.outPoints : layer.inPoints;
+
+                    otherPts.forEach(op => {
+                        const opPos = op.pos.clone(); opPos.z = 0;
+                        const d = predPos.distanceTo(opPos);
+                        if (d < minDist) { minDist = d; bestDelta.subVectors(opPos, p); snapped = true; snapPoint.copy(op.pos); }
+                    });
+
+                    for(let i=0; i<otherPts.length; i++) {
+                        const v = otherPts[i].pos.clone(); v.z = 0;
+                        const w = otherPts[(i+1)%otherPts.length].pos.clone(); w.z = 0;
+                        const closest = getClosestPointOnSegment(predPos, v, w);
+                        const d = predPos.distanceTo(closest);
+                        if (d < minDist) { minDist = d; bestDelta.subVectors(closest, p); snapped = true; snapPoint.copy(closest); }
+                    }
+                });
+            }
+            bestDelta.z = 0; 
+            const ring = document.getElementById('snap-ring');
+            if(snapped && !isProjectorMode) {
+                const sp = snapPoint.clone().project(camera);
+                ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
+                ring.style.display = 'block';
+            } else { ring.style.display = 'none'; }
+            return bestDelta;
         }
 
         // --- 3. CLASSES ---
@@ -502,12 +554,13 @@
                 this.isMask = data && data.isMask !== undefined ? data.isMask : isMask;
                 this.name = this.isMask ? `Mask ${id}` : `Screen ${id}`;
                 
-                // MULTI-MEDIA properties
                 this.texture = mainTexture; 
                 this.videoElement = null;
-                this.mediaUrl = null;
+                this.sourceAspectRatio = data && data.sourceAspect ? data.sourceAspect : 16/9;
+                
+                this.mediaFile = null; 
+                this.mediaBlob = null;
                 this.isVdo = false;
-                this.sourceAspectRatio = 16/9;
 
                 this.outputGroup = new THREE.Group(); outputGroup.add(this.outputGroup);
                 this.inputGroup = new THREE.Group(); inputGroup.add(this.inputGroup);
@@ -554,43 +607,43 @@
                 this.updateVisibilityState();
             }
 
-            // ✅ ปรับปรุงปุ่ม Reset ให้ปรับขนาด Screen ตาม Aspect Ratio ของสื่อ (VDO/รูป) ทันที
             initDefault() {
-                // คำนวณ Aspect Ratio ล่าสุด
-                const aspect = this.sourceAspectRatio || (typeof sourceAspectRatio !== 'undefined' ? sourceAspectRatio : 16/9);
-                const w = 16; 
-                const h = 16 / aspect;
+                const aspect = this.sourceAspectRatio;
+                const w = 16; const h = 16 / aspect;
+                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
                 
-                // กำหนด 4 มุมแบบพอดีเป๊ะ
-                const corners = [
-                    [-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]
-                ]; 
-                
-                if (this.outPoints && this.outPoints.length > 0) {
-                    // หากมีจุดเพิ่มมา ให้ลบทิ้งให้เหลือ 4 มุม
-                    for(let i = this.outPoints.length - 1; i >= 0; i--) {
-                        if (!this.outPoints[i].isCorner) { this.outPoints[i].destroy(); this.outPoints.splice(i, 1); }
-                    }
-                    for(let i = this.inPoints.length - 1; i >= 0; i--) {
-                        if (!this.inPoints[i].isCorner) { this.inPoints[i].destroy(); this.inPoints.splice(i, 1); }
-                    }
-                    
-                    // รีเซ็ตกลับไปเป็นมุมฉาก
-                    for(let i=0; i<4; i++) {
-                        this.outPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
-                        this.outPoints[i].type = 'linear';
-                        this.outPoints[i].updateVisuals();
-                        
-                        this.inPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
-                        this.inPoints[i].type = 'linear';
-                        this.inPoints[i].updateVisuals();
-                    }
-                    this.updateGeometry();
-                } else {
+                if (this.outPoints && this.outPoints.length > 0) { this.resetToDefault('ALL'); } 
+                else {
                     this.outPoints = corners.map(p => new BezierNode(this.outputGroup, true, p));
                     this.inPoints = corners.map(p => new BezierNode(this.inputGroup, true, p));
                     this.updateGeometry();
                 }
+            }
+
+            resetToDefault(targetMode) {
+                const aspect = this.sourceAspectRatio;
+                const w = 16; const h = 16 / aspect;
+                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
+                
+                if (targetMode === 'OUTPUT' || targetMode === 'ALL') {
+                    for(let i = this.outPoints.length - 1; i >= 0; i--) {
+                        if (!this.outPoints[i].isCorner) { this.outPoints[i].destroy(); this.outPoints.splice(i, 1); }
+                    }
+                    for(let i=0; i<4; i++) {
+                        this.outPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
+                        this.outPoints[i].type = 'linear'; this.outPoints[i].updateVisuals();
+                    }
+                }
+                if (targetMode === 'INPUT' || targetMode === 'ALL') {
+                    for(let i = this.inPoints.length - 1; i >= 0; i--) {
+                        if (!this.inPoints[i].isCorner) { this.inPoints[i].destroy(); this.inPoints.splice(i, 1); }
+                    }
+                    for(let i=0; i<4; i++) {
+                        this.inPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
+                        this.inPoints[i].type = 'linear'; this.inPoints[i].updateVisuals();
+                    }
+                }
+                this.updateGeometry();
             }
 
             getEdges(pts) {
@@ -640,7 +693,7 @@
                 if(isCheckerActive) return;
                 if(!inEdges) inEdges = this.getEdges(this.inPoints);
                 
-                const targetRatio = this.sourceAspectRatio || sourceAspectRatio;
+                const targetRatio = this.sourceAspectRatio;
                 const bgW = 16; const bgH = 16 / targetRatio;
                 
                 const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
@@ -675,17 +728,49 @@
                 if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
             }
 
-            setMedia(url, isVideo) {
+            setMediaFile(file) {
                 if (this.isMask) return;
-                this.mediaUrl = url;
-                this.isVdo = isVideo;
+                this.mediaFile = file; 
+                this.mediaBlob = null;
+                const url = URL.createObjectURL(file);
+                this.isVdo = file.type.indexOf('video') !== -1;
+                this.applyMedia(url, this.isVdo);
+            }
 
-                if (this.videoElement) { this.videoElement.pause(); this.videoElement = null; }
+            async setMediaBase64(urlOrBase64, isVideo) {
+                if (this.isMask) return;
+                this.mediaFile = null; 
+                this.mediaBlob = null;
+                this.isVdo = isVideo;
+                
+                if (urlOrBase64.startsWith('data:')) {
+                    try {
+                        const res = await fetch(urlOrBase64); 
+                        const blob = await res.blob();
+                        this.mediaBlob = blob;
+                        const blobUrl = URL.createObjectURL(blob);
+                        this.applyMedia(blobUrl, isVideo);
+                    } catch (e) {
+                        this.applyMedia(urlOrBase64, isVideo);
+                    }
+                } else {
+                    this.applyMedia(urlOrBase64, isVideo);
+                }
+            }
+
+            applyMedia(url, isVideo) {
+                if (this.videoElement) { 
+                    this.videoElement.pause(); 
+                    this.videoElement.removeAttribute('src');
+                    this.videoElement.load();
+                    this.videoElement = null; 
+                }
                 if (this.texture && this.texture !== mainTexture && this.texture !== checkerTexture) { this.texture.dispose(); }
 
                 if (isVideo) {
                     const vid = document.createElement('video');
                     vid.crossOrigin = "anonymous"; vid.loop = true; vid.muted = true; vid.playsInline = true;
+                    vid.preload = "auto";
                     vid.src = url; vid.style.display = 'none';
                     document.body.appendChild(vid);
                     this.videoElement = vid;
@@ -694,10 +779,10 @@
                     vid.onloadedmetadata = () => {
                         this.sourceAspectRatio = vid.videoWidth / vid.videoHeight;
                         this.texture = new THREE.VideoTexture(vid);
-                        this.texture.minFilter = THREE.LinearFilter; this.texture.format = THREE.RGBAFormat;
+                        this.texture.minFilter = THREE.LinearFilter; this.texture.format = THREE.RGBAFormat; 
                         if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
                         updateInputBackground();
-                        broadcastSync();
+                        if(!isProjectorMode) broadcastSync(true);
                     };
                 } else {
                     const img = new Image();
@@ -707,24 +792,9 @@
                         this.texture.needsUpdate = true; this.texture.minFilter = THREE.LinearFilter;
                         if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
                         updateInputBackground();
-                        broadcastSync();
+                        if(!isProjectorMode) broadcastSync(true);
                     };
                     img.src = url;
-                }
-            }
-
-            syncMedia(data) {
-                if(this.isMask) return;
-                this.sourceAspectRatio = data.sourceAspect || 16/9;
-                
-                if (data.mediaUrl !== this.mediaUrl) {
-                    if(data.mediaUrl) this.setMedia(data.mediaUrl, data.isVdo);
-                    else {
-                        this.mediaUrl = null; this.texture = mainTexture; this.videoElement = null;
-                        this.updateTexture(); updateInputBackground();
-                    }
-                } else {
-                    this.updateTexture();
                 }
             }
 
@@ -734,17 +804,18 @@
                 this.updateGeometry();
             }
 
-            setSelection(node) {
+            setSelection(nodesArray) {
+                if (!nodesArray) nodesArray = [];
                 const allNodes = [...this.outPoints, ...this.inPoints];
                 allNodes.forEach(n => {
-                    n.mesh.userData.isSelected = (n === node);
+                    n.mesh.userData.isSelected = nodesArray.includes(n);
                     n.mesh.userData.isMerging = false; 
-                    if(n === node) { n.mesh.scale.set(1.5, 1.5, 1); n.showHandles(); } 
+                    if(nodesArray.includes(n)) { n.mesh.scale.set(1.5, 1.5, 1); n.showHandles(); } 
                     else { n.mesh.scale.set(1, 1, 1); n.hideHandles(); }
                     n.updateVisuals();
                 });
             }
-            clearSelection() { this.setSelection(null); }
+            clearSelection() { this.setSelection([]); }
 
             updateVisibilityState() {
                 const isOutput = (mode === 'OUTPUT'); const isInput = (mode === 'INPUT');
@@ -787,23 +858,22 @@
                     this.inPoints = (data.inHandles || data.handles).map((p, i) => new BezierNode(this.inputGroup, true, p));
                 }
                 this.updateGeometry();
-                if(isProjectorMode) this.syncMedia(data);
             }
 
-            toJSON() {
+            toJSON(includeMedia = false) {
                 return {
                     id: this.id,
                     isMask: this.isMask,
-                    mediaUrl: this.mediaUrl,
+                    mediaUrl: includeMedia ? (this.mediaBlob ? URL.createObjectURL(this.mediaBlob) : null) : null, 
                     isVdo: this.isVdo,
-                    sourceAspect: this.sourceAspectRatio,
+                    sourceAspect: this.sourceAspectRatio, 
                     outPoints: this.outPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner })),
                     inPoints: this.inPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner }))
                 };
             }
             destroy() { 
                 this.outputGroup.parent.remove(this.outputGroup); this.inputGroup.parent.remove(this.inputGroup); 
-                if(this.videoElement) { this.videoElement.pause(); this.videoElement = null; }
+                if(this.videoElement) { this.videoElement.pause(); this.videoElement.removeAttribute('src'); this.videoElement.load(); this.videoElement = null; }
                 if(this.texture && this.texture !== mainTexture && this.texture !== checkerTexture) this.texture.dispose();
             }
         }
@@ -841,9 +911,27 @@
                 channel.onmessage = (event) => {
                     const msg = event.data;
                     if(msg.type === 'sync_state') {
-                        loadState(msg.state, false);
+                        if (msg.fullSync) {
+                            loadState(msg.state, false);
+                        } else {
+                            msg.state.layers.forEach(remoteLayer => {
+                                const localLayer = layers.find(l => l.id === remoteLayer.id);
+                                if (localLayer) {
+                                    remoteLayer.outPoints.forEach((rp, i) => {
+                                        const p = localLayer.outPoints[i];
+                                        p.pos.fromArray(rp.pos);
+                                        p.h1.fromArray(rp.h1); p.h2.fromArray(rp.h2); p.type = rp.type; p.updateVisuals();
+                                    });
+                                    remoteLayer.inPoints.forEach((rp, i) => {
+                                        const p = localLayer.inPoints[i];
+                                        p.pos.fromArray(rp.pos);
+                                        p.h1.fromArray(rp.h1); p.h2.fromArray(rp.h2); p.type = rp.type; p.updateVisuals();
+                                    });
+                                    localLayer.updateGeometry();
+                                }
+                            });
+                        }
                     } else if (msg.type === 'playback_states') {
-                        // Projector syncing multi-media playback individually
                         msg.states.forEach(s => {
                             const l = layers.find(layer => layer.id === s.id);
                             if(l && l.videoElement) {
@@ -858,24 +946,27 @@
             } else {
                 const cvs = renderer.domElement;
                 
-                // ✅ ป้องกันหน้าจอเลื่อน (Prevent default drag) 
                 cvs.addEventListener('mousedown', (e) => { e.preventDefault(); onPointerDown(e); });
                 window.addEventListener('mousemove', (e) => { if(isDragging) e.preventDefault(); onPointerMove(e); }, {passive: false});
                 window.addEventListener('mouseup', onPointerUp);
                 
                 cvs.addEventListener('touchstart', (e) => { e.preventDefault(); onTouchStart(e); }, {passive: false});
                 window.addEventListener('touchmove', (e) => { if(isDragging) e.preventDefault(); onTouchMove(e); }, {passive: false});
-                
-                // ✅ เปลี่ยน touchend เป็นระดับ Window ให้จับการปล่อยนิ้วได้แม่นยำขึ้นแม้หลุดขอบ
                 window.addEventListener('touchend', onPointerUp);
                 cvs.addEventListener('wheel', onWheel, {passive:false});
                 
-                addNewLayer(); recordHistory(); 
+                DB.load().then(savedObj => {
+                    if (savedObj && savedObj.data) {
+                        try { 
+                            const d = JSON.parse(savedObj.data);
+                            loadState(d, false, savedObj.files); 
+                        } catch(e) { addNewLayer(); recordHistory(); }
+                    } else { addNewLayer(); recordHistory(); }
+                }).catch(e => { addNewLayer(); recordHistory(); });
 
                 channel.onmessage = (event) => {
-                    // หากรับ request_sync แค่ broadcast ตัวเอง ไม่ใช่ไป loadState ทับตัวเก่า
                     if (event.data.type === 'request_sync') { 
-                        broadcastSync(); broadcastPlaybackState();
+                        broadcastSync(true); broadcastPlaybackState();
                         const s = document.getElementById('sync-indicator'); s.style.display='block'; setTimeout(()=>s.style.display='none',3000); 
                     }
                 };
@@ -893,7 +984,7 @@
             const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024; const ctx = cvs.getContext('2d');
             ctx.fillStyle = '#111'; ctx.fillRect(0,0,1024,1024); ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
             for(let i=0; i<=1024; i+=100) { ctx.moveTo(i,0); ctx.lineTo(i,1024); ctx.moveTo(0,i); ctx.lineTo(1024,i); }
-            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText('MR MAPPING v44', 512, 512);
+            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText('MR MAPPING PRO', 512, 512);
             if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.CanvasTexture(cvs);
         }
 
@@ -904,18 +995,14 @@
             ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 5; ctx.strokeRect(0,0,1024,1024); checkerTexture = new THREE.CanvasTexture(cvs);
         }
 
-        // MULTI-MEDIA UPLOAD
         function handleUpload(e) {
             const file = e.target.files[0]; if(!file) return;
             const layer = getActiveLayer();
-            if(!layer || layer.isMask) {
-                alert("⚠️ กรุณาเลือก Screen สีเขียว (ที่ไม่ใช่ Mask) เพื่อใส่ภาพหรือวิดีโอ");
-                e.target.value = ''; return;
-            }
+            if(!layer || layer.isMask) { alert("⚠️ กรุณาเลือก Screen สีเขียวเพื่อใส่ภาพหรือวิดีโอ"); e.target.value = ''; return; }
 
-            const url = URL.createObjectURL(file);
-            layer.setMedia(url, file.type.indexOf('video') !== -1);
-            e.target.value = '';
+            layer.setMediaFile(file);
+            recordHistory();
+            e.target.value = ''; 
         }
 
         function updateInputBackground() {
@@ -935,7 +1022,7 @@
             isCheckerActive = !isCheckerActive; 
             document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; 
             document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; 
-            updateAllTextures(); broadcastSync(); 
+            updateAllTextures(); broadcastSync(false); 
         }
         
         function updateAllTextures() {
@@ -971,20 +1058,32 @@
             const now = Date.now(); const isDoubleTap = (now - lastTapTime) < 300; lastTapTime = now;
 
             const l = getActiveLayer(); if(!l) return;
-            
             const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+
             const hitTargets = []; pts.forEach(p => { hitTargets.push(p.hit, p.ctrl1.children[0], p.ctrl2.children[0]); });
             const hits = raycaster.intersectObjects(hitTargets);
             
             if (hits.length > 0) {
                 const hitData = hits[0].object.userData; const node = hitData.node;
-                if (hitData.part === 'main' && isDoubleTap) {
-                    node.toggleType(); l.updateGeometry(); broadcastSync();
+                if (hitData.part === 'main' && isDoubleTap) { node.toggleType(); l.updateGeometry(); broadcastSync(true); return; }
+                
+                isDragging = true;
+                previousWorldPos.copy(wp);
+
+                if (hitData.part === 'main') {
+                    selectedPart = 'nodes';
+                    if (isMultiSelect) {
+                        if (!selectedNodes.includes(node)) selectedNodes.push(node);
+                    } else {
+                        if (!selectedNodes.includes(node)) selectedNodes = [node];
+                    }
+                    l.setSelection(selectedNodes);
+                } else {
+                    selectedPart = hitData.part; 
+                    selectedNodes = [node];
+                    l.setSelection(selectedNodes);
+                    dragStartOffset.subVectors(hitData.part === 'ctrl1' ? node.pos.clone().add(node.h1) : node.pos.clone().add(node.h2), wp);
                 }
-                isDragging = true; selectedNode = node; selectedPart = hitData.part;
-                l.setSelection(node);
-                const wPos = new THREE.Vector3(); hits[0].object.parent.getWorldPosition(wPos);
-                dragStartOffset.subVectors(wPos, wp);
                 return;
             }
 
@@ -1006,8 +1105,29 @@
                     const newNode = new BezierNode(group, false, insertPos.toArray());
                     newNode.toggleType(); 
                     pts.splice(insertIdx, 0, newNode);
-                    l.updateGeometry(); broadcastSync(); return; 
+                    l.updateGeometry(); broadcastSync(true); return; 
                 }
+            }
+
+            let closestEdgeDist = Infinity; let edgeNodes = null;
+            for (let i = 0; i < pts.length; i++) {
+                const n1 = pts[i]; const n2 = pts[(i + 1) % pts.length];
+                const closest = getClosestPointOnSegment(wp, n1.pos, n2.pos);
+                const d = wp.distanceTo(closest);
+                if (d < closestEdgeDist) { closestEdgeDist = d; edgeNodes = [n1, n2]; }
+            }
+
+            if (closestEdgeDist < 0.6) {
+                isDragging = true;
+                selectedPart = 'nodes';
+                previousWorldPos.copy(wp);
+                if (isMultiSelect) {
+                    edgeNodes.forEach(n => { if (!selectedNodes.includes(n)) selectedNodes.push(n); });
+                } else {
+                    selectedNodes = [...edgeNodes];
+                }
+                l.setSelection(selectedNodes);
+                return;
             }
 
             const bodies = [];
@@ -1018,21 +1138,11 @@
             if(bodyHits.length > 0) {
                 const hitLayer = layers.find(lay => lay.id === bodyHits[0].object.userData.id);
                 setActiveLayer(hitLayer.id);
-                isDragging = true; selectedNode = hitLayer; selectedPart = 'body';
+                isDragging = true; selectedObject = hitLayer; selectedPart = 'body'; selectedNodes = [];
                 if(l && l !== hitLayer) l.clearSelection();
                 previousWorldPos.copy(wp);
             } else {
-                if (selectedNode && selectedPart !== 'body' && l) {
-                    isDragging = true; 
-                    const wPos = new THREE.Vector3();
-                    if(selectedPart==='main') wPos.copy(selectedNode.pos);
-                    else if(selectedPart==='ctrl1') wPos.addVectors(selectedNode.pos, selectedNode.h1);
-                    else if(selectedPart==='ctrl2') wPos.addVectors(selectedNode.pos, selectedNode.h2);
-                    if(mode==='INPUT') wPos.applyMatrix4(l.inputMesh.matrixWorld);
-                    dragStartOffset.subVectors(wPos, wp);
-                } else {
-                    if (l) l.clearSelection(); selectedNode = null; selectedPart = null;
-                }
+                if (l) l.clearSelection(); selectedNodes = []; selectedObject = null; selectedPart = null;
             }
         }
 
@@ -1044,97 +1154,84 @@
                 camera.position.y -= (ndc.y - panStart.y) * (20 * (1/camera.zoom)); 
                 panStart.copy(ndc); return;
             }
-            if(!isDragging || !selectedNode) return;
+            if(!isDragging) return;
             const wp = getWorldPos(ndc); const l = getActiveLayer();
+            const rawDelta = new THREE.Vector3().subVectors(wp, previousWorldPos);
 
-            if (selectedPart === 'body') {
-                const delta = new THREE.Vector3().subVectors(wp, previousWorldPos);
-                // ✅ ลบการ Snap ทั้ง Body ออก เพื่อแก้ปัญหา Body Jump/เด้ง เวลาลากใกล้เส้นอื่น
-                selectedNode.moveBody(delta); 
-                previousWorldPos.copy(wp);
-                broadcastSync();
-            } else {
-                let targetPos = new THREE.Vector3().addVectors(wp, dragStartOffset);
-                if(mode === 'INPUT') targetPos = l.inputMesh.worldToLocal(targetPos);
+            if (selectedPart === 'body' && selectedObject) {
+                const pts = mode === 'OUTPUT' ? selectedObject.outPoints : selectedObject.inPoints;
+                const movingPoints = pts.map(n => n.pos);
+                const snapDelta = getSnapDelta(movingPoints, rawDelta, selectedObject.id);
+                
+                selectedObject.moveBody(snapDelta); 
+                previousWorldPos.add(snapDelta); 
+                broadcastSync(false); 
+            } else if (selectedPart === 'nodes' && selectedNodes.length > 0) {
+                const movingPoints = selectedNodes.map(n => n.pos);
+                const snapDelta = getSnapDelta(movingPoints, rawDelta, l.id);
 
-                if (selectedPart === 'main') {
-                    let snappedPos = targetPos.clone(); let minDist = config.snapDist; let snapped = false;
-                    layers.forEach(other => {
-                        if(other.id === l.id) return;
-                        const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
-                        otherPts.forEach(op => { if(targetPos.distanceTo(op.pos) < minDist) { minDist = targetPos.distanceTo(op.pos); snappedPos.copy(op.pos); snapped = true; } });
-                    });
+                selectedNodes.forEach(n => {
+                    n.setPos(n.pos.clone().add(snapDelta));
+                });
+
+                nodeToMerge = null;
+                selectedNodes.forEach(n => n.mesh.userData.isMerging = false);
+
+                if (selectedNodes.length === 1) {
+                    const n = selectedNodes[0];
+                    const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
+                    const idx = pts.indexOf(n);
+                    const prev = pts[(idx - 1 + pts.length) % pts.length];
+                    const next = pts[(idx + 1) % pts.length];
                     
-                    const ring = document.getElementById('snap-ring');
-                    if(snapped) {
-                        let sp = snappedPos.clone(); if(mode==='INPUT') sp.applyMatrix4(l.inputMesh.matrixWorld);
-                        sp.project(camera);
-                        ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
-                        ring.style.display = 'block'; targetPos.copy(snappedPos);
-                    } else { ring.style.display = 'none'; }
-
-                    if (!selectedNode.isCorner) {
-                        const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
-                        const idx = pts.indexOf(selectedNode);
-                        const prev = pts[(idx - 1 + pts.length) % pts.length];
-                        const next = pts[(idx + 1) % pts.length];
-                        
-                        let isMerging = false;
-                        if (targetPos.distanceTo(prev.pos) < config.mergeDist) { targetPos.copy(prev.pos); nodeToMerge = selectedNode; isMerging = true; }
-                        else if (targetPos.distanceTo(next.pos) < config.mergeDist) { targetPos.copy(next.pos); nodeToMerge = selectedNode; isMerging = true; }
-                        else { nodeToMerge = null; }
-                        
-                        selectedNode.mesh.userData.isMerging = isMerging;
-                        if(isMerging) selectedNode.mesh.scale.set(0.8, 0.8, 1);
-                        else selectedNode.mesh.scale.set(1.5, 1.5, 1);
-                    }
-                    selectedNode.setPos(targetPos);
-                } else if (selectedPart === 'ctrl1') {
-                    selectedNode.setCtrl1(targetPos);
-                } else if (selectedPart === 'ctrl2') {
-                    selectedNode.setCtrl2(targetPos);
+                    if (n.pos.distanceTo(prev.pos) < config.mergeDist) { n.setPos(prev.pos.clone()); nodeToMerge = n; n.mesh.userData.isMerging = true; }
+                    else if (n.pos.distanceTo(next.pos) < config.mergeDist) { n.setPos(next.pos.clone()); nodeToMerge = n; n.mesh.userData.isMerging = true; }
+                    
+                    if(n.mesh.userData.isMerging) n.mesh.scale.set(0.8, 0.8, 1);
+                    else n.mesh.scale.set(1.5, 1.5, 1);
                 }
-                l.updateGeometry(); broadcastSync();
+
+                previousWorldPos.add(snapDelta);
+                l.updateGeometry(); broadcastSync(false); 
+
+            } else if (selectedPart === 'ctrl1' || selectedPart === 'ctrl2') {
+                let targetPos = new THREE.Vector3().addVectors(wp, dragStartOffset); targetPos.z = 0;
+                if (selectedPart === 'ctrl1') selectedNodes[0].setCtrl1(targetPos);
+                else selectedNodes[0].setCtrl2(targetPos);
+                l.updateGeometry(); broadcastSync(false); 
             }
         }
 
         function onPointerUp() { 
             if(isProjectorMode) return;
-            if (nodeToMerge) {
+            let merged = false;
+            if (nodeToMerge && selectedNodes.length === 1) {
                 const l = getActiveLayer(); const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
                 const idx = pts.indexOf(nodeToMerge);
                 if (idx > -1) pts.splice(idx, 1);
                 nodeToMerge.destroy(); nodeToMerge = null;
-                l.clearSelection(); selectedNode = null; selectedPart = null;
+                if(!isMultiSelect) { l.clearSelection(); selectedNodes = []; selectedPart = null; }
                 l.updateGeometry();
+                merged = true;
             }
-            isDragging=false; isGesture=false; isHistoryPaused=false; recordHistory(); document.getElementById('snap-ring').style.display='none'; broadcastSync(); 
+            isDragging=false; isGesture=false; isHistoryPaused=false; 
+            recordHistory(); 
+            document.getElementById('snap-ring').style.display='none'; 
+            broadcastSync(merged); 
         }
 
+        // --- MOBILE GESTURES ---
         function onTouchStart(e) {
             if(document.body.classList.contains('presentation-mode')) return;
             if (e.touches.length === 2 && (mode==='INPUT' || showGuides)) { 
                 isGesture = true; isDragging = false; const l = getActiveLayer(); if(!l) return;
                 const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
                 gestureStartDist = Math.sqrt(dx*dx + dy*dy); gestureStartAngle = Math.atan2(dy, dx);
-                const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
-                pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
-                gestureStartCenter.copy(center); gestureStartHandlePositions = pts.map(p => p.pos.clone());
             } else if (e.touches.length === 1) { onPointerDown(e.touches[0]); }
         }
 
         function onTouchMove(e) {
             if (e.touches.length === 2 && isGesture) {
-                const l = getActiveLayer(); if(!l) return;
-                const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
-                const scale = Math.sqrt(dx*dx + dy*dy) / gestureStartDist; const rotation = Math.atan2(dy, dx) - gestureStartAngle;
-                const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
-                pts.forEach((p, i) => {
-                    const vec = new THREE.Vector3().subVectors(gestureStartHandlePositions[i], gestureStartCenter);
-                    vec.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0,0,1), -rotation); 
-                    p.setPos(new THREE.Vector3().addVectors(gestureStartCenter, vec));
-                });
-                l.updateGeometry(); broadcastSync();
             } else if (e.touches.length === 1) { onPointerMove(e.touches[0]); }
         }
 
@@ -1145,7 +1242,7 @@
             const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
             pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
             pts.forEach(p => { p.setPos(new THREE.Vector3().subVectors(p.pos, center).multiplyScalar(scale).add(center)); });
-            l.updateGeometry(); recordHistory(); broadcastSync();
+            l.updateGeometry(); recordHistory(); broadcastSync(false);
         }
 
         // --- UTILS ---
@@ -1157,30 +1254,119 @@
         function setMode(m) {
             mode = m; document.getElementById('mode-text').innerText = mode;
             document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
+            document.getElementById('btn-reset').innerText = `Reset ${m}`;
             layers.forEach(l => l.updateVisibilityState()); 
             updateInputBackground();
-            if(!isProjectorMode) broadcastSync();
+            if(!isProjectorMode) broadcastSync(true);
         }
 
-        function openProjectorWindow() {
-            const win = window.open(window.location.href.split('?')[0] + '?projector=true', 'MR_Projector', 'width=1280,height=720');
+        // ✅ อัปเกรดระบบเปิดหน้าต่าง (Multi-Screen Window Placement API)
+        async function openProjectorWindow() {
+            const url = window.location.href.split('?')[0] + '?projector=true';
+            let win = null;
+
+            try {
+                if ('getScreenDetails' in window) {
+                    const screenDetails = await window.getScreenDetails();
+                    const extScreen = screenDetails.screens.find(s => s !== screenDetails.currentScreen);
+                    
+                    if (extScreen) {
+                        const features = `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
+                        win = window.open(url, 'MR_Projector', features);
+                    }
+                }
+            } catch (err) {
+                console.log("Multi-Screen API not supported or permission denied. Falling back.", err);
+            }
+
+            if (!win) {
+                win = window.open(url, 'MR_Projector', 'width=1280,height=720');
+            }
+
             if(!win) alert("⚠️ ไม่สามารถเปิดหน้าต่างโปรเจคเตอร์ได้ กรุณาอนุญาต Pop-ups (Allow Pop-ups) ในเบราว์เซอร์ของคุณตรงแถบ URL ด้านบน");
         }
 
         function recordHistory() {
-            if(isHistoryPaused) return; const s = JSON.stringify({ layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId });
-            if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return; historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
+            if(isHistoryPaused) return; 
+            const s = JSON.stringify({ layers: layers.map(l=>l.toJSON(false)), layerCounter, activeId: activeLayerId });
+            const filesObj = {};
+            layers.forEach(l => { 
+                if (l.mediaFile) filesObj[l.id] = l.mediaFile; 
+                else if (l.mediaBlob) filesObj[l.id] = l.mediaBlob; 
+            });
+
+            if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return; 
+            historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
+            DB.save(s, filesObj).catch(e => console.log('Auto-save error:', e)); 
         }
-        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1])); broadcastSync(); }
-        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n)); broadcastSync(); }
-        function loadState(d, shouldBroadcast = true) {
-            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld, ld.isMask))); activeLayerId = d.activeId; 
+        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1]), true); }
+        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n), true); }
+        
+        function loadState(d, shouldBroadcast = true, savedFiles = null) {
+            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; 
+            
+            d.layers.forEach(ld => {
+                const l = new Layer(ld.id, ld, ld.isMask);
+                if (savedFiles && savedFiles[ld.id]) {
+                    const fileOrBlob = savedFiles[ld.id];
+                    if (fileOrBlob instanceof File) {
+                        l.setMediaFile(fileOrBlob);
+                    } else if (fileOrBlob instanceof Blob) {
+                        l.mediaFile = null; l.mediaBlob = fileOrBlob; l.isVdo = ld.isVdo;
+                        const url = URL.createObjectURL(fileOrBlob);
+                        l.applyMedia(url, ld.isVdo);
+                    }
+                } else if (ld.mediaUrl) {
+                    l.setMediaBase64(ld.mediaUrl, ld.isVdo); 
+                }
+                layers.push(l);
+            });
+
+            activeLayerId = d.activeId; 
             layers.forEach(l => l.updateVisibilityState()); updateLayerList(); mode = isProjectorMode ? 'OUTPUT' : mode; 
             updateInputBackground(); updateMediaUI();
-            if(shouldBroadcast && !isProjectorMode) broadcastSync();
+            if(shouldBroadcast && !isProjectorMode) broadcastSync(true);
         }
-        function saveProject() { const d={version:"44.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v44.json"; a.click(); }
-        function loadProject(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(evt){ try{ const d=JSON.parse(evt.target.result); loadState(d); alert("Loaded!"); }catch(err){alert("Error");} }; r.readAsText(f); e.target.value=''; }
+        
+        async function saveProject() { 
+            const btn = document.querySelector('button[onclick="saveProject()"]');
+            const origText = btn.innerHTML;
+            btn.innerHTML = "⏳ Saving...";
+            btn.style.background = "#aa7700";
+
+            const exportData = {version:"47.0", layerCounter, activeId: activeLayerId, layers: []};
+
+            for(const l of layers) {
+                const lData = l.toJSON(false);
+                if (l.mediaFile) {
+                    lData.mediaUrl = await fileToBase64(l.mediaFile);
+                } else if (l.mediaBlob) {
+                    lData.mediaUrl = await fileToBase64(l.mediaBlob);
+                } else if (l.mediaUrl && l.mediaUrl.startsWith('data:')) {
+                    lData.mediaUrl = l.mediaUrl;
+                }
+                exportData.layers.push(lData);
+            }
+
+            const b=new Blob([JSON.stringify(exportData)],{type:"application/json"}); 
+            const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_project.json"; a.click(); 
+            btn.innerHTML = origText;
+            btn.style.background = "";
+        }
+        
+        function loadProject(e) { 
+            const f=e.target.files[0]; if(!f)return; 
+            const btnLabel = e.target.parentElement; const originalText = btnLabel.innerHTML;
+            btnLabel.innerHTML = "⏳ กำลังโหลด... (Loading)";
+            btnLabel.style.background = "#aa7700";
+            const r=new FileReader(); 
+            r.onload=function(evt){ 
+                try{ const d=JSON.parse(evt.target.result); loadState(d, true); recordHistory(); alert("Loaded!"); }catch(err){alert("Error");} 
+                btnLabel.innerHTML = originalText;
+                btnLabel.style.background = "";
+            }; 
+            r.readAsText(f); e.target.value=''; 
+        }
         
         function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); setActiveLayer(l.id); recordHistory(); }
         function addNewMask() { const l = new Layer(layerCounter++, null, true); layers.push(l); setActiveLayer(l.id); recordHistory(); }
@@ -1190,11 +1376,18 @@
             updateLayerList(); 
             updateInputBackground();
             updateMediaUI();
-            broadcastSync(); 
+            selectedNodes = []; 
+            broadcastSync(true); 
         }
         
-        function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(); } }
-        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory(); broadcastSync(); } }
+        function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(true); } }
+        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.resetToDefault(mode); recordHistory(); broadcastSync(true); } }
+        
+        function clearAutoSave() {
+            if(confirm("ยืนยันการล้างข้อมูล Auto-Save? (หน้าจอจะรีเซ็ตกลับเป็นค่าเริ่มต้นทั้งหมด)")) {
+                DB.clear().then(() => location.reload());
+            }
+        }
         
         function updateLayerList() { 
             const l=document.getElementById('layer-list'); l.innerHTML=''; 
@@ -1213,15 +1406,20 @@
             let needRender = false;
             layers.forEach(l => {
                 if(l.videoElement && l.videoElement.readyState >= l.videoElement.HAVE_CURRENT_DATA) {
-                    if(l.texture && l.texture instanceof THREE.VideoTexture) needRender = true; // Forcing loop
+                    if(l.texture && l.texture instanceof THREE.VideoTexture) needRender = true; 
                 }
             });
             renderer.render(scene, camera); 
         }
         
-        function broadcastSync() {
+        function broadcastSync(fullSync = false) {
             if (isProjectorMode) return;
-            channel.postMessage({ type: 'sync_state', state: { layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId } });
+            const stateData = {
+                layers: layers.map(l => l.toJSON(fullSync)),
+                layerCounter, 
+                activeId: activeLayerId 
+            };
+            channel.postMessage({ type: 'sync_state', state: stateData, fullSync: fullSync });
         }
 
         init(); 
