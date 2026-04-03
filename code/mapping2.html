@@ -161,6 +161,8 @@
 
     <div class="right-toggles">
         <button class="tool-btn cast" onclick="openProjectorWindow()" title="Open Projector Window on Extended Display">🖥️</button>
+        <!-- ✅ ปุ่ม Toggle Fullscreen สำหรับซ่อนแถบ URL เบราว์เซอร์ -->
+        <button class="tool-btn" id="fullscreen-toggle" onclick="toggleFullScreen()" title="Toggle Fullscreen">🔲</button>
         <button class="tool-btn" id="pan-toggle" onclick="togglePanMode()" title="Pan View">✋</button>
         <button class="tool-btn" id="multi-toggle" onclick="toggleMultiSelect()" title="Multi-Select Points">🔗</button>
         <div class="switch-container" onclick="togglePresentationMode()">
@@ -233,6 +235,7 @@
             <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
                 <span style="color:#00ffaa; font-weight:bold;">v47 สรุปการอัปเกรด:</span><br>
                 • <b>Auto-Placement 🖥️:</b> กดยิงจอ ไปเด้ง iPad อัตโนมัติ<br>
+                • <b>ซ่อน URL:</b> กดปุ่ม 🔲 ขวาบนเพื่อให้เต็มจอ<br>
                 • <b>Save Project:</b> ฝังวิดีโอ 100% ตรงจุด<br>
                 • <b>Multi-Select 🔗:</b> เลือกดึงพร้อมกันหลายจุด/เส้น<br>
                 • <b>Fast Sync:</b> ดึงจุดลื่นไหล ไม่กระตุก
@@ -422,6 +425,19 @@
                 currentTime: l.videoElement ? l.videoElement.currentTime : 0
             }));
             channel.postMessage({ type: 'playback_states', states: states });
+        }
+
+        // --- FULLSCREEN TOGGLE (NEW) ---
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
         }
 
         // --- 2. MATH FUNCTIONS ---
@@ -908,6 +924,13 @@
                 appStarted = true; showGuides = false; mode = 'OUTPUT';
                 inputGroup.visible = false; 
                 
+                // ✅ แตะจอโปรเจคเตอร์ 1 ครั้งเพื่อซ่อน URL Bar (Fullscreen อัตโนมัติ)
+                document.body.addEventListener('click', () => {
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(e=>{});
+                    }
+                }, { once: false });
+                
                 channel.onmessage = (event) => {
                     const msg = event.data;
                     if(msg.type === 'sync_state') {
@@ -1260,10 +1283,11 @@
             if(!isProjectorMode) broadcastSync(true);
         }
 
-        // ✅ อัปเกรดระบบเปิดหน้าต่าง (Multi-Screen Window Placement API)
+        // ✅ อัปเกรดระบบเปิดหน้าต่าง (Multi-Screen Window Placement API) แบบไร้ขอบ (Popup)
         async function openProjectorWindow() {
             const url = window.location.href.split('?')[0] + '?projector=true';
             let win = null;
+            let features = 'menubar=no,toolbar=no,location=no,status=no,popup=yes';
 
             try {
                 if ('getScreenDetails' in window) {
@@ -1271,7 +1295,7 @@
                     const extScreen = screenDetails.screens.find(s => s !== screenDetails.currentScreen);
                     
                     if (extScreen) {
-                        const features = `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
+                        features += `,left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
                         win = window.open(url, 'MR_Projector', features);
                     }
                 }
@@ -1280,7 +1304,7 @@
             }
 
             if (!win) {
-                win = window.open(url, 'MR_Projector', 'width=1280,height=720');
+                win = window.open(url, 'MR_Projector', `width=1280,height=720,${features}`);
             }
 
             if(!win) alert("⚠️ ไม่สามารถเปิดหน้าต่างโปรเจคเตอร์ได้ กรุณาอนุญาต Pop-ups (Allow Pop-ups) ในเบราว์เซอร์ของคุณตรงแถบ URL ด้านบน");
