@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>MR Mapping v44 (Multi-Media Support & Individual Controls)</title>
+    <title>MR Mapping v44.5 (Multi-Media Support & Individual Controls)</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background-color: #050505; 
@@ -176,7 +176,7 @@
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>MR Mapping</h1>
-                <span style="font-size:10px; color:#666">v44.1 Layer Sync</span>
+                <span style="font-size:10px; color:#666">v44.2 Stable Edit</span>
             </div>
         </div>
 
@@ -207,7 +207,7 @@
                 <button class="btn btn-tool" id="btn-mute" onclick="toggleMute()" style="flex:1;">🔇 Unmute All</button>
             </div>
 
-            <!-- INDIVIDUAL LAYER CONTROLS (NEW) -->
+            <!-- INDIVIDUAL LAYER CONTROLS -->
             <div id="layer-media-section" style="display:none; margin-top:8px; border-top: 1px dashed #444; padding-top: 8px;">
                 <div style="font-size: 10px; color:#aaa; margin-bottom:4px;">Layer Controls (<span id="layer-control-name">Screen 1</span>)</div>
                 <div class="row">
@@ -219,15 +219,17 @@
             <button class="btn btn-tool" id="btn-checker" onclick="toggleCheckerPattern()" style="margin-top:8px;">🏁 Toggle Checker</button>
             
             <div class="row" style="margin-top:8px;">
-                <button class="btn" onclick="resetCurrentLayer()">Reset Layer</button>
+                <button class="btn" id="btn-reset" onclick="resetCurrentLayer()" style="background: #00ffaa; color: #000; font-weight: bold;">Reset OUTPUT</button>
                 <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete Layer</button>
             </div>
             
+            <button class="btn btn-tool" onclick="clearAutoSave()" style="margin-top:8px; border-color: #ffaa00; color: #ffaa00;">🗑️ Clear Auto-Save</button>
+            
             <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
-                <span style="color:#00ffaa; font-weight:bold;">วิธีใช้งาน อัปโหลดแยกอิสระ:</span><br>
-                • เลือก Screen ก่อน แล้วกด Upload<br>
-                • สั่งเปิด/ปิด VDO แยกทีละจอได้แล้ว!<br>
-                • Mask บังแสง (สีแดง) ไม่รับภาพ
+                <span style="color:#00ffaa; font-weight:bold;">วิธีลดกระตุก & กัน Crash:</span><br>
+                • <b>Reset:</b> รีเซ็ตทรงกรอบจอ โดยแยกหน้า Input/Output<br>
+                • <b>Auto-Save:</b> ระบบเซฟอัตโนมัติ เบราว์เซอร์เด้งจุดไม่หาย<br>
+                • <b>ลด Lag:</b> หากเล่น 4 จอ แนะนำให้ใช้ไฟล์ 720p/1080p
             </div>
         </div>
     </div>
@@ -236,8 +238,8 @@
 
     <script>
         // --- 1. GLOBALS & CONFIG ---
-        // ปรับแก้ค่า Snap ให้แม่เหล็กดูดนิ่มนวลขึ้นเพื่อลดอาการ "เด้ง" เวลาลากจุด
-        const config = { segments: 24, snapDist: 0.4, mergeDist: 0.5 }; 
+        // ลด snapDist ลงเพื่อให้ไม่กระชากหรือรู้สึกเด้งตอนลาก
+        const config = { segments: 24, snapDist: 0.25, mergeDist: 0.35 }; 
         let mode = 'OUTPUT';
         let layers = [];
         let activeLayerId = null;
@@ -275,25 +277,6 @@
             broadcastSync();
         };
 
-        // User Interaction Fallback
-        document.body.addEventListener('click', function() {
-            if(appStarted && !isProjectorMode) {
-                layers.forEach(l => {
-                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
-                });
-                updateMediaUI();
-            }
-        }, {passive: true});
-        
-        document.body.addEventListener('touchstart', function() {
-            if(appStarted && !isProjectorMode) {
-                layers.forEach(l => {
-                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
-                });
-                updateMediaUI();
-            }
-        }, {passive: true});
-
         // --- MEDIA CONTROLS ---
         function togglePlayPause() {
             let anyPlaying = false;
@@ -314,14 +297,13 @@
             layers.forEach(l => {
                 if(l.videoElement && !l.videoElement.muted) anyMuted = false;
             });
-            let newState = !anyMuted; // ถ้ามีจอใดเปิดเสียงอยู่ ให้ mute ทั้งหมด
+            let newState = !anyMuted; 
             
             layers.forEach(l => { if(l.videoElement) l.videoElement.muted = newState; });
             updateMediaUI(); 
             broadcastPlaybackState();
         }
 
-        // --- NEW: INDIVIDUAL LAYER MEDIA CONTROLS ---
         function toggleLayerPlayPause() {
             const l = getActiveLayer();
             if(!l || !l.videoElement) return;
@@ -404,7 +386,6 @@
             }
         }
 
-        // ส่งสถานะของ 'ทุกๆ เลเยอร์' ข้ามไปโปรเจคเตอร์เลย เพื่อความชัวร์
         function broadcastPlaybackState() {
             if(isProjectorMode) return;
             const states = layers.map(l => ({
@@ -415,7 +396,6 @@
             }));
             channel.postMessage({ type: 'playback_states', states: states });
         }
-
 
         // --- 2. MATH FUNCTIONS ---
         function cubicBezier(p0, p1, p2, p3, t) {
@@ -558,11 +538,50 @@
                 this.updateVisibilityState();
             }
 
+            // ✅ ปรับปรุงให้เรียกใช้งาน resetToDefault
             initDefault() {
-                const w = 4; const h = 4*(9/16);
+                const aspect = this.sourceAspectRatio || (typeof sourceAspectRatio !== 'undefined' ? sourceAspectRatio : 16/9);
+                const w = 16; 
+                const h = 16 / aspect;
                 const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
-                this.outPoints = corners.map(p => new BezierNode(this.outputGroup, true, p));
-                this.inPoints = corners.map(p => new BezierNode(this.inputGroup, true, p));
+                
+                if (this.outPoints && this.outPoints.length > 0) {
+                    this.resetToDefault('ALL');
+                } else {
+                    this.outPoints = corners.map(p => new BezierNode(this.outputGroup, true, p));
+                    this.inPoints = corners.map(p => new BezierNode(this.inputGroup, true, p));
+                    this.updateGeometry();
+                }
+            }
+
+            // ✅ ฟังก์ชัน Reset แยกโหมด Input กับ Output ออกจากกันชัดเจน
+            resetToDefault(targetMode) {
+                const aspect = this.sourceAspectRatio || (typeof sourceAspectRatio !== 'undefined' ? sourceAspectRatio : 16/9);
+                const w = 16; 
+                const h = 16 / aspect;
+                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
+                
+                if (targetMode === 'OUTPUT' || targetMode === 'ALL') {
+                    for(let i = this.outPoints.length - 1; i >= 0; i--) {
+                        if (!this.outPoints[i].isCorner) { this.outPoints[i].destroy(); this.outPoints.splice(i, 1); }
+                    }
+                    for(let i=0; i<4; i++) {
+                        this.outPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
+                        this.outPoints[i].type = 'linear';
+                        this.outPoints[i].updateVisuals();
+                    }
+                }
+                
+                if (targetMode === 'INPUT' || targetMode === 'ALL') {
+                    for(let i = this.inPoints.length - 1; i >= 0; i--) {
+                        if (!this.inPoints[i].isCorner) { this.inPoints[i].destroy(); this.inPoints.splice(i, 1); }
+                    }
+                    for(let i=0; i<4; i++) {
+                        this.inPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
+                        this.inPoints[i].type = 'linear';
+                        this.inPoints[i].updateVisuals();
+                    }
+                }
                 this.updateGeometry();
             }
 
@@ -659,6 +678,7 @@
                 if (isVideo) {
                     const vid = document.createElement('video');
                     vid.crossOrigin = "anonymous"; vid.loop = true; vid.muted = true; vid.playsInline = true;
+                    vid.preload = "auto"; // บังคับให้เบราว์เซอร์ Cache วิดีโอลง RAM ก่อนเล่น เพื่อลดอาการกระตุก
                     vid.src = url; vid.style.display = 'none';
                     document.body.appendChild(vid);
                     this.videoElement = vid;
@@ -672,6 +692,11 @@
                         updateInputBackground();
                         broadcastSync();
                     };
+                    vid.onerror = () => {
+                        console.log("Dead video URL (from auto-save). Needs re-upload.");
+                        this.videoElement = null; this.mediaUrl = null; this.texture = mainTexture;
+                        this.updateTexture(); updateInputBackground();
+                    };
                 } else {
                     const img = new Image();
                     img.onload = () => {
@@ -681,6 +706,10 @@
                         if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
                         updateInputBackground();
                         broadcastSync();
+                    };
+                    img.onerror = () => {
+                        this.mediaUrl = null; this.texture = mainTexture;
+                        this.updateTexture(); updateInputBackground();
                     };
                     img.src = url;
                 }
@@ -831,19 +860,32 @@
             } else {
                 const cvs = renderer.domElement;
                 
-                // --- ป้องกันหน้าจอเด้ง (Prevent scroll bounce) ระหว่างการลากจิ้ม ---
+                // ✅ ป้องกันหน้าจอเลื่อน (Prevent default drag) 
                 cvs.addEventListener('mousedown', (e) => { e.preventDefault(); onPointerDown(e); });
-                cvs.addEventListener('mousemove', (e) => { e.preventDefault(); onPointerMove(e); });
+                window.addEventListener('mousemove', (e) => { if(isDragging) e.preventDefault(); onPointerMove(e); }, {passive: false});
                 window.addEventListener('mouseup', onPointerUp);
                 
                 cvs.addEventListener('touchstart', (e) => { e.preventDefault(); onTouchStart(e); }, {passive: false});
-                cvs.addEventListener('touchmove', (e) => { e.preventDefault(); onTouchMove(e); }, {passive: false});
-                cvs.addEventListener('touchend', onPointerUp);
+                window.addEventListener('touchmove', (e) => { if(isDragging) e.preventDefault(); onTouchMove(e); }, {passive: false});
+                
+                // ✅ เปลี่ยน touchend เป็นระดับ Window ให้จับการปล่อยนิ้วได้แม่นยำขึ้นแม้หลุดขอบ
+                window.addEventListener('touchend', onPointerUp);
                 cvs.addEventListener('wheel', onWheel, {passive:false});
                 
-                addNewLayer(); recordHistory(); 
+                // โหลด Auto-save ถ้ามี เพื่อกัน Crash
+                const saved = localStorage.getItem('mr_mapping_autosave');
+                if (saved) {
+                    try {
+                        loadState(JSON.parse(saved), false);
+                    } catch(e) {
+                        addNewLayer(); recordHistory(); 
+                    }
+                } else {
+                    addNewLayer(); recordHistory(); 
+                }
 
                 channel.onmessage = (event) => {
+                    // หากรับ request_sync แค่ broadcast ตัวเอง ไม่ใช่ไป loadState ทับตัวเก่า
                     if (event.data.type === 'request_sync') { 
                         broadcastSync(); broadcastPlaybackState();
                         const s = document.getElementById('sync-indicator'); s.style.display='block'; setTimeout(()=>s.style.display='none',3000); 
@@ -1019,29 +1061,9 @@
 
             if (selectedPart === 'body') {
                 const delta = new THREE.Vector3().subVectors(wp, previousWorldPos);
-                
-                let bestDelta = delta.clone(); let minDist = config.snapDist; let snapped = false; let snapPoint = new THREE.Vector3();
-                const pts = mode === 'OUTPUT' ? selectedNode.outPoints : selectedNode.inPoints;
-                for(let p of pts) {
-                    if(!p.isCorner) continue;
-                    const predictedPos = p.pos.clone().add(delta);
-                    layers.forEach(other => {
-                        if(other.id === selectedNode.id) return;
-                        const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
-                        otherPts.forEach(op => {
-                            if(predictedPos.distanceTo(op.pos) < minDist) { bestDelta.subVectors(op.pos, p.pos); minDist = predictedPos.distanceTo(op.pos); snapped = true; snapPoint.copy(op.pos); }
-                        });
-                    });
-                    if(snapped) break;
-                }
-                const ring = document.getElementById('snap-ring');
-                if(snapped) {
-                    const sp = snapPoint.clone().project(camera);
-                    ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
-                    ring.style.display = 'block';
-                } else { ring.style.display = 'none'; }
-                
-                selectedNode.moveBody(bestDelta); previousWorldPos.copy(wp);
+                // ✅ ลบการ Snap ทั้ง Body ออก เพื่อแก้ปัญหา Body Jump/เด้ง เวลาลากใกล้เส้นอื่น
+                selectedNode.moveBody(delta); 
+                previousWorldPos.copy(wp);
                 broadcastSync();
             } else {
                 let targetPos = new THREE.Vector3().addVectors(wp, dragStartOffset);
@@ -1115,7 +1137,7 @@
 
         function onTouchMove(e) {
             if (e.touches.length === 2 && isGesture) {
-                e.preventDefault(); const l = getActiveLayer(); if(!l) return;
+                const l = getActiveLayer(); if(!l) return;
                 const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
                 const scale = Math.sqrt(dx*dx + dy*dy) / gestureStartDist; const rotation = Math.atan2(dy, dx) - gestureStartAngle;
                 const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
@@ -1147,6 +1169,8 @@
         function setMode(m) {
             mode = m; document.getElementById('mode-text').innerText = mode;
             document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
+            // ✅ เปลี่ยนชื่อปุ่ม Reset ให้สัมพันธ์กับโหมด
+            document.getElementById('btn-reset').innerText = `Reset ${m}`;
             layers.forEach(l => l.updateVisibilityState()); 
             updateInputBackground();
             if(!isProjectorMode) broadcastSync();
@@ -1160,6 +1184,7 @@
         function recordHistory() {
             if(isHistoryPaused) return; const s = JSON.stringify({ layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId });
             if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return; historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
+            localStorage.setItem('mr_mapping_autosave', s); // บันทึก Auto-save ทันทีที่ขยับ
         }
         function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1])); broadcastSync(); }
         function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n)); broadcastSync(); }
@@ -1184,7 +1209,16 @@
         }
         
         function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(); } }
-        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory(); broadcastSync(); } }
+        
+        // ✅ เปลี่ยนคำสั่ง Reset ให้เช็คโหมด (mode) ปัจจุบัน
+        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.resetToDefault(mode); recordHistory(); broadcastSync(); } }
+        
+        function clearAutoSave() {
+            if(confirm("ยืนยันการล้างข้อมูล Auto-Save? (หน้าจอจะรีเซ็ตกลับเป็นค่าเริ่มต้นทั้งหมด)")) {
+                localStorage.removeItem('mr_mapping_autosave');
+                location.reload();
+            }
+        }
         
         function updateLayerList() { 
             const l=document.getElementById('layer-list'); l.innerHTML=''; 
