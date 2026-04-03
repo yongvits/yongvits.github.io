@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>MR Mapping v44 (Multi-Media Support)</title>
+    <style>
+        body { 
+            margin: 0; overflow: hidden; background-color: #050505; 
+            font-family: 'Segoe UI', sans-serif; touch-action: none;
+            user-select: none; -webkit-user-select: none; font-size: 12px;
+        }
+        canvas { display: block; outline: none; }
+        
+        #restore-overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; background: transparent; cursor: pointer;
+        }
+        
+        #ui-panel {
+            position: absolute; top: 0; left: 0; width: 240px; height: 100vh;
+            background: rgba(15, 15, 15, 0.95); border-right: 1px solid #333;
+            color: #ccc; z-index: 100; display: flex; flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            backdrop-filter: blur(15px); pointer-events: auto;
+        }
+        
+        .header { padding: 60px 15px 15px 15px; background: rgba(25, 25, 25, 0.8); border-bottom: 1px solid #444; }
+        h1 { margin: 0; font-size: 16px; color: #00ffaa; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; }
+        
+        #start-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 10000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: white; cursor: pointer;
+        }
+        #start-overlay h2 { font-size: 30px; margin-bottom: 10px; color: #00ffaa; text-shadow: 0 0 20px #00ffaa; }
+        
+        .mode-switch { display: flex; background: #222; margin: 8px; border-radius: 4px; padding: 3px; }
+        .mode-btn { 
+            flex: 1; border: none; background: transparent; color: #888;
+            padding: 6px; font-weight: bold; cursor: pointer; border-radius: 3px;
+            transition: 0.2s; font-size: 10px; 
+        }
+        .mode-btn.active { background: #00ffaa; color: #000; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+
+        #layer-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .layer-item { 
+            background: #2a2a2a; padding: 8px; margin-bottom: 5px; border-radius: 4px;
+            cursor: pointer; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px;
+        }
+        .layer-item.active { background: #383838; border-color: #00ffaa; color: white; }
+        
+        .controls { padding: 12px; background: #1a1a1a; border-top: 1px solid #333; }
+        .btn { 
+            background: #444; color: white; border: none; padding: 8px; width: 100%; 
+            cursor: pointer; font-size: 11px; border-radius: 4px; margin-bottom: 6px;
+            display: flex; align-items: center; justify-content: center; gap: 5px; 
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: linear-gradient(45deg, #00ffaa, #00cc88); color: #000; font-weight: bold; }
+        .btn-danger { background: transparent; border: 1px solid #cc3333; color: #cc3333; }
+        .btn-tool { background: #333; border: 1px solid #555; }
+
+        .top-bar { 
+            position: absolute; top: 10px; left: 10px; z-index: 200; display: flex; gap: 6px; 
+            background: rgba(0,0,0,0.5); padding: 4px; border-radius: 8px; backdrop-filter: blur(5px);
+        }
+        .top-bar .btn {
+            background: rgba(50,50,50,0.9); border: 1px solid #666; width: 32px; height: 32px; 
+            border-radius: 6px; margin: 0; font-size: 14px; padding: 0;
+        }
+        
+        .panel-hidden #ui-panel { transform: translateX(-100%); }
+        input[type="file"] { display: none; }
+        
+        .mode-indicator { 
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 900; color: rgba(255,255,255,0.5); 
+            pointer-events: none; text-transform: uppercase; 
+            background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 12px;
+        }
+        
+        .zoom-controls { position: absolute; bottom: 20px; right: 15px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+        .zoom-btn {
+            width: 40px; height: 40px; border-radius: 50%; background: rgba(30,30,30,0.8); 
+            border: 1px solid #555; color: white; font-size: 18px; cursor: pointer;
+            backdrop-filter: blur(5px); transition: 0.2s;
+        }
+
+        .right-toggles { position: absolute; top: 15px; right: 15px; z-index: 200; display: flex; gap: 10px; }
+        
+        .switch-container {
+            display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.6); 
+            padding: 5px 10px; border-radius: 20px; backdrop-filter: blur(5px); border: 1px solid #444; height: 30px; cursor: pointer;
+        }
+        .switch-label { color: #aaa; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .switch-btn { width: 30px; height: 16px; background: #333; border-radius: 8px; position: relative; transition: 0.3s; }
+        .switch-btn::after {
+            content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; 
+            background: #888; border-radius: 50%; transition: 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .switch-btn.active { background: #00ffaa; }
+        .switch-btn.active::after { left: 16px; background: #fff; }
+
+        .tool-btn {
+            width: 42px; height: 42px; border-radius: 8px; background: rgba(30,30,30,0.8); 
+            border: 1px solid #555; color: #fff; font-size: 20px; cursor: pointer; transition: 0.2s;
+        }
+        .tool-btn.active { background: #00aaff; border-color: #0088cc; }
+        .tool-btn.cast { background: #ff3366; border-color: #cc0044; }
+
+        #snap-ring {
+            position: absolute; width: 40px; height: 40px; border: 2px solid #fff; border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 1000; 
+            box-shadow: 0 0 15px rgba(255,255,255,0.8);
+        }
+
+        .row { display: flex; gap: 5px; }
+        
+        #sync-indicator {
+            position: absolute; bottom: 10px; left: 10px; z-index: 999;
+            color: #00ffaa; font-size: 10px; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px;
+            display: none; font-weight: bold; text-transform: uppercase;
+        }
+
+        /* PRESENTATION MODE CSS */
+        body.presentation-mode #ui-panel,
+        body.presentation-mode .top-bar,
+        body.presentation-mode .right-toggles,
+        body.presentation-mode .zoom-controls,
+        body.presentation-mode .mode-indicator,
+        body.presentation-mode #snap-ring {
+            display: none !important;
+        }
+        body.presentation-mode #restore-overlay { display: block !important; }
+        body.projector-mode { cursor: none; }
+        body.projector-mode #start-overlay { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="restore-overlay" onclick="togglePresentationMode()"></div>
+
+    <div id="start-overlay" onclick="startApp()">
+        <h2>MR MAPPING v44</h2>
+        <p>▶ Click to Start (Multi-Media)</p>
+    </div>
+    
+    <div id="sync-indicator">📡 SYNC ACTIVE</div>
+    <div id="snap-ring"></div>
+    <div class="mode-indicator" id="mode-text">OUTPUT</div>
+
+    <div class="top-bar">
+        <button class="btn" onclick="togglePanel()">☰</button>
+        <button class="btn btn-tool" onclick="undo()">↩</button>
+        <button class="btn btn-tool" onclick="redo()">↪</button>
+    </div>
+
+    <div class="right-toggles">
+        <button class="tool-btn cast" onclick="openProjectorWindow()" title="Open Projector Window">🖥️</button>
+        <button class="tool-btn" id="pan-toggle" onclick="togglePanMode()" title="Pan View">✋</button>
+        <div class="switch-container" onclick="togglePresentationMode()">
+            <span class="switch-label">GUIDES</span>
+            <div class="switch-btn active" id="vis-switch"></div>
+        </div>
+    </div>
+
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
+    </div>
+
+    <div id="ui-panel">
+        <div class="header">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1>MR Mapping</h1>
+                <span style="font-size:10px; color:#666">v44.0 Multi Media</span>
+            </div>
+        </div>
+
+        <div style="padding: 8px 8px 0 8px;">
+             <div class="row">
+                <button class="btn btn-tool" onclick="saveProject()">💾 Save</button>
+                <label class="btn btn-tool">📂 Load <input type="file" id="jsonInput" accept=".json"></label>
+             </div>
+        </div>
+
+        <div class="mode-switch">
+            <button class="mode-btn" id="btn-input" onclick="setMode('INPUT')">INPUT (Source)</button>
+            <button class="mode-btn active" id="btn-output" onclick="setMode('OUTPUT')">OUTPUT (Mapping)</button>
+        </div>
+
+        <div style="padding: 0 8px; display: flex; gap: 5px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="addNewLayer()">➕ Add Screen</button>
+            <button class="btn btn-primary" style="flex: 1; background: linear-gradient(45deg, #ff3366, #cc0044); color: white;" onclick="addNewMask()">⬛ Add Mask</button>
+        </div>
+
+        <div id="layer-list"></div>
+
+        <div class="controls">
+            <label class="btn" style="background: #2266aa; border: 1px solid #4488dd;">🎥 Upload VDO/Image to Layer <input type="file" id="mediaInput" accept="video/*,image/*"></label>
+            
+            <div class="row" style="margin-top:8px;">
+                <button class="btn btn-tool" id="btn-playpause" onclick="togglePlayPause()" style="flex:1;">⏸️ Pause All</button>
+                <button class="btn btn-tool" id="btn-mute" onclick="toggleMute()" style="flex:1;">🔇 Unmute All</button>
+            </div>
+
+            <button class="btn btn-tool" id="btn-checker" onclick="toggleCheckerPattern()" style="margin-top:8px;">🏁 Toggle Checker</button>
+            
+            <div class="row" style="margin-top:8px;">
+                <button class="btn" onclick="resetCurrentLayer()">Reset Layer</button>
+                <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete Layer</button>
+            </div>
+            
+            <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
+                <span style="color:#00ffaa; font-weight:bold;">วิธีใช้งาน อัปโหลดแยกอิสระ:</span><br>
+                • เลือก Screen ก่อน แล้วกด Upload<br>
+                • VDO ของจอใดก็จะแสดงเฉพาะจอนั้น<br>
+                • Mask บังแสง (สีแดง) ไม่รับภาพ<br>
+                • <b>ควบคุม VDO:</b> ส่งผลกับทุกจอพร้อมกัน
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- 1. GLOBALS & CONFIG ---
+        const config = { segments: 24, snapDist: 0.6, mergeDist: 0.8 }; 
+        let mode = 'OUTPUT';
+        let layers = [];
+        let activeLayerId = null;
+        let layerCounter = 1;
+        
+        let mainTexture = null, checkerTexture = null; 
+        let isCheckerActive = false;
+        let appStarted = false;
+        let showGuides = true;
+        let isPanMode = false;
+        
+        const channel = new BroadcastChannel('mr_mapping_sync_v44');
+        let isProjectorMode = new URLSearchParams(window.location.search).get('projector') === 'true';
+
+        let scene, camera, renderer, raycaster, mouse, inputGroup, outputGroup, inputBgMesh;
+        let historyStack = []; let redoStack = []; let isHistoryPaused = false;
+
+        let isDragging = false, isGesture = false, selectedObject = null;
+        let activeHandle = null; 
+        let dragStartOffset = new THREE.Vector3(); 
+        let previousWorldPos = new THREE.Vector3(); 
+        let planeNormal = new THREE.Vector3(0, 0, 1);
+        let panStart = new THREE.Vector2();
+        let lastTapTime = 0;
+        let nodeToMerge = null;
+
+        window.startApp = function() {
+            document.getElementById('start-overlay').style.display = 'none';
+            appStarted = true;
+            // Play all active layer videos
+            layers.forEach(l => {
+                if(l.videoElement) l.videoElement.play().catch(e=>console.log("Autoplay blocked."));
+            });
+            updateMediaUI();
+            broadcastSync();
+        };
+
+        // User Interaction Fallback
+        document.body.addEventListener('click', function() {
+            if(appStarted && !isProjectorMode) {
+                layers.forEach(l => {
+                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
+                });
+                updateMediaUI();
+            }
+        }, {passive: true});
+        
+        document.body.addEventListener('touchstart', function() {
+            if(appStarted && !isProjectorMode) {
+                layers.forEach(l => {
+                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
+                });
+                updateMediaUI();
+            }
+        }, {passive: true});
+
+        // --- MEDIA CONTROLS ---
+        function togglePlayPause() {
+            let anyPlaying = false;
+            layers.forEach(l => { if(l.videoElement && !l.videoElement.paused) anyPlaying = true; });
+            
+            layers.forEach(l => {
+                if(l.videoElement) {
+                    if(anyPlaying) l.videoElement.pause();
+                    else l.videoElement.play().catch(e=>{});
+                }
+            });
+            updateMediaUI();
+            broadcastPlaybackState(anyPlaying ? 'pause' : 'play');
+        }
+
+        function toggleMute() {
+            let anyMuted = layers.length > 0 ? layers[0].videoElement?.muted ?? true : true; // default true
+            let newState = !anyMuted;
+            
+            layers.forEach(l => { if(l.videoElement) l.videoElement.muted = newState; });
+            updateMediaUI(); 
+            broadcastPlaybackState(null, newState);
+        }
+
+        function updateMediaUI() {
+            let anyVdo = false;
+            let anyPlaying = false;
+            let anyMuted = true;
+
+            layers.forEach(l => { 
+                if(l.videoElement) {
+                    anyVdo = true;
+                    if(!l.videoElement.paused) anyPlaying = true;
+                    anyMuted = l.videoElement.muted;
+                }
+            });
+
+            const btnPlay = document.getElementById('btn-playpause');
+            const btnMute = document.getElementById('btn-mute');
+            
+            if(!anyVdo) {
+                btnPlay.style.opacity = '0.5'; btnMute.style.opacity = '0.5'; return;
+            } else {
+                btnPlay.style.opacity = '1.0'; btnMute.style.opacity = '1.0';
+            }
+
+            if(!anyPlaying) { 
+                btnPlay.innerHTML = '▶️ Play All'; 
+                btnPlay.style.background = '#333'; btnPlay.style.color = '#fff';
+            } else { 
+                btnPlay.innerHTML = '⏸️ Pause All'; 
+                btnPlay.style.background = '#00ffaa'; btnPlay.style.color = '#000';
+            }
+
+            if(anyMuted) { 
+                btnMute.innerHTML = '🔇 Unmute All'; 
+                btnMute.style.background = '#333'; btnMute.style.color = '#fff';
+            } else { 
+                btnMute.innerHTML = '🔊 Muted All'; 
+                btnMute.style.background = '#00ffaa'; btnMute.style.color = '#000';
+            }
+        }
+
+        function broadcastPlaybackState(action = null, muteState = null) {
+            if(isProjectorMode) return;
+            channel.postMessage({ type: 'playback_state', action: action, muted: muteState });
+        }
+
+
+        // --- 2. MATH FUNCTIONS ---
+        function cubicBezier(p0, p1, p2, p3, t) {
+            const mt = 1 - t, mt2 = mt * mt, t2 = t * t;
+            const a = mt2 * mt, b = mt2 * t * 3, c = mt * t2 * 3, d = t * t2;
+            return new THREE.Vector3(a*p0.x + b*p1.x + c*p2.x + d*p3.x, a*p0.y + b*p1.y + c*p2.y + d*p3.y, 0);
+        }
+
+        function evalEdgeBezier(pts, t) {
+            if (pts.length < 2) return pts[0].pos.clone();
+            const nSeg = pts.length - 1;
+            let scaledT = t * nSeg;
+            let i = Math.floor(scaledT);
+            if (i >= nSeg) { i = nSeg - 1; scaledT = nSeg; }
+            let localT = scaledT - i;
+
+            const n0 = pts[i], n1 = pts[i+1];
+            return cubicBezier(n0.pos, new THREE.Vector3().addVectors(n0.pos, n0.h2), new THREE.Vector3().addVectors(n1.pos, n1.h1), n1.pos, localT);
+        }
+
+        // --- 3. CLASSES ---
+        class BezierNode {
+            constructor(group, isCorner, posArray) {
+                this.pos = new THREE.Vector3().fromArray(posArray);
+                this.h1 = new THREE.Vector3(); this.h2 = new THREE.Vector3(); 
+                this.type = 'linear'; this.isCorner = isCorner; this.group = group;
+                
+                const geo = isCorner ? new THREE.PlaneGeometry(0.5, 0.5) : new THREE.CircleGeometry(0.3, 16);
+                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false }));
+                this.hit = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({visible:false}));
+                this.mesh.add(this.hit);
+                
+                this.ctrl1 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+                const hitC1 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
+                this.ctrl1.add(hitC1);
+                
+                this.ctrl2 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+                const hitC2 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
+                this.ctrl2.add(hitC2);
+                
+                this.lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+                this.line1 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
+                this.line2 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
+                
+                this.hit.userData = { node: this, part: 'main' };
+                hitC1.userData = { node: this, part: 'ctrl1' };
+                hitC2.userData = { node: this, part: 'ctrl2' };
+                
+                this.mesh.renderOrder = 1000; this.ctrl1.renderOrder = 1001; this.ctrl2.renderOrder = 1001;
+                group.add(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2);
+                this.updateVisuals();
+            }
+
+            updateVisuals() {
+                this.mesh.position.copy(this.pos);
+                if(this.type === 'linear') {
+                    this.h1.set(0,0,0); this.h2.set(0,0,0); this.hideHandles();
+                } else {
+                    this.ctrl1.position.copy(this.pos).add(this.h1);
+                    this.ctrl2.position.copy(this.pos).add(this.h2);
+                    this.line1.geometry.setFromPoints([this.pos, this.ctrl1.position]);
+                    this.line2.geometry.setFromPoints([this.pos, this.ctrl2.position]);
+                }
+                
+                if(this.mesh.userData.isMerging) this.mesh.material.color.setHex(0xff0000); 
+                else if(this.mesh.userData.isSelected) this.mesh.material.color.setHex(0xff3366); 
+                else this.mesh.material.color.setHex(this.type === 'linear' ? 0xffcc00 : 0x00aaff); 
+            }
+
+            showHandles() {
+                if(this.type !== 'linear') { this.ctrl1.visible = true; this.ctrl2.visible = true; this.line1.visible = true; this.line2.visible = true; }
+            }
+            hideHandles() { this.ctrl1.visible = false; this.ctrl2.visible = false; this.line1.visible = false; this.line2.visible = false; }
+            setPos(p) { this.pos.copy(p); this.updateVisuals(); }
+            setCtrl1(p) { this.h1.subVectors(p, this.pos); if(this.type === 'smooth') this.h2.copy(this.h1).multiplyScalar(-1); this.updateVisuals(); }
+            setCtrl2(p) { this.h2.subVectors(p, this.pos); if(this.type === 'smooth') this.h1.copy(this.h2).multiplyScalar(-1); this.updateVisuals(); }
+            toggleType() {
+                this.type = this.type === 'linear' ? 'smooth' : 'linear';
+                if(this.type === 'smooth') { this.h1.set(-0.8, 0, 0); this.h2.set(0.8, 0, 0); }
+                this.updateVisuals();
+            }
+            destroy() { this.group.remove(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2); }
+        }
+
+        class Layer {
+            constructor(id, data = null, isMask = false) {
+                this.id = id; 
+                this.isMask = data && data.isMask !== undefined ? data.isMask : isMask;
+                this.name = this.isMask ? `Mask ${id}` : `Screen ${id}`;
+                
+                // MULTI-MEDIA properties
+                this.texture = mainTexture; 
+                this.videoElement = null;
+                this.mediaUrl = null;
+                this.isVdo = false;
+                this.sourceAspectRatio = 16/9;
+
+                this.outputGroup = new THREE.Group(); outputGroup.add(this.outputGroup);
+                this.inputGroup = new THREE.Group(); inputGroup.add(this.inputGroup);
+                
+                const geo = new THREE.PlaneGeometry(1, 1, config.segments, config.segments);
+                
+                const outMat = this.isMask 
+                    ? new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }) 
+                    : new THREE.MeshBasicMaterial({ map: this.texture, side: THREE.DoubleSide });
+                this.mesh = new THREE.Mesh(geo, outMat);
+                this.mesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01); 
+                this.mesh.userData = { id: id, type: 'output_body' };
+                this.outputGroup.add(this.mesh);
+
+                const inMatColor = this.isMask ? 0xff0000 : 0xffff00;
+                this.inputMesh = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: inMatColor, transparent: true, opacity: 0.5, side: THREE.DoubleSide, map: null }));
+                this.inputMesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01);
+                this.inputMesh.userData = { id: id, type: 'input_body' };
+                this.inputGroup.add(this.inputMesh);
+
+                const outWireColor = this.isMask ? 0xff3366 : 0x00ffaa;
+                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true, depthTest: false }));
+                this.outWire.renderOrder = 20;
+                this.outputGroup.add(this.outWire);
+
+                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false }));
+                this.inWire.renderOrder = 20;
+                this.inputGroup.add(this.inWire);
+                
+                this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false }));
+                this.gridMesh.renderOrder = 20;
+                this.outputGroup.add(this.gridMesh);
+                
+                this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }));
+                this.inputGridMesh.renderOrder = 20;
+                this.inputGroup.add(this.inputGridMesh);
+
+                this.outPoints = []; this.inPoints = [];
+
+                if (data) this.loadFromData(data);
+                else this.initDefault();
+                
+                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+                this.updateVisibilityState();
+            }
+
+            initDefault() {
+                const w = 4; const h = 4*(9/16);
+                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
+                this.outPoints = corners.map(p => new BezierNode(this.outputGroup, true, p));
+                this.inPoints = corners.map(p => new BezierNode(this.inputGroup, true, p));
+                this.updateGeometry();
+            }
+
+            getEdges(pts) {
+                const corners = []; pts.forEach((p, i) => { if(p.isCorner) corners.push(i); });
+                const getSlice = (start, end) => { return start < end ? pts.slice(start, end + 1) : [...pts.slice(start), pts[0]]; };
+                return { T: getSlice(corners[0], corners[1]), R: getSlice(corners[1], corners[2]), B: getSlice(corners[2], corners[3]), L: getSlice(corners[3], corners[0]) };
+            }
+
+            warpCoons(posAttribute, edges, segments) {
+                const wVerts = segments + 1;
+                const cTL = edges.T[0].pos, cTR = edges.T[edges.T.length-1].pos;
+                const cBR = edges.B[0].pos, cBL = edges.B[edges.B.length-1].pos; 
+                for(let i=0; i<posAttribute.count; i++) {
+                    const ix = i % wVerts; const iy = Math.floor(i / wVerts);
+                    const u = ix / segments; const v = 1 - (iy / segments);
+                    const ptTop = evalEdgeBezier(edges.T, u); const ptBot = evalEdgeBezier(edges.B, 1 - u); 
+                    const ptLft = evalEdgeBezier(edges.L, v); const ptRgt = evalEdgeBezier(edges.R, 1 - v); 
+                    const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
+                    const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
+                    posAttribute.setXY(i, x, y, 0);
+                }
+                posAttribute.needsUpdate = true;
+                if(posAttribute === this.mesh.geometry.attributes.position) this.mesh.geometry.computeBoundingSphere();
+                if(posAttribute === this.inputMesh.geometry.attributes.position) this.inputMesh.geometry.computeBoundingSphere();
+            }
+
+            updateWire(wireMesh, edges) {
+                const wirePts = []; const addEdge = (e) => { for(let i=0; i<=20; i++) wirePts.push(evalEdgeBezier(e, i/20)); };
+                addEdge(edges.T); addEdge(edges.R); addEdge(edges.B); addEdge(edges.L); wireMesh.geometry.setFromPoints(wirePts);
+            }
+
+            updateGeometry() {
+                const outEdges = this.getEdges(this.outPoints);
+                this.warpCoons(this.mesh.geometry.attributes.position, outEdges, config.segments);
+                this.warpCoons(this.gridMesh.geometry.attributes.position, outEdges, 4);
+                this.updateWire(this.outWire, outEdges);
+                
+                const inEdges = this.getEdges(this.inPoints);
+                this.warpCoons(this.inputMesh.geometry.attributes.position, inEdges, config.segments);
+                this.warpCoons(this.inputGridMesh.geometry.attributes.position, inEdges, 2);
+                this.updateWire(this.inWire, inEdges);
+                this.updateUVs(inEdges);
+            }
+
+            updateUVs(inEdges = null) {
+                if(this.isMask) return; 
+                if(isCheckerActive) return;
+                if(!inEdges) inEdges = this.getEdges(this.inPoints);
+                
+                // UV scales according to THIS layer's source ratio (or global if not set)
+                const targetRatio = this.sourceAspectRatio || sourceAspectRatio;
+                const bgW = 16; const bgH = 16 / targetRatio;
+                
+                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
+                const cTL = inEdges.T[0].pos, cTR = inEdges.T[inEdges.T.length-1].pos;
+                const cBR = inEdges.B[0].pos, cBL = inEdges.B[inEdges.B.length-1].pos;
+
+                for(let i=0; i<uv.count; i++) {
+                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
+                     const u = ix / config.segments; const v = 1 - (iy / config.segments);
+                     const ptTop = evalEdgeBezier(inEdges.T, u); const ptBot = evalEdgeBezier(inEdges.B, 1 - u);
+                     const ptLft = evalEdgeBezier(inEdges.L, v); const ptRgt = evalEdgeBezier(inEdges.R, 1 - v);
+                     const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
+                     const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
+                     
+                     uv.setXY(i, (x+bgW/2)/bgW, (y+bgH/2)/bgH);
+                }
+                uv.needsUpdate = true;
+            }
+
+            resetUVsToFull() {
+                if(this.isMask) return;
+                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
+                for(let i=0; i<uv.count; i++) { const ix = i%wVerts; const iy = Math.floor(i/wVerts); uv.setXY(i, ix/config.segments, 1-(iy/config.segments)); }
+                uv.needsUpdate = true;
+            }
+
+            updateTexture() {
+                if(this.isMask) return;
+                const tex = isCheckerActive ? checkerTexture : (this.texture || mainTexture);
+                this.mesh.material.map = tex;
+                this.mesh.material.needsUpdate = true;
+                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+            }
+
+            setMedia(url, isVideo) {
+                if (this.isMask) return;
+                this.mediaUrl = url;
+                this.isVdo = isVideo;
+
+                if (this.videoElement) { this.videoElement.pause(); this.videoElement = null; }
+                if (this.texture && this.texture !== mainTexture && this.texture !== checkerTexture) { this.texture.dispose(); }
+
+                if (isVideo) {
+                    const vid = document.createElement('video');
+                    vid.crossOrigin = "anonymous"; vid.loop = true; vid.muted = true; vid.playsInline = true;
+                    vid.src = url; vid.style.display = 'none';
+                    document.body.appendChild(vid);
+                    this.videoElement = vid;
+                    
+                    vid.play().then(() => updateMediaUI()).catch(e=>{});
+                    vid.onloadedmetadata = () => {
+                        this.sourceAspectRatio = vid.videoWidth / vid.videoHeight;
+                        this.texture = new THREE.VideoTexture(vid);
+                        this.texture.minFilter = THREE.LinearFilter; this.texture.format = THREE.RGBAFormat;
+                        if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
+                        updateInputBackground();
+                        broadcastSync();
+                    };
+                } else {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.sourceAspectRatio = img.width / img.height;
+                        this.texture = new THREE.Texture(img);
+                        this.texture.needsUpdate = true; this.texture.minFilter = THREE.LinearFilter;
+                        if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
+                        updateInputBackground();
+                        broadcastSync();
+                    };
+                    img.src = url;
+                }
+            }
+
+            syncMedia(data) {
+                if(this.isMask) return;
+                this.sourceAspectRatio = data.sourceAspect || 16/9;
+                
+                if (data.mediaUrl !== this.mediaUrl) {
+                    if(data.mediaUrl) this.setMedia(data.mediaUrl, data.isVdo);
+                    else {
+                        this.mediaUrl = null; this.texture = mainTexture; this.videoElement = null;
+                        this.updateTexture(); updateInputBackground();
+                    }
+                } else {
+                    // Just update layout
+                    this.updateTexture();
+                }
+            }
+
+            moveBody(delta) {
+                const pts = mode === 'OUTPUT' ? this.outPoints : this.inPoints;
+                pts.forEach(p => p.setPos(p.pos.clone().add(delta)));
+                this.updateGeometry();
+            }
+
+            setSelection(node) {
+                const allNodes = [...this.outPoints, ...this.inPoints];
+                allNodes.forEach(n => {
+                    n.mesh.userData.isSelected = (n === node);
+                    n.mesh.userData.isMerging = false; 
+                    if(n === node) { n.mesh.scale.set(1.5, 1.5, 1); n.showHandles(); } 
+                    else { n.mesh.scale.set(1, 1, 1); n.hideHandles(); }
+                    n.updateVisuals();
+                });
+            }
+            clearSelection() { this.setSelection(null); }
+
+            updateVisibilityState() {
+                const isOutput = (mode === 'OUTPUT'); const isInput = (mode === 'INPUT');
+                const isActive = (this.id === activeLayerId);
+                const guidesOn = showGuides && !isProjectorMode;
+
+                this.outputGroup.visible = isOutput;
+                this.inputGroup.visible = isInput && !isProjectorMode;
+
+                this.outWire.visible = guidesOn;
+                this.gridMesh.visible = guidesOn;
+                this.outPoints.forEach(p => { p.mesh.visible = guidesOn; if(!guidesOn) p.hideHandles(); });
+                
+                if (isInput) {
+                    this.inWire.visible = guidesOn;
+                    this.inputGridMesh.visible = isActive && guidesOn; 
+                    this.inPoints.forEach(p => { p.mesh.visible = isActive && guidesOn; if(!guidesOn || !isActive) p.hideHandles(); });
+                    
+                    if(isActive) {
+                        this.inputMesh.material.opacity = 0.4; 
+                        this.inputMesh.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa);
+                        this.inWire.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa); 
+                        this.inputMesh.renderOrder = 10;
+                    } else {
+                        this.inputMesh.material.opacity = 0.5; 
+                        this.inputMesh.material.color.setHex(this.isMask ? 0x880000 : 0x444444); 
+                        this.inWire.material.color.setHex(0xffffff); 
+                        this.inputMesh.renderOrder = 0;
+                    }
+                }
+            }
+
+            loadFromData(data) {
+                if(this.outPoints) { this.outPoints.forEach(p => p.destroy()); this.inPoints.forEach(p => p.destroy()); }
+                if(data.outPoints) {
+                    this.outPoints = data.outPoints.map(d => { const n = new BezierNode(this.outputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
+                    this.inPoints = data.inPoints.map(d => { const n = new BezierNode(this.inputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
+                } else {
+                    this.outPoints = data.handles.map((p, i) => new BezierNode(this.outputGroup, true, p));
+                    this.inPoints = (data.inHandles || data.handles).map((p, i) => new BezierNode(this.inputGroup, true, p));
+                }
+                this.updateGeometry();
+                if(isProjectorMode) this.syncMedia(data); // Projector will grab media if available
+            }
+
+            toJSON() {
+                return {
+                    id: this.id,
+                    isMask: this.isMask,
+                    mediaUrl: this.mediaUrl,
+                    isVdo: this.isVdo,
+                    sourceAspect: this.sourceAspectRatio,
+                    outPoints: this.outPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner })),
+                    inPoints: this.inPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner }))
+                };
+            }
+            destroy() { 
+                this.outputGroup.parent.remove(this.outputGroup); this.inputGroup.parent.remove(this.inputGroup); 
+                if(this.videoElement) { this.videoElement.pause(); this.videoElement = null; }
+                if(this.texture && this.texture !== mainTexture && this.texture !== checkerTexture) this.texture.dispose();
+            }
+        }
+
+        // --- 4. INIT FLOW ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000); 
+
+            outputGroup = new THREE.Group(); scene.add(outputGroup);
+            inputGroup = new THREE.Group(); scene.add(inputGroup);
+            
+            const aspect = window.innerWidth / window.innerHeight;
+            camera = new THREE.OrthographicCamera(40 * aspect / -2, 40 * aspect / 2, 40 / 2, 40 / -2, 0.1, 1000);
+            camera.position.z = 100;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
+
+            setupPlaceholderSource(); 
+            createCheckerTexture();
+
+            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 1.0, transparent: true }));
+            inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); inputGroup.add(inputBgMesh);
+
+            if (isProjectorMode) {
+                document.body.classList.add('projector-mode'); document.body.classList.add('presentation-mode');
+                appStarted = true; showGuides = false; mode = 'OUTPUT';
+                inputGroup.visible = false; 
+                
+                channel.onmessage = (event) => {
+                    const msg = event.data;
+                    if(msg.type === 'sync_state') {
+                        loadState(msg.state, false);
+                    } else if (msg.type === 'playback_state') {
+                        if(msg.action === 'play') {
+                            layers.forEach(l => { if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{}); });
+                        } else if (msg.action === 'pause') {
+                            layers.forEach(l => { if(l.videoElement && !l.videoElement.paused) l.videoElement.pause(); });
+                        }
+                        if(msg.muted !== null) {
+                            layers.forEach(l => { if(l.videoElement) l.videoElement.muted = msg.muted; });
+                        }
+                    }
+                };
+                channel.postMessage({ type: 'request_sync' });
+            } else {
+                const cvs = renderer.domElement;
+                cvs.addEventListener('mousedown', onPointerDown); cvs.addEventListener('mousemove', onPointerMove); window.addEventListener('mouseup', onPointerUp);
+                cvs.addEventListener('touchstart', onTouchStart, {passive:false}); cvs.addEventListener('touchmove', onTouchMove, {passive:false}); cvs.addEventListener('touchend', onPointerUp);
+                cvs.addEventListener('wheel', onWheel, {passive:false});
+                
+                addNewLayer(); recordHistory(); 
+
+                channel.onmessage = (event) => {
+                    if (event.data.type === 'request_sync') { 
+                        broadcastSync(); 
+                        const s = document.getElementById('sync-indicator'); s.style.display='block'; setTimeout(()=>s.style.display='none',3000); 
+                    }
+                };
+            }
+
+            window.addEventListener('resize', onResize);
+            document.getElementById('mediaInput').addEventListener('change', handleUpload);
+            document.getElementById('jsonInput').addEventListener('change', loadProject);
+            
+            animate();
+        }
+
+        // --- 5. CORE LOGIC ---
+        function setupPlaceholderSource() {
+            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024; const ctx = cvs.getContext('2d');
+            ctx.fillStyle = '#111'; ctx.fillRect(0,0,1024,1024); ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+            for(let i=0; i<=1024; i+=100) { ctx.moveTo(i,0); ctx.lineTo(i,1024); ctx.moveTo(0,i); ctx.lineTo(1024,i); }
+            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText('MR MAPPING v44', 512, 512);
+            if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.CanvasTexture(cvs);
+        }
+
+        function createCheckerTexture() {
+            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024; const ctx = cvs.getContext('2d');
+            ctx.fillStyle = 'white'; ctx.fillRect(0,0,1024,1024); ctx.fillStyle = 'black';
+            for(let y=0; y<1024; y+=128) for(let x=0; x<1024; x+=128) if((x/128+y/128)%2===1) ctx.fillRect(x,y,128,128);
+            ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 5; ctx.strokeRect(0,0,1024,1024); checkerTexture = new THREE.CanvasTexture(cvs);
+        }
+
+        // MULTI-MEDIA UPLOAD
+        function handleUpload(e) {
+            const file = e.target.files[0]; if(!file) return;
+            const layer = getActiveLayer();
+            if(!layer || layer.isMask) {
+                alert("⚠️ กรุณาเลือก Screen สีเขียว (ที่ไม่ใช่ Mask) เพื่อใส่ภาพหรือวิดีโอ");
+                e.target.value = ''; return;
+            }
+
+            const url = URL.createObjectURL(file);
+            layer.setMedia(url, file.type.indexOf('video') !== -1);
+            e.target.value = '';
+        }
+
+        function updateInputBackground() {
+            const l = getActiveLayer();
+            if(l && !l.isMask) {
+                inputBgMesh.material.map = isCheckerActive ? checkerTexture : (l.texture || mainTexture);
+                const ratio = l.sourceAspectRatio || 16/9;
+                inputBgMesh.scale.set(16, 16 / ratio, 1);
+            } else {
+                inputBgMesh.material.map = isCheckerActive ? checkerTexture : mainTexture;
+                inputBgMesh.scale.set(16, 9, 1);
+            }
+            inputBgMesh.material.needsUpdate = true;
+        }
+
+        function toggleCheckerPattern() { 
+            isCheckerActive = !isCheckerActive; 
+            document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; 
+            document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; 
+            updateAllTextures(); broadcastSync(); 
+        }
+        
+        function updateAllTextures() {
+            layers.forEach(l => l.updateTexture());
+            updateInputBackground();
+        }
+
+        function togglePresentationMode() {
+            if(isProjectorMode) return;
+            showGuides = !showGuides; const btn = document.getElementById('vis-switch');
+            if (showGuides) { btn.classList.add('active'); document.body.classList.remove('presentation-mode'); } 
+            else { btn.classList.remove('active'); document.body.classList.add('presentation-mode'); }
+            layers.forEach(l => l.updateVisibilityState());
+        }
+
+        function togglePanMode() {
+            if(isProjectorMode) return;
+            isPanMode = !isPanMode; const btn = document.getElementById('pan-toggle');
+            if(isPanMode) btn.classList.add('active'); else btn.classList.remove('active');
+        }
+
+        function getActiveLayer() { return layers.find(l => l.id === activeLayerId); }
+
+        // --- 6. POINTER EVENTS ---
+        function onPointerDown(e) {
+            if(document.body.classList.contains('presentation-mode')) return;
+            const ndc = getMousePos(e); 
+            if(isPanMode) { isDragging = true; panStart.copy(ndc); return; }
+            if(isGesture || (mode==='OUTPUT' && !showGuides)) return; 
+            
+            mouse.set(ndc.x, ndc.y); raycaster.setFromCamera(mouse, camera); isHistoryPaused = true;
+            const wp = getWorldPos(ndc);
+            const now = Date.now(); const isDoubleTap = (now - lastTapTime) < 300; lastTapTime = now;
+
+            const l = getActiveLayer(); if(!l) return;
+            
+            const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+            const hitTargets = []; pts.forEach(p => { hitTargets.push(p.hit, p.ctrl1.children[0], p.ctrl2.children[0]); });
+            const hits = raycaster.intersectObjects(hitTargets);
+            
+            if (hits.length > 0) {
+                const hitData = hits[0].object.userData; const node = hitData.node;
+                if (hitData.part === 'main' && isDoubleTap) {
+                    node.toggleType(); l.updateGeometry(); broadcastSync();
+                }
+                isDragging = true; selectedNode = node; selectedPart = hitData.part;
+                l.setSelection(node);
+                const wPos = new THREE.Vector3(); hits[0].object.parent.getWorldPosition(wPos);
+                dragStartOffset.subVectors(wPos, wp);
+                return;
+            }
+
+            if (isDoubleTap) {
+                let bestDist = Infinity; let insertIdx = -1; let insertPos = null;
+                for(let i=0; i<pts.length; i++) {
+                    const n0 = pts[i]; const n1 = pts[(i+1)%pts.length];
+                    const p0 = n0.pos; const p1 = new THREE.Vector3().addVectors(n0.pos, n0.h2);
+                    const p2 = new THREE.Vector3().addVectors(n1.pos, n1.h1); const p3 = n1.pos;
+                    for(let t=0; t<=1; t+=0.05) {
+                        const pt = cubicBezier(p0, p1, p2, p3, t);
+                        let wPt = pt.clone(); if(mode==='INPUT') wPt.applyMatrix4(l.inputMesh.matrixWorld);
+                        const d = wp.distanceTo(wPt);
+                        if (d < bestDist) { bestDist = d; insertIdx = i + 1; insertPos = pt; }
+                    }
+                }
+                if (insertIdx !== -1 && bestDist < 1.0) {
+                    const group = mode === 'INPUT' ? l.inputGroup : l.outputGroup;
+                    const newNode = new BezierNode(group, false, insertPos.toArray());
+                    newNode.toggleType(); 
+                    pts.splice(insertIdx, 0, newNode);
+                    l.updateGeometry(); broadcastSync(); return; 
+                }
+            }
+
+            const bodies = [];
+            if(mode === 'OUTPUT') bodies.push(...layers.map(ly => ly.mesh));
+            else if(mode === 'INPUT') bodies.push(...layers.map(ly => ly.inputMesh)); 
+
+            const bodyHits = raycaster.intersectObjects(bodies);
+            if(bodyHits.length > 0) {
+                const hitLayer = layers.find(lay => lay.id === bodyHits[0].object.userData.id);
+                setActiveLayer(hitLayer.id);
+                isDragging = true; selectedNode = hitLayer; selectedPart = 'body';
+                if(l && l !== hitLayer) l.clearSelection();
+                previousWorldPos.copy(wp);
+            } else {
+                if (selectedNode && selectedPart !== 'body' && l) {
+                    isDragging = true; 
+                    const wPos = new THREE.Vector3();
+                    if(selectedPart==='main') wPos.copy(selectedNode.pos);
+                    else if(selectedPart==='ctrl1') wPos.addVectors(selectedNode.pos, selectedNode.h1);
+                    else if(selectedPart==='ctrl2') wPos.addVectors(selectedNode.pos, selectedNode.h2);
+                    if(mode==='INPUT') wPos.applyMatrix4(l.inputMesh.matrixWorld);
+                    dragStartOffset.subVectors(wPos, wp);
+                } else {
+                    if (l) l.clearSelection(); selectedNode = null; selectedPart = null;
+                }
+            }
+        }
+
+        function onPointerMove(e) {
+            if(isProjectorMode) return;
+            const ndc = getMousePos(e);
+            if(isPanMode && isDragging) {
+                camera.position.x -= (ndc.x - panStart.x) * (20 * (1/camera.zoom)); 
+                camera.position.y -= (ndc.y - panStart.y) * (20 * (1/camera.zoom)); 
+                panStart.copy(ndc); return;
+            }
+            if(!isDragging || !selectedNode) return;
+            const wp = getWorldPos(ndc); const l = getActiveLayer();
+
+            if (selectedPart === 'body') {
+                const delta = new THREE.Vector3().subVectors(wp, previousWorldPos);
+                
+                let bestDelta = delta.clone(); let minDist = config.snapDist; let snapped = false; let snapPoint = new THREE.Vector3();
+                const pts = mode === 'OUTPUT' ? selectedNode.outPoints : selectedNode.inPoints;
+                for(let p of pts) {
+                    if(!p.isCorner) continue;
+                    const predictedPos = p.pos.clone().add(delta);
+                    layers.forEach(other => {
+                        if(other.id === selectedNode.id) return;
+                        const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
+                        otherPts.forEach(op => {
+                            if(predictedPos.distanceTo(op.pos) < minDist) { bestDelta.subVectors(op.pos, p.pos); minDist = predictedPos.distanceTo(op.pos); snapped = true; snapPoint.copy(op.pos); }
+                        });
+                    });
+                    if(snapped) break;
+                }
+                const ring = document.getElementById('snap-ring');
+                if(snapped) {
+                    const sp = snapPoint.clone().project(camera);
+                    ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
+                    ring.style.display = 'block';
+                } else { ring.style.display = 'none'; }
+                
+                selectedNode.moveBody(bestDelta); previousWorldPos.copy(wp);
+                broadcastSync();
+            } else {
+                let targetPos = new THREE.Vector3().addVectors(wp, dragStartOffset);
+                if(mode === 'INPUT') targetPos = l.inputMesh.worldToLocal(targetPos);
+
+                if (selectedPart === 'main') {
+                    let snappedPos = targetPos.clone(); let minDist = config.snapDist; let snapped = false;
+                    layers.forEach(other => {
+                        if(other.id === l.id) return;
+                        const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
+                        otherPts.forEach(op => { if(targetPos.distanceTo(op.pos) < minDist) { minDist = targetPos.distanceTo(op.pos); snappedPos.copy(op.pos); snapped = true; } });
+                    });
+                    
+                    const ring = document.getElementById('snap-ring');
+                    if(snapped) {
+                        let sp = snappedPos.clone(); if(mode==='INPUT') sp.applyMatrix4(l.inputMesh.matrixWorld);
+                        sp.project(camera);
+                        ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
+                        ring.style.display = 'block'; targetPos.copy(snappedPos);
+                    } else { ring.style.display = 'none'; }
+
+                    if (!selectedNode.isCorner) {
+                        const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
+                        const idx = pts.indexOf(selectedNode);
+                        const prev = pts[(idx - 1 + pts.length) % pts.length];
+                        const next = pts[(idx + 1) % pts.length];
+                        
+                        let isMerging = false;
+                        if (targetPos.distanceTo(prev.pos) < config.mergeDist) { targetPos.copy(prev.pos); nodeToMerge = selectedNode; isMerging = true; }
+                        else if (targetPos.distanceTo(next.pos) < config.mergeDist) { targetPos.copy(next.pos); nodeToMerge = selectedNode; isMerging = true; }
+                        else { nodeToMerge = null; }
+                        
+                        selectedNode.mesh.userData.isMerging = isMerging;
+                        if(isMerging) selectedNode.mesh.scale.set(0.8, 0.8, 1);
+                        else selectedNode.mesh.scale.set(1.5, 1.5, 1);
+                    }
+                    selectedNode.setPos(targetPos);
+                } else if (selectedPart === 'ctrl1') {
+                    selectedNode.setCtrl1(targetPos);
+                } else if (selectedPart === 'ctrl2') {
+                    selectedNode.setCtrl2(targetPos);
+                }
+                l.updateGeometry(); broadcastSync();
+            }
+        }
+
+        function onPointerUp() { 
+            if(isProjectorMode) return;
+            if (nodeToMerge) {
+                const l = getActiveLayer(); const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
+                const idx = pts.indexOf(nodeToMerge);
+                if (idx > -1) pts.splice(idx, 1);
+                nodeToMerge.destroy(); nodeToMerge = null;
+                l.clearSelection(); selectedNode = null; selectedPart = null;
+                l.updateGeometry();
+            }
+            isDragging=false; isGesture=false; isHistoryPaused=false; recordHistory(); document.getElementById('snap-ring').style.display='none'; broadcastSync(); 
+        }
+
+        function onTouchStart(e) {
+            if(document.body.classList.contains('presentation-mode')) return;
+            if (e.touches.length === 2 && (mode==='INPUT' || showGuides)) { 
+                isGesture = true; isDragging = false; const l = getActiveLayer(); if(!l) return;
+                const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
+                gestureStartDist = Math.sqrt(dx*dx + dy*dy); gestureStartAngle = Math.atan2(dy, dx);
+                const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
+                pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
+                gestureStartCenter.copy(center); gestureStartHandlePositions = pts.map(p => p.pos.clone());
+            } else if (e.touches.length === 1) { onPointerDown(e.touches[0]); }
+        }
+
+        function onTouchMove(e) {
+            if (e.touches.length === 2 && isGesture) {
+                e.preventDefault(); const l = getActiveLayer(); if(!l) return;
+                const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const scale = Math.sqrt(dx*dx + dy*dy) / gestureStartDist; const rotation = Math.atan2(dy, dx) - gestureStartAngle;
+                const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+                pts.forEach((p, i) => {
+                    const vec = new THREE.Vector3().subVectors(gestureStartHandlePositions[i], gestureStartCenter);
+                    vec.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0,0,1), -rotation); 
+                    p.setPos(new THREE.Vector3().addVectors(gestureStartCenter, vec));
+                });
+                l.updateGeometry(); broadcastSync();
+            } else if (e.touches.length === 1) { onPointerMove(e.touches[0]); }
+        }
+
+        function onWheel(e) {
+            if(isPanMode || document.body.classList.contains('presentation-mode')) return;
+            if(mode==='OUTPUT' && !showGuides) return; e.preventDefault(); const l = getActiveLayer(); if(!l) return;
+            const scale = e.deltaY < 0 ? 1.05 : 0.95;
+            const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
+            pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
+            pts.forEach(p => { p.setPos(new THREE.Vector3().subVectors(p.pos, center).multiplyScalar(scale).add(center)); });
+            l.updateGeometry(); recordHistory(); broadcastSync();
+        }
+
+        // --- UTILS ---
+        function zoomIn() { camera.zoom = Math.min(camera.zoom+0.1, 5); camera.updateProjectionMatrix(); }
+        function zoomOut() { camera.zoom = Math.max(camera.zoom-0.1, 0.2); camera.updateProjectionMatrix(); }
+        function getMousePos(e) { const cX=e.changedTouches?e.changedTouches[0].clientX:e.clientX; const cY=e.changedTouches?e.changedTouches[0].clientY:e.clientY; return {x:(cX/window.innerWidth)*2-1, y:-(cY/window.innerHeight)*2+1}; }
+        function getWorldPos(ndc) { mouse.set(ndc.x, ndc.y); raycaster.setFromCamera(mouse, camera); const t = new THREE.Vector3(); raycaster.ray.intersectPlane(new THREE.Plane(planeNormal, 0), t); return t; }
+        
+        function setMode(m) {
+            mode = m; document.getElementById('mode-text').innerText = mode;
+            document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
+            layers.forEach(l => l.updateVisibilityState()); 
+            updateInputBackground();
+            if(!isProjectorMode) broadcastSync();
+        }
+
+        function openProjectorWindow() {
+            const win = window.open(window.location.href.split('?')[0] + '?projector=true', 'MR_Projector', 'width=1280,height=720');
+            if(!win) alert("⚠️ ไม่สามารถเปิดหน้าต่างโปรเจคเตอร์ได้ กรุณาอนุญาต Pop-ups (Allow Pop-ups) ในเบราว์เซอร์ของคุณตรงแถบ URL ด้านบน");
+        }
+
+        function recordHistory() {
+            if(isHistoryPaused) return; const s = JSON.stringify({ layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId });
+            if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return; historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
+        }
+        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1])); broadcastSync(); }
+        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n)); broadcastSync(); }
+        function loadState(d, shouldBroadcast = true) {
+            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld, ld.isMask))); activeLayerId = d.activeId; 
+            layers.forEach(l => l.updateVisibilityState()); updateLayerList(); mode = isProjectorMode ? 'OUTPUT' : mode; 
+            updateInputBackground(); updateMediaUI();
+            if(shouldBroadcast && !isProjectorMode) broadcastSync();
+        }
+        function saveProject() { const d={version:"44.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v44.json"; a.click(); }
+        function loadProject(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(evt){ try{ const d=JSON.parse(evt.target.result); loadState(d); alert("Loaded!"); }catch(err){alert("Error");} }; r.readAsText(f); e.target.value=''; }
+        
+        function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); setActiveLayer(l.id); recordHistory(); }
+        function addNewMask() { const l = new Layer(layerCounter++, null, true); layers.push(l); setActiveLayer(l.id); recordHistory(); }
+        function setActiveLayer(id) { 
+            activeLayerId=id; 
+            layers.forEach(l=>l.updateVisibilityState()); 
+            updateLayerList(); 
+            updateInputBackground();
+            broadcastSync(); 
+        }
+        
+        function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(); } }
+        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory(); broadcastSync(); } }
+        
+        function updateLayerList() { 
+            const l=document.getElementById('layer-list'); l.innerHTML=''; 
+            layers.forEach(ly=>{ 
+                const d=document.createElement('div'); d.className=`layer-item ${ly.id===activeLayerId?'active':''}`; 
+                const icon = ly.isMask ? '⬛' : '📺';
+                d.innerHTML=`<span>${icon} ${ly.name}</span>`; d.onclick=()=>setActiveLayer(ly.id); l.appendChild(d); 
+            }); 
+        }
+        
+        function togglePanel() { document.body.classList.toggle('panel-hidden'); }
+        function onResize() { const a=window.innerWidth/window.innerHeight; const f=40; camera.left=-f*a/2; camera.right=f*a/2; camera.top=f/2; camera.bottom=-f/2; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+        
+        function animate() { 
+            requestAnimationFrame(animate); 
+            let needRender = false;
+            layers.forEach(l => {
+                if(l.videoElement && l.videoElement.readyState >= l.videoElement.HAVE_CURRENT_DATA) {
+                    if(l.texture && l.texture instanceof THREE.VideoTexture) needRender = true; // Forcing loop
+                }
+            });
+            renderer.render(scene, camera); 
+        }
+        
+        function broadcastSync() {
+            if (isProjectorMode) return;
+            // Not sending videoBlobs over broadcast because they are local URLs.
+            // In a real multi-window app, we need WebRTC or IndexDB to share blobs.
+            // For now, projector window works perfectly if on same screen (Extended Display) or if we just use local files.
+            channel.postMessage({ type: 'sync_state', state: { layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId } });
+        }
+
+        init(); 
+    </script>
+</body>
+</html>
