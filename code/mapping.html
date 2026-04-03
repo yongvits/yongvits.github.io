@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>MR Mapping v39 (Curve & Master Snap)</title>
+    <title>MR Mapping v43 (Easy Delete & Auto-Play)</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background-color: #050505; 
@@ -12,7 +12,6 @@
         }
         canvas { display: block; outline: none; }
         
-        /* RESTORE OVERLAY: แผ่นใสสำหรับรับสัมผัสตอนซ่อน UI */
         #restore-overlay {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 9999; background: transparent; cursor: pointer;
@@ -126,7 +125,7 @@
             display: none; font-weight: bold; text-transform: uppercase;
         }
 
-        /* PRESENTATION MODE CSS (ซ่อนทุกอย่าง) */
+        /* PRESENTATION MODE CSS */
         body.presentation-mode #ui-panel,
         body.presentation-mode .top-bar,
         body.presentation-mode .right-toggles,
@@ -135,7 +134,7 @@
         body.presentation-mode #snap-ring {
             display: none !important;
         }
-        body.presentation-mode #restore-overlay { display: block !important; } /* เปิดแผ่นใสรับแตะ */
+        body.presentation-mode #restore-overlay { display: block !important; }
         body.projector-mode { cursor: none; }
         body.projector-mode #start-overlay { display: none !important; }
     </style>
@@ -145,8 +144,8 @@
     <div id="restore-overlay" onclick="togglePresentationMode()"></div>
 
     <div id="start-overlay" onclick="startApp()">
-        <h2>MR MAPPING v39</h2>
-        <p>▶ Click to Start (Controller)</p>
+        <h2>MR MAPPING v43</h2>
+        <p>▶ Click to Start</p>
     </div>
     
     <div id="sync-indicator">📡 SYNC ACTIVE</div>
@@ -177,7 +176,7 @@
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>MR Mapping</h1>
-                <span style="font-size:10px; color:#666">v39.0 Master Curve</span>
+                <span style="font-size:10px; color:#666">v43.0 Easy Delete</span>
             </div>
         </div>
 
@@ -208,11 +207,12 @@
                 <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete</button>
             </div>
             
-            <div style="margin-top:8px; font-size:9px; color:#555; text-align:center;">
-                <b>2x แตะเส้น:</b> เพิ่มจุดดัดโค้ง<br>
-                <b>2x แตะจุด:</b> สลับ โค้ง/เหลี่ยม<br>
-                <b>ลากชนจุดเดิม:</b> ลบจุด<br>
-                แตะจอเพื่อคืนเมนูตอนซ่อน
+            <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
+                <span style="color:#00ffaa; font-weight:bold;">วิธีใช้งาน:</span><br>
+                • <b>2x แตะเส้น:</b> แทรกจุดใหม่<br>
+                • <b>2x แตะจุด:</b> สลับ โค้ง/เหลี่ยม<br>
+                • <b>ลบจุด:</b> ลากจุดไปซ้อนทับจุดเดิม<br>
+                <span style="color:#ff3366;">(จุดจะกลายเป็นสีแดงเมื่อพร้อมลบ)</span>
             </div>
         </div>
     </div>
@@ -220,7 +220,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        const config = { segments: 24, snapDist: 0.6 }; // จำนวน Segment ยิ่งเยอะโค้งยิ่งเนียน
+        // --- 1. GLOBALS & CONFIG ---
+        // V43: ขยายระยะ mergeDist ให้ลบง่ายขึ้น (0.5 -> 0.8)
+        const config = { segments: 24, snapDist: 0.6, mergeDist: 0.8 }; 
         let mode = 'OUTPUT';
         let layers = [];
         let activeLayerId = null;
@@ -233,8 +235,7 @@
         let showGuides = true;
         let isPanMode = false;
         
-        // --- BROADCAST CHANNEL SYNC ---
-        const channel = new BroadcastChannel('mr_mapping_sync_v39');
+        const channel = new BroadcastChannel('mr_mapping_sync_v43');
         let isProjectorMode = new URLSearchParams(window.location.search).get('projector') === 'true';
 
         let scene, camera, renderer, raycaster, mouse, inputGroup, outputGroup, inputBgMesh;
@@ -248,7 +249,30 @@
         let lastTapTime = 0;
         let nodeToMerge = null;
 
-        // --- MATH: Cubic Bezier ---
+        window.startApp = function() {
+            document.getElementById('start-overlay').style.display = 'none';
+            appStarted = true;
+            if(videoElement) {
+                // บังคับเล่น VDO ทันทีที่เข้าแอป
+                videoElement.play().catch(e=>console.log("Autoplay blocked, wait for user interaction.", e));
+            }
+            broadcastSync();
+        };
+
+        // V43: จับ Event การแตะทุกครั้งเพื่อกระตุ้นให้ VDO เล่น (แก้ปัญหา VDO ไม่ยอมเล่นบนมือถือ)
+        document.body.addEventListener('click', function() {
+            if(videoElement && videoElement.paused && appStarted) {
+                videoElement.play().catch(e=>{});
+            }
+        }, {passive: true});
+        
+        document.body.addEventListener('touchstart', function() {
+            if(videoElement && videoElement.paused && appStarted) {
+                videoElement.play().catch(e=>{});
+            }
+        }, {passive: true});
+
+        // --- 2. MATH FUNCTIONS ---
         function cubicBezier(p0, p1, p2, p3, t) {
             const mt = 1 - t, mt2 = mt * mt, t2 = t * t;
             const a = mt2 * mt, b = mt2 * t * 3, c = mt * t2 * 3, d = t * t2;
@@ -269,30 +293,28 @@
 
             const n0 = pts[i], n1 = pts[i+1];
             const p0 = n0.pos;
-            const p1 = new THREE.Vector3().addVectors(n0.pos, n0.h2); // Outgoing handle
-            const p2 = new THREE.Vector3().addVectors(n1.pos, n1.h1); // Incoming handle
+            const p1 = new THREE.Vector3().addVectors(n0.pos, n0.h2); 
+            const p2 = new THREE.Vector3().addVectors(n1.pos, n1.h1); 
             const p3 = n1.pos;
 
             return cubicBezier(p0, p1, p2, p3, localT);
         }
 
-        // --- CLASSES ---
+        // --- 3. CLASSES ---
         class BezierNode {
             constructor(group, isCorner, posArray) {
                 this.pos = new THREE.Vector3().fromArray(posArray);
-                this.h1 = new THREE.Vector3(); // Offset ไปหาจุดก่อนหน้า
-                this.h2 = new THREE.Vector3(); // Offset ไปหาจุดถัดไป
+                this.h1 = new THREE.Vector3(); 
+                this.h2 = new THREE.Vector3(); 
                 this.type = 'linear'; // 'linear' | 'smooth'
                 this.isCorner = isCorner;
                 this.group = group;
                 
-                // จุดหลัก
                 const geo = isCorner ? new THREE.PlaneGeometry(0.5, 0.5) : new THREE.CircleGeometry(0.3, 16);
                 this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false }));
                 this.hit = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({visible:false}));
                 this.mesh.add(this.hit);
                 
-                // ก้านควบคุม (Handles)
                 this.ctrl1 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
                 const hitC1 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
                 this.ctrl1.add(hitC1);
@@ -305,7 +327,6 @@
                 this.line1 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
                 this.line2 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
                 
-                // ชี้กลับมาที่ Class
                 this.hit.userData = { node: this, part: 'main' };
                 hitC1.userData = { node: this, part: 'ctrl1' };
                 hitC2.userData = { node: this, part: 'ctrl2' };
@@ -326,7 +347,15 @@
                     this.line1.geometry.setFromPoints([this.pos, this.ctrl1.position]);
                     this.line2.geometry.setFromPoints([this.pos, this.ctrl2.position]);
                 }
-                this.mesh.material.color.setHex(this.type === 'linear' ? 0xffcc00 : 0x00aaff);
+                
+                // Color override will be handled externally if merging, else revert to default
+                if(this.mesh.userData.isMerging) {
+                    this.mesh.material.color.setHex(0xff0000); // สีแดงเตือนว่าจะถูกลบ
+                } else if(this.mesh.userData.isSelected) {
+                    this.mesh.material.color.setHex(0xff3366); // สีชมพูเลือกอยู่
+                } else {
+                    this.mesh.material.color.setHex(this.type === 'linear' ? 0xffcc00 : 0x00aaff); // เหลือง/ฟ้า
+                }
             }
 
             showHandles() {
@@ -345,21 +374,20 @@
             
             setCtrl1(p) { 
                 this.h1.subVectors(p, this.pos); 
-                if(this.type === 'smooth') this.h2.copy(this.h1).multiplyScalar(-1); // Mirror
+                if(this.type === 'smooth') this.h2.copy(this.h1).multiplyScalar(-1);
                 this.updateVisuals(); 
             }
             
             setCtrl2(p) { 
                 this.h2.subVectors(p, this.pos); 
-                if(this.type === 'smooth') this.h1.copy(this.h2).multiplyScalar(-1); // Mirror
+                if(this.type === 'smooth') this.h1.copy(this.h2).multiplyScalar(-1);
                 this.updateVisuals(); 
             }
 
             toggleType() {
                 this.type = this.type === 'linear' ? 'smooth' : 'linear';
                 if(this.type === 'smooth') {
-                    // กางแขนออกเป็นค่าเริ่มต้น
-                    this.h1.set(-0.5, 0, 0); this.h2.set(0.5, 0, 0); 
+                    this.h1.set(-0.8, 0, 0); this.h2.set(0.8, 0, 0); 
                 }
                 this.updateVisuals();
             }
@@ -389,6 +417,14 @@
 
                 this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
                 this.inputGroup.add(this.inWire);
+                
+                this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false }));
+                this.outputGroup.add(this.gridMesh);
+                
+                this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }));
+                this.inputGroup.add(this.inputGridMesh);
+
+                this.outPoints = []; this.inPoints = [];
 
                 if (data) this.loadFromData(data);
                 else this.initDefault();
@@ -399,7 +435,7 @@
 
             initDefault() {
                 const w = 4; const h = 4*(9/16);
-                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]];
+                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
                 this.outPoints = corners.map(p => new BezierNode(this.outputGroup, true, p));
                 this.inPoints = corners.map(p => new BezierNode(this.inputGroup, true, p));
                 this.updateGeometry();
@@ -409,31 +445,30 @@
                 const corners = []; pts.forEach((p, i) => { if(p.isCorner) corners.push(i); });
                 const getSlice = (start, end) => {
                     if(start < end) return pts.slice(start, end + 1);
-                    return [...pts.slice(start), pts[0]]; // Wrap around
+                    return [...pts.slice(start), pts[0]]; 
                 };
                 return {
-                    T: getSlice(corners[0], corners[1]), // TL -> TR
-                    R: getSlice(corners[1], corners[2]), // TR -> BR
-                    B: getSlice(corners[2], corners[3]), // BR -> BL
-                    L: getSlice(corners[3], corners[0])  // BL -> TL
+                    T: getSlice(corners[0], corners[1]), 
+                    R: getSlice(corners[1], corners[2]), 
+                    B: getSlice(corners[2], corners[3]), 
+                    L: getSlice(corners[3], corners[0])  
                 };
             }
 
-            warpCoons(posAttribute, edges) {
-                const wVerts = config.segments + 1;
+            warpCoons(posAttribute, edges, segments) {
+                const wVerts = segments + 1;
                 const cTL = edges.T[0].pos, cTR = edges.T[edges.T.length-1].pos;
-                const cBR = edges.B[0].pos, cBL = edges.B[edges.B.length-1].pos; // Wait, B edge is BR -> BL. So B[0] is BR, B[last] is BL.
+                const cBR = edges.B[0].pos, cBL = edges.B[edges.B.length-1].pos; 
                 
                 for(let i=0; i<posAttribute.count; i++) {
                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
-                    const u = ix / config.segments; const v = 1 - (iy / config.segments); // v=0 is bottom, v=1 is top
+                    const u = ix / segments; const v = 1 - (iy / segments);
                     
                     const ptTop = evalEdgeBezier(edges.T, u);
-                    const ptBot = evalEdgeBezier(edges.B, 1 - u); // B edge is BR(u=0) -> BL(u=1). We want u=0 to be BL.
-                    const ptLft = evalEdgeBezier(edges.L, v);     // L edge is BL(v=0) -> TL(v=1).
-                    const ptRgt = evalEdgeBezier(edges.R, 1 - v); // R edge is TR(v=0) -> BR(v=1). We want v=0 to be BR.
+                    const ptBot = evalEdgeBezier(edges.B, 1 - u); 
+                    const ptLft = evalEdgeBezier(edges.L, v);     
+                    const ptRgt = evalEdgeBezier(edges.R, 1 - v); 
                     
-                    // Standard Coons Bi-linear blending
                     const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x 
                             - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
                     const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y 
@@ -442,6 +477,8 @@
                     posAttribute.setXY(i, x, y, 0);
                 }
                 posAttribute.needsUpdate = true;
+                if(posAttribute === this.mesh.geometry.attributes.position) this.mesh.geometry.computeBoundingSphere();
+                if(posAttribute === this.inputMesh.geometry.attributes.position) this.inputMesh.geometry.computeBoundingSphere();
             }
 
             updateWire(wireMesh, edges) {
@@ -453,18 +490,21 @@
 
             updateGeometry() {
                 const outEdges = this.getEdges(this.outPoints);
-                this.warpCoons(this.mesh.geometry.attributes.position, outEdges);
+                this.warpCoons(this.mesh.geometry.attributes.position, outEdges, config.segments);
+                this.warpCoons(this.gridMesh.geometry.attributes.position, outEdges, 4);
                 this.updateWire(this.outWire, outEdges);
                 
                 const inEdges = this.getEdges(this.inPoints);
-                this.warpCoons(this.inputMesh.geometry.attributes.position, inEdges);
+                this.warpCoons(this.inputMesh.geometry.attributes.position, inEdges, config.segments);
+                this.warpCoons(this.inputGridMesh.geometry.attributes.position, inEdges, 2);
                 this.updateWire(this.inWire, inEdges);
                 
                 this.updateUVs(inEdges);
             }
 
-            updateUVs(inEdges) {
+            updateUVs(inEdges = null) {
                 if(isCheckerActive) return;
+                if(!inEdges) inEdges = this.getEdges(this.inPoints);
                 const bgW = inputBgMesh.scale.x; const bgH = inputBgMesh.scale.y;
                 const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
                 
@@ -501,16 +541,18 @@
             }
 
             setSelection(node) {
-                [...this.outPoints, ...this.inPoints].forEach(n => {
+                const allNodes = [...this.outPoints, ...this.inPoints];
+                allNodes.forEach(n => {
+                    n.mesh.userData.isSelected = (n === node);
+                    n.mesh.userData.isMerging = false; // Reset merge state
                     if(n === node) {
                         n.mesh.scale.set(1.5, 1.5, 1);
-                        n.mesh.material.color.setHex(0xff3366); // Red
                         n.showHandles();
                     } else {
                         n.mesh.scale.set(1, 1, 1);
-                        n.mesh.material.color.setHex(n.type === 'linear' ? 0xffcc00 : 0x00aaff);
                         n.hideHandles();
                     }
+                    n.updateVisuals();
                 });
             }
             
@@ -525,17 +567,18 @@
                 this.inputGroup.visible = isInput && !isProjectorMode;
 
                 this.outWire.visible = guidesOn;
+                this.gridMesh.visible = guidesOn;
                 this.outPoints.forEach(p => { p.mesh.visible = guidesOn; if(!guidesOn) p.hideHandles(); });
                 
                 if (isInput) {
                     this.inWire.visible = guidesOn;
+                    this.inputGridMesh.visible = isActive && guidesOn; 
                     this.inPoints.forEach(p => { p.mesh.visible = isActive && guidesOn; if(!guidesOn || !isActive) p.hideHandles(); });
                     
                     if(isActive) {
                         this.inputMesh.material.opacity = 0.4; this.inputMesh.material.color.setHex(0x00ffaa);
                         this.inWire.material.color.setHex(0x00ffaa); this.inputMesh.renderOrder = 10;
                     } else {
-                        // V39: High Vis for inactive
                         this.inputMesh.material.opacity = 0.5; this.inputMesh.material.color.setHex(0x444444); 
                         this.inWire.material.color.setHex(0xffffff); this.inputMesh.renderOrder = 0;
                     }
@@ -548,9 +591,8 @@
                     this.outPoints = data.outPoints.map(d => { const n = new BezierNode(this.outputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
                     this.inPoints = data.inPoints.map(d => { const n = new BezierNode(this.inputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
                 } else {
-                    // Fallback
-                    this.outPoints = data.handles.map(p => new BezierNode(this.outputGroup, true, p));
-                    this.inPoints = data.inHandles ? data.inHandles.map(p => new BezierNode(this.inputGroup, true, p)) : data.handles.map(p => new BezierNode(this.inputGroup, true, p));
+                    this.outPoints = data.handles.map((p, i) => new BezierNode(this.outputGroup, true, p));
+                    this.inPoints = (data.inHandles || data.handles).map((p, i) => new BezierNode(this.inputGroup, true, p));
                 }
                 this.updateGeometry();
             }
@@ -565,7 +607,7 @@
             destroy() { this.outputGroup.parent.remove(this.outputGroup); this.inputGroup.parent.remove(this.inputGroup); }
         }
 
-        // --- INIT & CORE ---
+        // --- 4. INIT FLOW ---
         function init() {
             scene = new THREE.Scene();
             outputGroup = new THREE.Group(); scene.add(outputGroup);
@@ -582,7 +624,9 @@
 
             raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
 
-            initVideoElement(); setupPlaceholderSource(); createCheckerTexture();
+            initVideoElement(); 
+            setupPlaceholderSource(); 
+            createCheckerTexture();
 
             inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 0.5, transparent: true }));
             inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); inputGroup.add(inputBgMesh);
@@ -595,7 +639,7 @@
                     if(msg.type === 'sync_state') {
                         loadState(msg.state, false);
                         if(msg.videoSrc && videoElement.src !== msg.videoSrc) {
-                            videoElement.src = msg.videoSrc; videoElement.play().catch(e=>console.log(e));
+                            videoElement.src = msg.videoSrc; videoElement.play().catch(e=>{});
                             mainTexture = new THREE.VideoTexture(videoElement); mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
                             updateAllTextures();
                         }
@@ -608,19 +652,122 @@
                 cvs.addEventListener('touchstart', onTouchStart, {passive:false}); cvs.addEventListener('touchmove', onTouchMove, {passive:false}); cvs.addEventListener('touchend', onPointerUp);
                 cvs.addEventListener('wheel', onWheel, {passive:false});
                 
-                addNewLayer(); recordHistory();
-                channel.onmessage = (event) => { if (event.data.type === 'request_sync') { broadcastSync(); const d=document.getElementById('sync-indicator'); d.style.display='block'; setTimeout(()=>d.style.display='none',3000); } };
+                addNewLayer(); recordHistory(); 
+
+                channel.onmessage = (event) => {
+                    if (event.data.type === 'request_sync') { 
+                        broadcastSync(); 
+                        const s = document.getElementById('sync-indicator'); s.style.display='block'; setTimeout(()=>s.style.display='none',3000); 
+                    }
+                };
             }
 
             window.addEventListener('resize', onResize);
             document.getElementById('mediaInput').addEventListener('change', handleUpload);
             document.getElementById('jsonInput').addEventListener('change', loadProject);
+            
             animate();
         }
 
-        // --- INTERACTION ---
+        // --- 5. CORE LOGIC ---
+        function initVideoElement() {
+            videoElement = document.createElement('video'); videoElement.crossOrigin = "anonymous";
+            videoElement.loop = true; 
+            // V43: ต้องตั้งค่า muted เพื่อให้สามารถเล่นอัตโนมัติบนมือถือได้
+            videoElement.muted = true; 
+            videoElement.playsInline = true; videoElement.style.display = 'none';
+            document.body.appendChild(videoElement);
+        }
+
+        function setupPlaceholderSource() {
+            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024; const ctx = cvs.getContext('2d');
+            ctx.fillStyle = '#111'; ctx.fillRect(0,0,1024,1024); ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+            for(let i=0; i<=1024; i+=100) { ctx.moveTo(i,0); ctx.lineTo(i,1024); ctx.moveTo(0,i); ctx.lineTo(1024,i); }
+            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText('MR MAPPING v43', 512, 512);
+            if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.CanvasTexture(cvs);
+        }
+
+        function createCheckerTexture() {
+            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024; const ctx = cvs.getContext('2d');
+            ctx.fillStyle = 'white'; ctx.fillRect(0,0,1024,1024); ctx.fillStyle = 'black';
+            for(let y=0; y<1024; y+=128) for(let x=0; x<1024; x+=128) if((x/128+y/128)%2===1) ctx.fillRect(x,y,128,128);
+            ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 5; ctx.strokeRect(0,0,1024,1024); checkerTexture = new THREE.CanvasTexture(cvs);
+        }
+
+        function handleUpload(e) {
+            const file = e.target.files[0]; if(!file) return;
+            const url = URL.createObjectURL(file);
+            if (file.type.indexOf('image') !== -1) {
+                videoElement.pause();
+                new THREE.TextureLoader().load(url, (tex) => {
+                    sourceAspectRatio = tex.image.width / tex.image.height; updateInputBgAspect();
+                    if(mainTexture) mainTexture.dispose(); mainTexture = tex; mainTexture.minFilter = THREE.LinearFilter;
+                    updateAllTextures(); broadcastSync();
+                });
+            } else if (file.type.indexOf('video') !== -1) {
+                videoElement.src = url;
+                // V43: พยายามเล่น VDO ทันทีที่อัปโหลดเสร็จ
+                videoElement.play().catch(err => console.log('Autoplay prevented:', err));
+                videoElement.onloadedmetadata = function() {
+                    sourceAspectRatio = this.videoWidth / this.videoHeight; updateInputBgAspect();
+                    if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.VideoTexture(videoElement);
+                    mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
+                    updateAllTextures(); broadcastSync();
+                };
+            } e.target.value = '';
+        }
+
+        function updateInputBgAspect() { inputBgMesh.scale.set(16, 16 / sourceAspectRatio, 1); }
+        function toggleCheckerPattern() { isCheckerActive = !isCheckerActive; document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; updateAllTextures(); broadcastSync(); }
+        function updateAllTextures() {
+            const tex = isCheckerActive ? checkerTexture : mainTexture;
+            if(inputBgMesh) { inputBgMesh.material.map = tex; inputBgMesh.material.needsUpdate = true; }
+            layers.forEach(l => { l.mesh.material.map = tex; l.mesh.material.needsUpdate = true; if(isCheckerActive) l.resetUVsToFull(); else l.updateUVs(); });
+        }
+
+        function togglePresentationMode() {
+            if(isProjectorMode) return;
+            showGuides = !showGuides; const btn = document.getElementById('vis-switch');
+            if (showGuides) { btn.classList.add('active'); document.body.classList.remove('presentation-mode'); } 
+            else { btn.classList.remove('active'); document.body.classList.add('presentation-mode'); }
+            layers.forEach(l => l.updateVisibilityState());
+        }
+
+        function togglePanMode() {
+            if(isProjectorMode) return;
+            isPanMode = !isPanMode; const btn = document.getElementById('pan-toggle');
+            if(isPanMode) btn.classList.add('active'); else btn.classList.remove('active');
+        }
+
+        function snapBody(layer, delta) {
+            const pts = mode === 'OUTPUT' ? layer.outPoints : layer.inPoints;
+            let bestDelta = delta.clone(); let minDist = config.snapDist; let snapped = false; let snapPoint = new THREE.Vector3();
+            for(let p of pts) {
+                if(!p.isCorner) continue;
+                const predictedPos = p.pos.clone().add(delta);
+                layers.forEach(other => {
+                    if(other.id === layer.id) return;
+                    const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
+                    otherPts.forEach(op => {
+                        if(predictedPos.distanceTo(op.pos) < minDist) {
+                            bestDelta.subVectors(op.pos, p.pos); minDist = predictedPos.distanceTo(op.pos); snapped = true; snapPoint.copy(op.pos);
+                        }
+                    });
+                });
+                if(snapped) break;
+            }
+            const ring = document.getElementById('snap-ring');
+            if(snapped && !isProjectorMode) {
+                const sp = snapPoint.clone().project(camera);
+                ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
+                ring.style.display = 'block';
+            } else { ring.style.display = 'none'; }
+            return bestDelta;
+        }
+
         function getActiveLayer() { return layers.find(l => l.id === activeLayerId); }
 
+        // --- 6. POINTER EVENTS ---
         function onPointerDown(e) {
             if(document.body.classList.contains('presentation-mode')) return;
             const ndc = getMousePos(e); 
@@ -633,48 +780,47 @@
 
             const l = getActiveLayer(); if(!l) return;
             
-            // Check Points (Nodes & Handles)
+            // 1. Check Points
             const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
-            const hitTargets = [];
-            pts.forEach(p => { hitTargets.push(p.hit, p.ctrl1.children[0], p.ctrl2.children[0]); });
-            
+            const hitTargets = []; pts.forEach(p => { hitTargets.push(p.hit, p.ctrl1.children[0], p.ctrl2.children[0]); });
             const hits = raycaster.intersectObjects(hitTargets);
+            
             if (hits.length > 0) {
-                const hitData = hits[0].object.userData;
-                const node = hitData.node;
-                
+                const hitData = hits[0].object.userData; const node = hitData.node;
                 if (hitData.part === 'main' && isDoubleTap) {
                     node.toggleType(); l.updateGeometry(); broadcastSync();
                 }
-                
                 isDragging = true; selectedNode = node; selectedPart = hitData.part;
                 l.setSelection(node);
-                
                 const wPos = new THREE.Vector3(); hits[0].object.parent.getWorldPosition(wPos);
                 dragStartOffset.subVectors(wPos, wp);
                 return;
             }
 
-            // If Double Tap empty space -> Try Add Point to Edge
+            // 2. Double Tap Line -> Add Point
             if (isDoubleTap) {
-                let minDist = 1.0; let insertIdx = -1; let insertPos = null;
+                let bestDist = Infinity; let insertIdx = -1; let insertPos = null;
                 for(let i=0; i<pts.length; i++) {
-                    const p1 = pts[i]; const p2 = pts[(i+1)%pts.length];
+                    const n0 = pts[i]; const n1 = pts[(i+1)%pts.length];
+                    const p0 = n0.pos; const p1 = new THREE.Vector3().addVectors(n0.pos, n0.h2);
+                    const p2 = new THREE.Vector3().addVectors(n1.pos, n1.h1); const p3 = n1.pos;
                     for(let t=0; t<=1; t+=0.05) {
-                        const pt = cubicBezier(p1.pos, new THREE.Vector3().addVectors(p1.pos, p1.h2), new THREE.Vector3().addVectors(p2.pos, p2.h1), p2.pos, t);
-                        const d = wp.distanceTo(pt);
-                        if (d < minDist) { minDist = d; insertIdx = i + 1; insertPos = pt; }
+                        const pt = cubicBezier(p0, p1, p2, p3, t);
+                        let wPt = pt.clone(); if(mode==='INPUT') wPt.applyMatrix4(l.inputMesh.matrixWorld);
+                        const d = wp.distanceTo(wPt);
+                        if (d < bestDist) { bestDist = d; insertIdx = i + 1; insertPos = pt; }
                     }
                 }
-                if (insertIdx !== -1 && minDist < 0.8) {
+                if (insertIdx !== -1 && bestDist < 1.0) {
                     const group = mode === 'INPUT' ? l.inputGroup : l.outputGroup;
                     const newNode = new BezierNode(group, false, insertPos.toArray());
+                    newNode.toggleType(); // Smooth by default
                     pts.splice(insertIdx, 0, newNode);
-                    l.updateGeometry(); broadcastSync(); return; // Stop here
+                    l.updateGeometry(); broadcastSync(); return; 
                 }
             }
 
-            // Check Body
+            // 3. Check Body
             const bodies = [];
             if(mode === 'OUTPUT') bodies.push(...layers.map(ly => ly.mesh));
             else if(mode === 'INPUT') bodies.push(...layers.map(ly => ly.inputMesh)); 
@@ -687,12 +833,14 @@
                 if(l && l !== hitLayer) l.clearSelection();
                 previousWorldPos.copy(wp);
             } else {
+                // Remote Control
                 if (selectedNode && selectedPart !== 'body' && l) {
                     isDragging = true; 
                     const wPos = new THREE.Vector3();
                     if(selectedPart==='main') wPos.copy(selectedNode.pos);
                     else if(selectedPart==='ctrl1') wPos.addVectors(selectedNode.pos, selectedNode.h1);
                     else if(selectedPart==='ctrl2') wPos.addVectors(selectedNode.pos, selectedNode.h2);
+                    if(mode==='INPUT') wPos.applyMatrix4(l.inputMesh.matrixWorld);
                     dragStartOffset.subVectors(wPos, wp);
                 } else {
                     if (l) l.clearSelection(); selectedNode = null; selectedPart = null;
@@ -713,14 +861,16 @@
 
             if (selectedPart === 'body') {
                 const delta = new THREE.Vector3().subVectors(wp, previousWorldPos);
-                selectedNode.moveBody(delta); previousWorldPos.copy(wp);
+                const snapDelta = snapBody(selectedNode, delta);
+                selectedNode.moveBody(snapDelta); previousWorldPos.copy(wp);
+                broadcastSync();
             } else {
                 let targetPos = new THREE.Vector3().addVectors(wp, dragStartOffset);
-                
+                if(mode === 'INPUT') targetPos = l.inputMesh.worldToLocal(targetPos);
+
                 if (selectedPart === 'main') {
-                    // Master Snap (to other layers)
-                    let snappedPos = targetPos.clone();
-                    let minDist = config.snapDist; let snapped = false;
+                    // Snap to other screens
+                    let snappedPos = targetPos.clone(); let minDist = config.snapDist; let snapped = false;
                     layers.forEach(other => {
                         if(other.id === l.id) return;
                         const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
@@ -728,22 +878,34 @@
                             if(targetPos.distanceTo(op.pos) < minDist) { minDist = targetPos.distanceTo(op.pos); snappedPos.copy(op.pos); snapped = true; }
                         });
                     });
+                    
                     const ring = document.getElementById('snap-ring');
                     if(snapped) {
-                        const sp = snappedPos.clone().project(camera);
+                        let sp = snappedPos.clone(); if(mode==='INPUT') sp.applyMatrix4(l.inputMesh.matrixWorld);
+                        sp.project(camera);
                         ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
                         ring.style.display = 'block'; targetPos.copy(snappedPos);
                     } else { ring.style.display = 'none'; }
 
-                    // Merge Snap (Delete self if close to neighbor)
+                    // V43 FIX: Better Merge (Delete) logic
                     if (!selectedNode.isCorner) {
                         const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
                         const idx = pts.indexOf(selectedNode);
                         const prev = pts[(idx - 1 + pts.length) % pts.length];
                         const next = pts[(idx + 1) % pts.length];
-                        if (targetPos.distanceTo(prev.pos) < 0.3) { targetPos.copy(prev.pos); nodeToMerge = selectedNode; }
-                        else if (targetPos.distanceTo(next.pos) < 0.3) { targetPos.copy(next.pos); nodeToMerge = selectedNode; }
+                        
+                        let isMerging = false;
+                        if (targetPos.distanceTo(prev.pos) < config.mergeDist) { targetPos.copy(prev.pos); nodeToMerge = selectedNode; isMerging = true; }
+                        else if (targetPos.distanceTo(next.pos) < config.mergeDist) { targetPos.copy(next.pos); nodeToMerge = selectedNode; isMerging = true; }
                         else { nodeToMerge = null; }
+                        
+                        // Visual feedback for merging
+                        selectedNode.mesh.userData.isMerging = isMerging;
+                        if(isMerging) {
+                            selectedNode.mesh.scale.set(0.8, 0.8, 1);
+                        } else {
+                            selectedNode.mesh.scale.set(1.5, 1.5, 1);
+                        }
                     }
                     selectedNode.setPos(targetPos);
                 } else if (selectedPart === 'ctrl1') {
@@ -751,7 +913,7 @@
                 } else if (selectedPart === 'ctrl2') {
                     selectedNode.setCtrl2(targetPos);
                 }
-                l.updateGeometry();
+                l.updateGeometry(); broadcastSync();
             }
         }
 
@@ -767,15 +929,14 @@
             }
             isDragging=false; isGesture=false; isHistoryPaused=false; recordHistory(); document.getElementById('snap-ring').style.display='none'; broadcastSync(); 
         }
-        
+
+        // --- MOBILE GESTURES ---
         function onTouchStart(e) {
             if(document.body.classList.contains('presentation-mode')) return;
             if (e.touches.length === 2 && (mode==='INPUT' || showGuides)) { 
-                isGesture = true; isDragging = false;
-                const l = getActiveLayer(); if(!l) return;
+                isGesture = true; isDragging = false; const l = getActiveLayer(); if(!l) return;
                 const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
                 gestureStartDist = Math.sqrt(dx*dx + dy*dy); gestureStartAngle = Math.atan2(dy, dx);
-                
                 const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
                 pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
                 gestureStartCenter.copy(center); gestureStartHandlePositions = pts.map(p => p.pos.clone());
@@ -787,28 +948,27 @@
                 e.preventDefault(); const l = getActiveLayer(); if(!l) return;
                 const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
                 const scale = Math.sqrt(dx*dx + dy*dy) / gestureStartDist; const rotation = Math.atan2(dy, dx) - gestureStartAngle;
-
                 const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
                 pts.forEach((p, i) => {
                     const vec = new THREE.Vector3().subVectors(gestureStartHandlePositions[i], gestureStartCenter);
                     vec.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0,0,1), -rotation); 
                     p.setPos(new THREE.Vector3().addVectors(gestureStartCenter, vec));
                 });
-                l.updateGeometry();
+                l.updateGeometry(); broadcastSync();
             } else if (e.touches.length === 1) { onPointerMove(e.touches[0]); }
         }
 
         function onWheel(e) {
             if(isPanMode || document.body.classList.contains('presentation-mode')) return;
-            if(mode==='OUTPUT' && !showGuides) return; e.preventDefault();
-            const l = getActiveLayer(); if(!l) return;
+            if(mode==='OUTPUT' && !showGuides) return; e.preventDefault(); const l = getActiveLayer(); if(!l) return;
             const scale = e.deltaY < 0 ? 1.05 : 0.95;
             const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
             pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
             pts.forEach(p => { p.setPos(new THREE.Vector3().subVectors(p.pos, center).multiplyScalar(scale).add(center)); });
-            l.updateGeometry(); recordHistory();
+            l.updateGeometry(); recordHistory(); broadcastSync();
         }
 
+        // --- UTILS ---
         function zoomIn() { camera.zoom = Math.min(camera.zoom+0.1, 5); camera.updateProjectionMatrix(); }
         function zoomOut() { camera.zoom = Math.max(camera.zoom-0.1, 0.2); camera.updateProjectionMatrix(); }
         function getMousePos(e) { const cX=e.changedTouches?e.changedTouches[0].clientX:e.clientX; const cY=e.changedTouches?e.changedTouches[0].clientY:e.clientY; return {x:(cX/window.innerWidth)*2-1, y:-(cY/window.innerHeight)*2+1}; }
@@ -820,21 +980,9 @@
             layers.forEach(l => l.updateVisibilityState()); if(!isProjectorMode) broadcastSync();
         }
 
-        function broadcastSync() {
-            if (isProjectorMode) return;
-            channel.postMessage({ type: 'sync_state', state: { layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId }, videoSrc: videoElement.src || null });
-        }
-
-        function togglePresentationMode() {
-            if(isProjectorMode) return; showGuides = !showGuides; const btn = document.getElementById('vis-switch');
-            if (showGuides) { btn.classList.add('active'); document.body.classList.remove('presentation-mode'); } 
-            else { btn.classList.remove('active'); document.body.classList.add('presentation-mode'); }
-            layers.forEach(l => l.updateVisibilityState());
-        }
-
         function openProjectorWindow() {
             const win = window.open(window.location.href.split('?')[0] + '?projector=true', 'MR_Projector', 'width=1280,height=720');
-            if(!win) alert("⚠️ ไม่สามารถเปิดหน้าต่างโปรเจคเตอร์ได้ กรุณาอนุญาต Pop-ups (Allow Pop-ups) ในเบราว์เซอร์ของคุณ");
+            if(!win) alert("⚠️ ไม่สามารถเปิดหน้าต่างโปรเจคเตอร์ได้ กรุณาอนุญาต Pop-ups (Allow Pop-ups) ในเบราว์เซอร์ของคุณตรงแถบ URL ด้านบน");
         }
 
         function recordHistory() {
@@ -848,7 +996,7 @@
             layers.forEach(l => l.updateVisibilityState()); updateLayerList(); mode = isProjectorMode ? 'OUTPUT' : mode; 
             if(shouldBroadcast && !isProjectorMode) broadcastSync();
         }
-        function saveProject() { const d={version:"39.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v39.json"; a.click(); }
+        function saveProject() { const d={version:"43.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v43.json"; a.click(); }
         function loadProject(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(evt){ try{ const d=JSON.parse(evt.target.result); loadState(d); alert("Loaded!"); }catch(err){alert("Error");} }; r.readAsText(f); e.target.value=''; }
         function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); activeLayerId = l.id; layers.forEach(ly => ly.updateVisibilityState()); updateLayerList(); setMode(mode); recordHistory(); broadcastSync(); }
         function setActiveLayer(id) { activeLayerId=id; layers.forEach(l=>l.updateVisibilityState()); updateLayerList(); broadcastSync(); }
@@ -858,9 +1006,13 @@
         function togglePanel() { document.body.classList.toggle('panel-hidden'); }
         function onResize() { const a=window.innerWidth/window.innerHeight; const f=40; camera.left=-f*a/2; camera.right=f*a/2; camera.top=f/2; camera.bottom=-f/2; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
         function animate() { requestAnimationFrame(animate); if(videoElement && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) { if(mainTexture) mainTexture.needsUpdate = true; } renderer.render(scene, camera); }
-        init();
+        
+        function broadcastSync() {
+            if (isProjectorMode) return;
+            channel.postMessage({ type: 'sync_state', state: { layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId }, videoSrc: videoElement.src || null });
+        }
+
+        init(); 
     </script>
 </body>
 </html>
-
-
