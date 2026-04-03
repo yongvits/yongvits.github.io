@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>MR Mapping v43 (Easy Delete & Auto-Play)</title>
+    <title>MR Mapping v44 (Multi-Media Support & Individual Controls)</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background-color: #050505; 
@@ -144,8 +144,8 @@
     <div id="restore-overlay" onclick="togglePresentationMode()"></div>
 
     <div id="start-overlay" onclick="startApp()">
-        <h2>MR MAPPING v43</h2>
-        <p>▶ Click to Start</p>
+        <h2>MR MAPPING v44</h2>
+        <p>▶ Click to Start (Multi-Media)</p>
     </div>
     
     <div id="sync-indicator">📡 SYNC ACTIVE</div>
@@ -176,7 +176,7 @@
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>MR Mapping</h1>
-                <span style="font-size:10px; color:#666">v43.0 Easy Delete</span>
+                <span style="font-size:10px; color:#666">v44.1 Layer Sync</span>
             </div>
         </div>
 
@@ -200,20 +200,34 @@
         <div id="layer-list"></div>
 
         <div class="controls">
-            <label class="btn" style="background: #2266aa;">🎥 Upload File <input type="file" id="mediaInput" accept="video/*,image/*"></label>
-            <button class="btn btn-tool" id="btn-checker" onclick="toggleCheckerPattern()">🏁 Toggle Checker</button>
+            <label class="btn" style="background: #2266aa; border: 1px solid #4488dd;">🎥 Upload VDO/Image to Layer <input type="file" id="mediaInput" accept="video/*,image/*"></label>
             
             <div class="row" style="margin-top:8px;">
-                <button class="btn" onclick="resetCurrentLayer()">Reset</button>
-                <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete</button>
+                <button class="btn btn-tool" id="btn-playpause" onclick="togglePlayPause()" style="flex:1;">⏸️ Pause All</button>
+                <button class="btn btn-tool" id="btn-mute" onclick="toggleMute()" style="flex:1;">🔇 Unmute All</button>
+            </div>
+
+            <!-- INDIVIDUAL LAYER CONTROLS (NEW) -->
+            <div id="layer-media-section" style="display:none; margin-top:8px; border-top: 1px dashed #444; padding-top: 8px;">
+                <div style="font-size: 10px; color:#aaa; margin-bottom:4px;">Layer Controls (<span id="layer-control-name">Screen 1</span>)</div>
+                <div class="row">
+                    <button class="btn btn-tool" id="btn-layer-playpause" onclick="toggleLayerPlayPause()" style="flex:1; background: #0088cc; color: white; border: none;">▶️ Play Screen</button>
+                    <button class="btn btn-tool" id="btn-layer-mute" onclick="toggleLayerMute()" style="flex:1; background: #0088cc; color: white; border: none;">🔊 Mute Screen</button>
+                </div>
+            </div>
+
+            <button class="btn btn-tool" id="btn-checker" onclick="toggleCheckerPattern()" style="margin-top:8px;">🏁 Toggle Checker</button>
+            
+            <div class="row" style="margin-top:8px;">
+                <button class="btn" onclick="resetCurrentLayer()">Reset Layer</button>
+                <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete Layer</button>
             </div>
             
             <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
-                <span style="color:#00ffaa; font-weight:bold;">วิธีใช้งาน:</span><br>
-                • <b>2x แตะเส้น:</b> แทรกจุดใหม่<br>
-                • <b>2x แตะจุด:</b> สลับ โค้ง/เหลี่ยม<br>
-                • <b>ลบจุด:</b> ลากจุดไปซ้อนทับจุดเดิม<br>
-                <span style="color:#ff3366;">(จุดจะกลายเป็นสีแดงเมื่อพร้อมลบ)</span>
+                <span style="color:#00ffaa; font-weight:bold;">วิธีใช้งาน อัปโหลดแยกอิสระ:</span><br>
+                • เลือก Screen ก่อน แล้วกด Upload<br>
+                • สั่งเปิด/ปิด VDO แยกทีละจอได้แล้ว!<br>
+                • Mask บังแสง (สีแดง) ไม่รับภาพ
             </div>
         </div>
     </div>
@@ -222,27 +236,27 @@
 
     <script>
         // --- 1. GLOBALS & CONFIG ---
-        // V43: ขยายระยะ mergeDist ให้ลบง่ายขึ้น (0.5 -> 0.8)
-        const config = { segments: 24, snapDist: 0.6, mergeDist: 0.8 }; 
+        // ปรับแก้ค่า Snap ให้แม่เหล็กดูดนิ่มนวลขึ้นเพื่อลดอาการ "เด้ง" เวลาลากจุด
+        const config = { segments: 24, snapDist: 0.4, mergeDist: 0.5 }; 
         let mode = 'OUTPUT';
         let layers = [];
         let activeLayerId = null;
         let layerCounter = 1;
         
-        let mainTexture = null, checkerTexture = null, videoElement = null;
+        let mainTexture = null, checkerTexture = null; 
         let isCheckerActive = false;
-        let sourceAspectRatio = 16/9;
         let appStarted = false;
         let showGuides = true;
         let isPanMode = false;
         
-        const channel = new BroadcastChannel('mr_mapping_sync_v43');
+        const channel = new BroadcastChannel('mr_mapping_sync_v44');
         let isProjectorMode = new URLSearchParams(window.location.search).get('projector') === 'true';
 
         let scene, camera, renderer, raycaster, mouse, inputGroup, outputGroup, inputBgMesh;
         let historyStack = []; let redoStack = []; let isHistoryPaused = false;
 
-        let isDragging = false, isGesture = false, selectedNode = null, selectedPart = null;
+        let isDragging = false, isGesture = false, selectedObject = null;
+        let activeHandle = null; 
         let dragStartOffset = new THREE.Vector3(); 
         let previousWorldPos = new THREE.Vector3(); 
         let planeNormal = new THREE.Vector3(0, 0, 1);
@@ -253,35 +267,161 @@
         window.startApp = function() {
             document.getElementById('start-overlay').style.display = 'none';
             appStarted = true;
-            if(videoElement) {
-                // บังคับเล่น VDO ทันทีที่เข้าแอป
-                videoElement.play().catch(e=>console.log("Autoplay blocked, wait for user interaction.", e));
-            }
+            // Play all active layer videos
+            layers.forEach(l => {
+                if(l.videoElement) l.videoElement.play().catch(e=>console.log("Autoplay blocked."));
+            });
+            updateMediaUI();
             broadcastSync();
         };
 
-        // V43: จับ Event การแตะทุกครั้งเพื่อกระตุ้นให้ VDO เล่น (แก้ปัญหา VDO ไม่ยอมเล่นบนมือถือ)
+        // User Interaction Fallback
         document.body.addEventListener('click', function() {
-            if(videoElement && videoElement.paused && appStarted) {
-                videoElement.play().catch(e=>{});
+            if(appStarted && !isProjectorMode) {
+                layers.forEach(l => {
+                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
+                });
+                updateMediaUI();
             }
         }, {passive: true});
         
         document.body.addEventListener('touchstart', function() {
-            if(videoElement && videoElement.paused && appStarted) {
-                videoElement.play().catch(e=>{});
+            if(appStarted && !isProjectorMode) {
+                layers.forEach(l => {
+                    if(l.videoElement && l.videoElement.paused) l.videoElement.play().catch(e=>{});
+                });
+                updateMediaUI();
             }
         }, {passive: true});
+
+        // --- MEDIA CONTROLS ---
+        function togglePlayPause() {
+            let anyPlaying = false;
+            layers.forEach(l => { if(l.videoElement && !l.videoElement.paused) anyPlaying = true; });
+            
+            layers.forEach(l => {
+                if(l.videoElement) {
+                    if(anyPlaying) l.videoElement.pause();
+                    else l.videoElement.play().catch(e=>{});
+                }
+            });
+            updateMediaUI();
+            broadcastPlaybackState();
+        }
+
+        function toggleMute() {
+            let anyMuted = true;
+            layers.forEach(l => {
+                if(l.videoElement && !l.videoElement.muted) anyMuted = false;
+            });
+            let newState = !anyMuted; // ถ้ามีจอใดเปิดเสียงอยู่ ให้ mute ทั้งหมด
+            
+            layers.forEach(l => { if(l.videoElement) l.videoElement.muted = newState; });
+            updateMediaUI(); 
+            broadcastPlaybackState();
+        }
+
+        // --- NEW: INDIVIDUAL LAYER MEDIA CONTROLS ---
+        function toggleLayerPlayPause() {
+            const l = getActiveLayer();
+            if(!l || !l.videoElement) return;
+            if(l.videoElement.paused) l.videoElement.play().catch(e=>{});
+            else l.videoElement.pause();
+            updateMediaUI();
+            broadcastPlaybackState();
+        }
+
+        function toggleLayerMute() {
+            const l = getActiveLayer();
+            if(!l || !l.videoElement) return;
+            l.videoElement.muted = !l.videoElement.muted;
+            updateMediaUI();
+            broadcastPlaybackState();
+        }
+
+        function updateMediaUI() {
+            let anyVdo = false;
+            let anyPlaying = false;
+            let anyMuted = true;
+
+            layers.forEach(l => { 
+                if(l.videoElement) {
+                    anyVdo = true;
+                    if(!l.videoElement.paused) anyPlaying = true;
+                    if(!l.videoElement.muted) anyMuted = false;
+                }
+            });
+
+            // Global UI
+            const btnPlay = document.getElementById('btn-playpause');
+            const btnMute = document.getElementById('btn-mute');
+            
+            if(!anyVdo) {
+                btnPlay.style.opacity = '0.5'; btnMute.style.opacity = '0.5';
+            } else {
+                btnPlay.style.opacity = '1.0'; btnMute.style.opacity = '1.0';
+            }
+
+            if(!anyPlaying) { 
+                btnPlay.innerHTML = '▶️ Play All'; 
+                btnPlay.style.background = '#333'; btnPlay.style.color = '#fff';
+            } else { 
+                btnPlay.innerHTML = '⏸️ Pause All'; 
+                btnPlay.style.background = '#00ffaa'; btnPlay.style.color = '#000';
+            }
+
+            if(anyMuted) { 
+                btnMute.innerHTML = '🔇 Unmute All'; 
+                btnMute.style.background = '#333'; btnMute.style.color = '#fff';
+            } else { 
+                btnMute.innerHTML = '🔊 Mute All'; 
+                btnMute.style.background = '#00ffaa'; btnMute.style.color = '#000';
+            }
+
+            // Layer Specific UI
+            const l = getActiveLayer();
+            const layerSec = document.getElementById('layer-media-section');
+            if (l && l.videoElement && !l.isMask) {
+                layerSec.style.display = 'block';
+                document.getElementById('layer-control-name').innerText = l.name;
+                
+                const bPlay = document.getElementById('btn-layer-playpause');
+                const bMute = document.getElementById('btn-layer-mute');
+
+                if(l.videoElement.paused) {
+                    bPlay.innerHTML = '▶️ Play Screen'; bPlay.style.background = '#333'; bPlay.style.color = '#fff';
+                } else {
+                    bPlay.innerHTML = '⏸️ Pause Screen'; bPlay.style.background = '#0088cc'; bPlay.style.color = '#fff';
+                }
+
+                if(l.videoElement.muted) {
+                    bMute.innerHTML = '🔇 Unmute Screen'; bMute.style.background = '#333'; bMute.style.color = '#fff';
+                } else {
+                    bMute.innerHTML = '🔊 Mute Screen'; bMute.style.background = '#0088cc'; bMute.style.color = '#fff';
+                }
+            } else {
+                layerSec.style.display = 'none';
+            }
+        }
+
+        // ส่งสถานะของ 'ทุกๆ เลเยอร์' ข้ามไปโปรเจคเตอร์เลย เพื่อความชัวร์
+        function broadcastPlaybackState() {
+            if(isProjectorMode) return;
+            const states = layers.map(l => ({
+                id: l.id,
+                paused: l.videoElement ? l.videoElement.paused : true,
+                muted: l.videoElement ? l.videoElement.muted : true,
+                currentTime: l.videoElement ? l.videoElement.currentTime : 0
+            }));
+            channel.postMessage({ type: 'playback_states', states: states });
+        }
+
 
         // --- 2. MATH FUNCTIONS ---
         function cubicBezier(p0, p1, p2, p3, t) {
             const mt = 1 - t, mt2 = mt * mt, t2 = t * t;
             const a = mt2 * mt, b = mt2 * t * 3, c = mt * t2 * 3, d = t * t2;
-            return new THREE.Vector3(
-                a*p0.x + b*p1.x + c*p2.x + d*p3.x,
-                a*p0.y + b*p1.y + c*p2.y + d*p3.y,
-                0
-            );
+            return new THREE.Vector3(a*p0.x + b*p1.x + c*p2.x + d*p3.x, a*p0.y + b*p1.y + c*p2.y + d*p3.y, 0);
         }
 
         function evalEdgeBezier(pts, t) {
@@ -293,23 +433,15 @@
             let localT = scaledT - i;
 
             const n0 = pts[i], n1 = pts[i+1];
-            const p0 = n0.pos;
-            const p1 = new THREE.Vector3().addVectors(n0.pos, n0.h2); 
-            const p2 = new THREE.Vector3().addVectors(n1.pos, n1.h1); 
-            const p3 = n1.pos;
-
-            return cubicBezier(p0, p1, p2, p3, localT);
+            return cubicBezier(n0.pos, new THREE.Vector3().addVectors(n0.pos, n0.h2), new THREE.Vector3().addVectors(n1.pos, n1.h1), n1.pos, localT);
         }
 
         // --- 3. CLASSES ---
         class BezierNode {
             constructor(group, isCorner, posArray) {
                 this.pos = new THREE.Vector3().fromArray(posArray);
-                this.h1 = new THREE.Vector3(); 
-                this.h2 = new THREE.Vector3(); 
-                this.type = 'linear'; // 'linear' | 'smooth'
-                this.isCorner = isCorner;
-                this.group = group;
+                this.h1 = new THREE.Vector3(); this.h2 = new THREE.Vector3(); 
+                this.type = 'linear'; this.isCorner = isCorner; this.group = group;
                 
                 const geo = isCorner ? new THREE.PlaneGeometry(0.5, 0.5) : new THREE.CircleGeometry(0.3, 16);
                 this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false }));
@@ -340,8 +472,7 @@
             updateVisuals() {
                 this.mesh.position.copy(this.pos);
                 if(this.type === 'linear') {
-                    this.h1.set(0,0,0); this.h2.set(0,0,0);
-                    this.hideHandles();
+                    this.h1.set(0,0,0); this.h2.set(0,0,0); this.hideHandles();
                 } else {
                     this.ctrl1.position.copy(this.pos).add(this.h1);
                     this.ctrl2.position.copy(this.pos).add(this.h2);
@@ -349,53 +480,24 @@
                     this.line2.geometry.setFromPoints([this.pos, this.ctrl2.position]);
                 }
                 
-                // Color override will be handled externally if merging, else revert to default
-                if(this.mesh.userData.isMerging) {
-                    this.mesh.material.color.setHex(0xff0000); // สีแดงเตือนว่าจะถูกลบ
-                } else if(this.mesh.userData.isSelected) {
-                    this.mesh.material.color.setHex(0xff3366); // สีชมพูเลือกอยู่
-                } else {
-                    this.mesh.material.color.setHex(this.type === 'linear' ? 0xffcc00 : 0x00aaff); // เหลือง/ฟ้า
-                }
+                if(this.mesh.userData.isMerging) this.mesh.material.color.setHex(0xff0000); 
+                else if(this.mesh.userData.isSelected) this.mesh.material.color.setHex(0xff3366); 
+                else this.mesh.material.color.setHex(this.type === 'linear' ? 0xffcc00 : 0x00aaff); 
             }
 
             showHandles() {
-                if(this.type !== 'linear') {
-                    this.ctrl1.visible = true; this.ctrl2.visible = true;
-                    this.line1.visible = true; this.line2.visible = true;
-                }
+                if(this.type !== 'linear') { this.ctrl1.visible = true; this.ctrl2.visible = true; this.line1.visible = true; this.line2.visible = true; }
             }
-
-            hideHandles() {
-                this.ctrl1.visible = false; this.ctrl2.visible = false;
-                this.line1.visible = false; this.line2.visible = false;
-            }
-
+            hideHandles() { this.ctrl1.visible = false; this.ctrl2.visible = false; this.line1.visible = false; this.line2.visible = false; }
             setPos(p) { this.pos.copy(p); this.updateVisuals(); }
-            
-            setCtrl1(p) { 
-                this.h1.subVectors(p, this.pos); 
-                if(this.type === 'smooth') this.h2.copy(this.h1).multiplyScalar(-1);
-                this.updateVisuals(); 
-            }
-            
-            setCtrl2(p) { 
-                this.h2.subVectors(p, this.pos); 
-                if(this.type === 'smooth') this.h1.copy(this.h2).multiplyScalar(-1);
-                this.updateVisuals(); 
-            }
-
+            setCtrl1(p) { this.h1.subVectors(p, this.pos); if(this.type === 'smooth') this.h2.copy(this.h1).multiplyScalar(-1); this.updateVisuals(); }
+            setCtrl2(p) { this.h2.subVectors(p, this.pos); if(this.type === 'smooth') this.h1.copy(this.h2).multiplyScalar(-1); this.updateVisuals(); }
             toggleType() {
                 this.type = this.type === 'linear' ? 'smooth' : 'linear';
-                if(this.type === 'smooth') {
-                    this.h1.set(-0.8, 0, 0); this.h2.set(0.8, 0, 0); 
-                }
+                if(this.type === 'smooth') { this.h1.set(-0.8, 0, 0); this.h2.set(0.8, 0, 0); }
                 this.updateVisuals();
             }
-
-            destroy() {
-                this.group.remove(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2);
-            }
+            destroy() { this.group.remove(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2); }
         }
 
         class Layer {
@@ -404,6 +506,13 @@
                 this.isMask = data && data.isMask !== undefined ? data.isMask : isMask;
                 this.name = this.isMask ? `Mask ${id}` : `Screen ${id}`;
                 
+                // MULTI-MEDIA properties
+                this.texture = mainTexture; 
+                this.videoElement = null;
+                this.mediaUrl = null;
+                this.isVdo = false;
+                this.sourceAspectRatio = 16/9;
+
                 this.outputGroup = new THREE.Group(); outputGroup.add(this.outputGroup);
                 this.inputGroup = new THREE.Group(); inputGroup.add(this.inputGroup);
                 
@@ -411,9 +520,8 @@
                 
                 const outMat = this.isMask 
                     ? new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }) 
-                    : new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide });
+                    : new THREE.MeshBasicMaterial({ map: this.texture, side: THREE.DoubleSide });
                 this.mesh = new THREE.Mesh(geo, outMat);
-                // ดัน z-index ของ mask ให้ลอยอยู่เหนือ screen เสมอ
                 this.mesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01); 
                 this.mesh.userData = { id: id, type: 'output_body' };
                 this.outputGroup.add(this.mesh);
@@ -425,16 +533,20 @@
                 this.inputGroup.add(this.inputMesh);
 
                 const outWireColor = this.isMask ? 0xff3366 : 0x00ffaa;
-                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true }));
+                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true, depthTest: false }));
+                this.outWire.renderOrder = 20;
                 this.outputGroup.add(this.outWire);
 
-                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
+                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false }));
+                this.inWire.renderOrder = 20;
                 this.inputGroup.add(this.inWire);
                 
                 this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false }));
+                this.gridMesh.renderOrder = 20;
                 this.outputGroup.add(this.gridMesh);
                 
                 this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }));
+                this.inputGridMesh.renderOrder = 20;
                 this.inputGroup.add(this.inputGridMesh);
 
                 this.outPoints = []; this.inPoints = [];
@@ -456,37 +568,21 @@
 
             getEdges(pts) {
                 const corners = []; pts.forEach((p, i) => { if(p.isCorner) corners.push(i); });
-                const getSlice = (start, end) => {
-                    if(start < end) return pts.slice(start, end + 1);
-                    return [...pts.slice(start), pts[0]]; 
-                };
-                return {
-                    T: getSlice(corners[0], corners[1]), 
-                    R: getSlice(corners[1], corners[2]), 
-                    B: getSlice(corners[2], corners[3]), 
-                    L: getSlice(corners[3], corners[0])  
-                };
+                const getSlice = (start, end) => { return start < end ? pts.slice(start, end + 1) : [...pts.slice(start), pts[0]]; };
+                return { T: getSlice(corners[0], corners[1]), R: getSlice(corners[1], corners[2]), B: getSlice(corners[2], corners[3]), L: getSlice(corners[3], corners[0]) };
             }
 
             warpCoons(posAttribute, edges, segments) {
                 const wVerts = segments + 1;
                 const cTL = edges.T[0].pos, cTR = edges.T[edges.T.length-1].pos;
                 const cBR = edges.B[0].pos, cBL = edges.B[edges.B.length-1].pos; 
-                
                 for(let i=0; i<posAttribute.count; i++) {
                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
                     const u = ix / segments; const v = 1 - (iy / segments);
-                    
-                    const ptTop = evalEdgeBezier(edges.T, u);
-                    const ptBot = evalEdgeBezier(edges.B, 1 - u); 
-                    const ptLft = evalEdgeBezier(edges.L, v);     
-                    const ptRgt = evalEdgeBezier(edges.R, 1 - v); 
-                    
-                    const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x 
-                            - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
-                    const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y 
-                            - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
-                    
+                    const ptTop = evalEdgeBezier(edges.T, u); const ptBot = evalEdgeBezier(edges.B, 1 - u); 
+                    const ptLft = evalEdgeBezier(edges.L, v); const ptRgt = evalEdgeBezier(edges.R, 1 - v); 
+                    const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
+                    const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
                     posAttribute.setXY(i, x, y, 0);
                 }
                 posAttribute.needsUpdate = true;
@@ -495,10 +591,8 @@
             }
 
             updateWire(wireMesh, edges) {
-                const wirePts = [];
-                const addEdge = (e) => { for(let i=0; i<=20; i++) wirePts.push(evalEdgeBezier(e, i/20)); };
-                addEdge(edges.T); addEdge(edges.R); addEdge(edges.B); addEdge(edges.L);
-                wireMesh.geometry.setFromPoints(wirePts);
+                const wirePts = []; const addEdge = (e) => { for(let i=0; i<=20; i++) wirePts.push(evalEdgeBezier(e, i/20)); };
+                addEdge(edges.T); addEdge(edges.R); addEdge(edges.B); addEdge(edges.L); wireMesh.geometry.setFromPoints(wirePts);
             }
 
             updateGeometry() {
@@ -511,29 +605,26 @@
                 this.warpCoons(this.inputMesh.geometry.attributes.position, inEdges, config.segments);
                 this.warpCoons(this.inputGridMesh.geometry.attributes.position, inEdges, 2);
                 this.updateWire(this.inWire, inEdges);
-                
                 this.updateUVs(inEdges);
             }
 
             updateUVs(inEdges = null) {
-                if(this.isMask) return; // Masks ไม่ต้องอัปเดต UV
+                if(this.isMask) return; 
                 if(isCheckerActive) return;
                 if(!inEdges) inEdges = this.getEdges(this.inPoints);
-                const bgW = inputBgMesh.scale.x; const bgH = inputBgMesh.scale.y;
-                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
                 
+                const targetRatio = this.sourceAspectRatio || sourceAspectRatio;
+                const bgW = 16; const bgH = 16 / targetRatio;
+                
+                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
                 const cTL = inEdges.T[0].pos, cTR = inEdges.T[inEdges.T.length-1].pos;
                 const cBR = inEdges.B[0].pos, cBL = inEdges.B[inEdges.B.length-1].pos;
 
                 for(let i=0; i<uv.count; i++) {
                      const ix = i % wVerts; const iy = Math.floor(i / wVerts);
                      const u = ix / config.segments; const v = 1 - (iy / config.segments);
-                     
-                     const ptTop = evalEdgeBezier(inEdges.T, u);
-                     const ptBot = evalEdgeBezier(inEdges.B, 1 - u);
-                     const ptLft = evalEdgeBezier(inEdges.L, v);
-                     const ptRgt = evalEdgeBezier(inEdges.R, 1 - v);
-                     
+                     const ptTop = evalEdgeBezier(inEdges.T, u); const ptBot = evalEdgeBezier(inEdges.B, 1 - u);
+                     const ptLft = evalEdgeBezier(inEdges.L, v); const ptRgt = evalEdgeBezier(inEdges.R, 1 - v);
                      const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
                      const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
                      
@@ -549,6 +640,67 @@
                 uv.needsUpdate = true;
             }
 
+            updateTexture() {
+                if(this.isMask) return;
+                const tex = isCheckerActive ? checkerTexture : (this.texture || mainTexture);
+                this.mesh.material.map = tex;
+                this.mesh.material.needsUpdate = true;
+                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+            }
+
+            setMedia(url, isVideo) {
+                if (this.isMask) return;
+                this.mediaUrl = url;
+                this.isVdo = isVideo;
+
+                if (this.videoElement) { this.videoElement.pause(); this.videoElement = null; }
+                if (this.texture && this.texture !== mainTexture && this.texture !== checkerTexture) { this.texture.dispose(); }
+
+                if (isVideo) {
+                    const vid = document.createElement('video');
+                    vid.crossOrigin = "anonymous"; vid.loop = true; vid.muted = true; vid.playsInline = true;
+                    vid.src = url; vid.style.display = 'none';
+                    document.body.appendChild(vid);
+                    this.videoElement = vid;
+                    
+                    vid.play().then(() => updateMediaUI()).catch(e=>{});
+                    vid.onloadedmetadata = () => {
+                        this.sourceAspectRatio = vid.videoWidth / vid.videoHeight;
+                        this.texture = new THREE.VideoTexture(vid);
+                        this.texture.minFilter = THREE.LinearFilter; this.texture.format = THREE.RGBAFormat;
+                        if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
+                        updateInputBackground();
+                        broadcastSync();
+                    };
+                } else {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.sourceAspectRatio = img.width / img.height;
+                        this.texture = new THREE.Texture(img);
+                        this.texture.needsUpdate = true; this.texture.minFilter = THREE.LinearFilter;
+                        if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
+                        updateInputBackground();
+                        broadcastSync();
+                    };
+                    img.src = url;
+                }
+            }
+
+            syncMedia(data) {
+                if(this.isMask) return;
+                this.sourceAspectRatio = data.sourceAspect || 16/9;
+                
+                if (data.mediaUrl !== this.mediaUrl) {
+                    if(data.mediaUrl) this.setMedia(data.mediaUrl, data.isVdo);
+                    else {
+                        this.mediaUrl = null; this.texture = mainTexture; this.videoElement = null;
+                        this.updateTexture(); updateInputBackground();
+                    }
+                } else {
+                    this.updateTexture();
+                }
+            }
+
             moveBody(delta) {
                 const pts = mode === 'OUTPUT' ? this.outPoints : this.inPoints;
                 pts.forEach(p => p.setPos(p.pos.clone().add(delta)));
@@ -559,18 +711,12 @@
                 const allNodes = [...this.outPoints, ...this.inPoints];
                 allNodes.forEach(n => {
                     n.mesh.userData.isSelected = (n === node);
-                    n.mesh.userData.isMerging = false; // Reset merge state
-                    if(n === node) {
-                        n.mesh.scale.set(1.5, 1.5, 1);
-                        n.showHandles();
-                    } else {
-                        n.mesh.scale.set(1, 1, 1);
-                        n.hideHandles();
-                    }
+                    n.mesh.userData.isMerging = false; 
+                    if(n === node) { n.mesh.scale.set(1.5, 1.5, 1); n.showHandles(); } 
+                    else { n.mesh.scale.set(1, 1, 1); n.hideHandles(); }
                     n.updateVisuals();
                 });
             }
-            
             clearSelection() { this.setSelection(null); }
 
             updateVisibilityState() {
@@ -614,22 +760,32 @@
                     this.inPoints = (data.inHandles || data.handles).map((p, i) => new BezierNode(this.inputGroup, true, p));
                 }
                 this.updateGeometry();
+                if(isProjectorMode) this.syncMedia(data);
             }
 
             toJSON() {
                 return {
                     id: this.id,
                     isMask: this.isMask,
+                    mediaUrl: this.mediaUrl,
+                    isVdo: this.isVdo,
+                    sourceAspect: this.sourceAspectRatio,
                     outPoints: this.outPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner })),
                     inPoints: this.inPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner }))
                 };
             }
-            destroy() { this.outputGroup.parent.remove(this.outputGroup); this.inputGroup.parent.remove(this.inputGroup); }
+            destroy() { 
+                this.outputGroup.parent.remove(this.outputGroup); this.inputGroup.parent.remove(this.inputGroup); 
+                if(this.videoElement) { this.videoElement.pause(); this.videoElement = null; }
+                if(this.texture && this.texture !== mainTexture && this.texture !== checkerTexture) this.texture.dispose();
+            }
         }
 
         // --- 4. INIT FLOW ---
         function init() {
             scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000); 
+
             outputGroup = new THREE.Group(); scene.add(outputGroup);
             inputGroup = new THREE.Group(); scene.add(inputGroup);
             
@@ -644,39 +800,52 @@
 
             raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
 
-            initVideoElement(); 
             setupPlaceholderSource(); 
             createCheckerTexture();
 
-            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 0.5, transparent: true }));
+            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 1.0, transparent: true }));
             inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); inputGroup.add(inputBgMesh);
 
             if (isProjectorMode) {
                 document.body.classList.add('projector-mode'); document.body.classList.add('presentation-mode');
                 appStarted = true; showGuides = false; mode = 'OUTPUT';
+                inputGroup.visible = false; 
+                
                 channel.onmessage = (event) => {
                     const msg = event.data;
                     if(msg.type === 'sync_state') {
                         loadState(msg.state, false);
-                        if(msg.videoSrc && videoElement.src !== msg.videoSrc) {
-                            videoElement.src = msg.videoSrc; videoElement.play().catch(e=>{});
-                            mainTexture = new THREE.VideoTexture(videoElement); mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
-                            updateAllTextures();
-                        }
+                    } else if (msg.type === 'playback_states') {
+                        // Projector syncing multi-media playback individually
+                        msg.states.forEach(s => {
+                            const l = layers.find(layer => layer.id === s.id);
+                            if(l && l.videoElement) {
+                                l.videoElement.muted = s.muted;
+                                if(s.paused && !l.videoElement.paused) l.videoElement.pause();
+                                else if(!s.paused && l.videoElement.paused) l.videoElement.play().catch(e=>{});
+                            }
+                        });
                     }
                 };
                 channel.postMessage({ type: 'request_sync' });
             } else {
                 const cvs = renderer.domElement;
-                cvs.addEventListener('mousedown', onPointerDown); cvs.addEventListener('mousemove', onPointerMove); window.addEventListener('mouseup', onPointerUp);
-                cvs.addEventListener('touchstart', onTouchStart, {passive:false}); cvs.addEventListener('touchmove', onTouchMove, {passive:false}); cvs.addEventListener('touchend', onPointerUp);
+                
+                // --- ป้องกันหน้าจอเด้ง (Prevent scroll bounce) ระหว่างการลากจิ้ม ---
+                cvs.addEventListener('mousedown', (e) => { e.preventDefault(); onPointerDown(e); });
+                cvs.addEventListener('mousemove', (e) => { e.preventDefault(); onPointerMove(e); });
+                window.addEventListener('mouseup', onPointerUp);
+                
+                cvs.addEventListener('touchstart', (e) => { e.preventDefault(); onTouchStart(e); }, {passive: false});
+                cvs.addEventListener('touchmove', (e) => { e.preventDefault(); onTouchMove(e); }, {passive: false});
+                cvs.addEventListener('touchend', onPointerUp);
                 cvs.addEventListener('wheel', onWheel, {passive:false});
                 
                 addNewLayer(); recordHistory(); 
 
                 channel.onmessage = (event) => {
                     if (event.data.type === 'request_sync') { 
-                        broadcastSync(); 
+                        broadcastSync(); broadcastPlaybackState();
                         const s = document.getElementById('sync-indicator'); s.style.display='block'; setTimeout(()=>s.style.display='none',3000); 
                     }
                 };
@@ -690,19 +859,11 @@
         }
 
         // --- 5. CORE LOGIC ---
-        function initVideoElement() {
-            videoElement = document.createElement('video'); videoElement.crossOrigin = "anonymous";
-            videoElement.loop = true; 
-            videoElement.muted = true; 
-            videoElement.playsInline = true; videoElement.style.display = 'none';
-            document.body.appendChild(videoElement);
-        }
-
         function setupPlaceholderSource() {
             const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024; const ctx = cvs.getContext('2d');
             ctx.fillStyle = '#111'; ctx.fillRect(0,0,1024,1024); ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
             for(let i=0; i<=1024; i+=100) { ctx.moveTo(i,0); ctx.lineTo(i,1024); ctx.moveTo(0,i); ctx.lineTo(1024,i); }
-            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText('MR MAPPING v43', 512, 512);
+            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.fillText('MR MAPPING v44', 512, 512);
             if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.CanvasTexture(cvs);
         }
 
@@ -713,41 +874,43 @@
             ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 5; ctx.strokeRect(0,0,1024,1024); checkerTexture = new THREE.CanvasTexture(cvs);
         }
 
+        // MULTI-MEDIA UPLOAD
         function handleUpload(e) {
             const file = e.target.files[0]; if(!file) return;
+            const layer = getActiveLayer();
+            if(!layer || layer.isMask) {
+                alert("⚠️ กรุณาเลือก Screen สีเขียว (ที่ไม่ใช่ Mask) เพื่อใส่ภาพหรือวิดีโอ");
+                e.target.value = ''; return;
+            }
+
             const url = URL.createObjectURL(file);
-            if (file.type.indexOf('image') !== -1) {
-                videoElement.pause();
-                new THREE.TextureLoader().load(url, (tex) => {
-                    sourceAspectRatio = tex.image.width / tex.image.height; updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose(); mainTexture = tex; mainTexture.minFilter = THREE.LinearFilter;
-                    updateAllTextures(); broadcastSync();
-                });
-            } else if (file.type.indexOf('video') !== -1) {
-                videoElement.src = url;
-                videoElement.play().catch(err => console.log('Autoplay prevented:', err));
-                videoElement.onloadedmetadata = function() {
-                    sourceAspectRatio = this.videoWidth / this.videoHeight; updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.VideoTexture(videoElement);
-                    mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
-                    updateAllTextures(); broadcastSync();
-                };
-            } e.target.value = '';
+            layer.setMedia(url, file.type.indexOf('video') !== -1);
+            e.target.value = '';
         }
 
-        function updateInputBgAspect() { inputBgMesh.scale.set(16, 16 / sourceAspectRatio, 1); }
-        function toggleCheckerPattern() { isCheckerActive = !isCheckerActive; document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; updateAllTextures(); broadcastSync(); }
+        function updateInputBackground() {
+            const l = getActiveLayer();
+            if(l && !l.isMask) {
+                inputBgMesh.material.map = isCheckerActive ? checkerTexture : (l.texture || mainTexture);
+                const ratio = l.sourceAspectRatio || 16/9;
+                inputBgMesh.scale.set(16, 16 / ratio, 1);
+            } else {
+                inputBgMesh.material.map = isCheckerActive ? checkerTexture : mainTexture;
+                inputBgMesh.scale.set(16, 9, 1);
+            }
+            inputBgMesh.material.needsUpdate = true;
+        }
+
+        function toggleCheckerPattern() { 
+            isCheckerActive = !isCheckerActive; 
+            document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; 
+            document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; 
+            updateAllTextures(); broadcastSync(); 
+        }
         
         function updateAllTextures() {
-            const tex = isCheckerActive ? checkerTexture : mainTexture;
-            if(inputBgMesh) { inputBgMesh.material.map = tex; inputBgMesh.material.needsUpdate = true; }
-            layers.forEach(l => { 
-                if(!l.isMask) {
-                    l.mesh.material.map = tex; 
-                    l.mesh.material.needsUpdate = true; 
-                    if(isCheckerActive) l.resetUVsToFull(); else l.updateUVs(); 
-                }
-            });
+            layers.forEach(l => l.updateTexture());
+            updateInputBackground();
         }
 
         function togglePresentationMode() {
@@ -762,32 +925,6 @@
             if(isProjectorMode) return;
             isPanMode = !isPanMode; const btn = document.getElementById('pan-toggle');
             if(isPanMode) btn.classList.add('active'); else btn.classList.remove('active');
-        }
-
-        function snapBody(layer, delta) {
-            const pts = mode === 'OUTPUT' ? layer.outPoints : layer.inPoints;
-            let bestDelta = delta.clone(); let minDist = config.snapDist; let snapped = false; let snapPoint = new THREE.Vector3();
-            for(let p of pts) {
-                if(!p.isCorner) continue;
-                const predictedPos = p.pos.clone().add(delta);
-                layers.forEach(other => {
-                    if(other.id === layer.id) return;
-                    const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
-                    otherPts.forEach(op => {
-                        if(predictedPos.distanceTo(op.pos) < minDist) {
-                            bestDelta.subVectors(op.pos, p.pos); minDist = predictedPos.distanceTo(op.pos); snapped = true; snapPoint.copy(op.pos);
-                        }
-                    });
-                });
-                if(snapped) break;
-            }
-            const ring = document.getElementById('snap-ring');
-            if(snapped && !isProjectorMode) {
-                const sp = snapPoint.clone().project(camera);
-                ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
-                ring.style.display = 'block';
-            } else { ring.style.display = 'none'; }
-            return bestDelta;
         }
 
         function getActiveLayer() { return layers.find(l => l.id === activeLayerId); }
@@ -837,7 +974,7 @@
                 if (insertIdx !== -1 && bestDist < 1.0) {
                     const group = mode === 'INPUT' ? l.inputGroup : l.outputGroup;
                     const newNode = new BezierNode(group, false, insertPos.toArray());
-                    newNode.toggleType(); // Smooth by default
+                    newNode.toggleType(); 
                     pts.splice(insertIdx, 0, newNode);
                     l.updateGeometry(); broadcastSync(); return; 
                 }
@@ -882,8 +1019,29 @@
 
             if (selectedPart === 'body') {
                 const delta = new THREE.Vector3().subVectors(wp, previousWorldPos);
-                const snapDelta = snapBody(selectedNode, delta);
-                selectedNode.moveBody(snapDelta); previousWorldPos.copy(wp);
+                
+                let bestDelta = delta.clone(); let minDist = config.snapDist; let snapped = false; let snapPoint = new THREE.Vector3();
+                const pts = mode === 'OUTPUT' ? selectedNode.outPoints : selectedNode.inPoints;
+                for(let p of pts) {
+                    if(!p.isCorner) continue;
+                    const predictedPos = p.pos.clone().add(delta);
+                    layers.forEach(other => {
+                        if(other.id === selectedNode.id) return;
+                        const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
+                        otherPts.forEach(op => {
+                            if(predictedPos.distanceTo(op.pos) < minDist) { bestDelta.subVectors(op.pos, p.pos); minDist = predictedPos.distanceTo(op.pos); snapped = true; snapPoint.copy(op.pos); }
+                        });
+                    });
+                    if(snapped) break;
+                }
+                const ring = document.getElementById('snap-ring');
+                if(snapped) {
+                    const sp = snapPoint.clone().project(camera);
+                    ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
+                    ring.style.display = 'block';
+                } else { ring.style.display = 'none'; }
+                
+                selectedNode.moveBody(bestDelta); previousWorldPos.copy(wp);
                 broadcastSync();
             } else {
                 let targetPos = new THREE.Vector3().addVectors(wp, dragStartOffset);
@@ -894,9 +1052,7 @@
                     layers.forEach(other => {
                         if(other.id === l.id) return;
                         const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
-                        otherPts.forEach(op => {
-                            if(targetPos.distanceTo(op.pos) < minDist) { minDist = targetPos.distanceTo(op.pos); snappedPos.copy(op.pos); snapped = true; }
-                        });
+                        otherPts.forEach(op => { if(targetPos.distanceTo(op.pos) < minDist) { minDist = targetPos.distanceTo(op.pos); snappedPos.copy(op.pos); snapped = true; } });
                     });
                     
                     const ring = document.getElementById('snap-ring');
@@ -991,7 +1147,9 @@
         function setMode(m) {
             mode = m; document.getElementById('mode-text').innerText = mode;
             document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
-            layers.forEach(l => l.updateVisibilityState()); if(!isProjectorMode) broadcastSync();
+            layers.forEach(l => l.updateVisibilityState()); 
+            updateInputBackground();
+            if(!isProjectorMode) broadcastSync();
         }
 
         function openProjectorWindow() {
@@ -1008,43 +1166,52 @@
         function loadState(d, shouldBroadcast = true) {
             while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld, ld.isMask))); activeLayerId = d.activeId; 
             layers.forEach(l => l.updateVisibilityState()); updateLayerList(); mode = isProjectorMode ? 'OUTPUT' : mode; 
+            updateInputBackground(); updateMediaUI();
             if(shouldBroadcast && !isProjectorMode) broadcastSync();
         }
-        function saveProject() { const d={version:"43.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v43.json"; a.click(); }
+        function saveProject() { const d={version:"44.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v44.json"; a.click(); }
         function loadProject(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(evt){ try{ const d=JSON.parse(evt.target.result); loadState(d); alert("Loaded!"); }catch(err){alert("Error");} }; r.readAsText(f); e.target.value=''; }
-        function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); activeLayerId = l.id; layers.forEach(ly => ly.updateVisibilityState()); updateLayerList(); setMode(mode); recordHistory(); broadcastSync(); }
-        function addNewMask() { 
-            const l = new Layer(layerCounter++, null, true); 
-            layers.push(l); 
-            activeLayerId = l.id; 
-            layers.forEach(ly => ly.updateVisibilityState()); 
+        
+        function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); setActiveLayer(l.id); recordHistory(); }
+        function addNewMask() { const l = new Layer(layerCounter++, null, true); layers.push(l); setActiveLayer(l.id); recordHistory(); }
+        function setActiveLayer(id) { 
+            activeLayerId=id; 
+            layers.forEach(l=>l.updateVisibilityState()); 
             updateLayerList(); 
-            setMode(mode); 
-            recordHistory(); 
+            updateInputBackground();
+            updateMediaUI();
             broadcastSync(); 
         }
-        function setActiveLayer(id) { activeLayerId=id; layers.forEach(l=>l.updateVisibilityState()); updateLayerList(); broadcastSync(); }
+        
         function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(); } }
         function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory(); broadcastSync(); } }
+        
         function updateLayerList() { 
-            const l=document.getElementById('layer-list'); 
-            l.innerHTML=''; 
+            const l=document.getElementById('layer-list'); l.innerHTML=''; 
             layers.forEach(ly=>{ 
-                const d=document.createElement('div'); 
-                d.className=`layer-item ${ly.id===activeLayerId?'active':''}`; 
+                const d=document.createElement('div'); d.className=`layer-item ${ly.id===activeLayerId?'active':''}`; 
                 const icon = ly.isMask ? '⬛' : '📺';
-                d.innerHTML=`<span>${icon} ${ly.name}</span>`; 
-                d.onclick=()=>setActiveLayer(ly.id); 
-                l.appendChild(d); 
+                d.innerHTML=`<span>${icon} ${ly.name}</span>`; d.onclick=()=>setActiveLayer(ly.id); l.appendChild(d); 
             }); 
         }
+        
         function togglePanel() { document.body.classList.toggle('panel-hidden'); }
         function onResize() { const a=window.innerWidth/window.innerHeight; const f=40; camera.left=-f*a/2; camera.right=f*a/2; camera.top=f/2; camera.bottom=-f/2; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
-        function animate() { requestAnimationFrame(animate); if(videoElement && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) { if(mainTexture) mainTexture.needsUpdate = true; } renderer.render(scene, camera); }
+        
+        function animate() { 
+            requestAnimationFrame(animate); 
+            let needRender = false;
+            layers.forEach(l => {
+                if(l.videoElement && l.videoElement.readyState >= l.videoElement.HAVE_CURRENT_DATA) {
+                    if(l.texture && l.texture instanceof THREE.VideoTexture) needRender = true; // Forcing loop
+                }
+            });
+            renderer.render(scene, camera); 
+        }
         
         function broadcastSync() {
             if (isProjectorMode) return;
-            channel.postMessage({ type: 'sync_state', state: { layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId }, videoSrc: videoElement.src || null });
+            channel.postMessage({ type: 'sync_state', state: { layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId } });
         }
 
         init(); 
