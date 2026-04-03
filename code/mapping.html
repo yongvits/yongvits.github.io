@@ -192,8 +192,9 @@
             <button class="mode-btn active" id="btn-output" onclick="setMode('OUTPUT')">OUTPUT (Mapping)</button>
         </div>
 
-        <div style="padding: 0 8px;">
-            <button class="btn btn-primary" onclick="addNewLayer()">➕ Add Screen</button>
+        <div style="padding: 0 8px; display: flex; gap: 5px;">
+            <button class="btn btn-primary" style="flex: 1;" onclick="addNewLayer()">➕ Add Screen</button>
+            <button class="btn btn-primary" style="flex: 1; background: linear-gradient(45deg, #ff3366, #cc0044); color: white;" onclick="addNewMask()">⬛ Add Mask</button>
         </div>
 
         <div id="layer-list"></div>
@@ -398,35 +399,42 @@
         }
 
         class Layer {
-            constructor(id, data = null) {
-                this.id = id; this.name = `Screen ${id}`;
+            constructor(id, data = null, isMask = false) {
+                this.id = id; 
+                this.isMask = data && data.isMask !== undefined ? data.isMask : isMask;
+                this.name = this.isMask ? `Mask ${id}` : `Screen ${id}`;
+                
                 this.outputGroup = new THREE.Group(); outputGroup.add(this.outputGroup);
                 this.inputGroup = new THREE.Group(); inputGroup.add(this.inputGroup);
                 
                 const geo = new THREE.PlaneGeometry(1, 1, config.segments, config.segments);
-                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide }));
+                
+                const outMat = this.isMask 
+                    ? new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }) 
+                    : new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide });
+                this.mesh = new THREE.Mesh(geo, outMat);
+                // ดัน z-index ของ mask ให้ลอยอยู่เหนือ screen เสมอ
+                this.mesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01); 
                 this.mesh.userData = { id: id, type: 'output_body' };
                 this.outputGroup.add(this.mesh);
 
-                this.inputMesh = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5, side: THREE.DoubleSide, map: null }));
+                const inMatColor = this.isMask ? 0xff0000 : 0xffff00;
+                this.inputMesh = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: inMatColor, transparent: true, opacity: 0.5, side: THREE.DoubleSide, map: null }));
+                this.inputMesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01);
                 this.inputMesh.userData = { id: id, type: 'input_body' };
                 this.inputGroup.add(this.inputMesh);
 
-                // ✅ FIX: แก้ไขเส้น Grid และ Wireframe ให้ลอยขึ้นมาบนสุด ไม่โดน Mesh บัง
-                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x00ffaa, opacity: 0.8, transparent: true, depthTest: false }));
-                this.outWire.renderOrder = 20;
+                const outWireColor = this.isMask ? 0xff3366 : 0x00ffaa;
+                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true }));
                 this.outputGroup.add(this.outWire);
 
-                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false }));
-                this.inWire.renderOrder = 20;
+                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
                 this.inputGroup.add(this.inWire);
                 
                 this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false }));
-                this.gridMesh.renderOrder = 20;
                 this.outputGroup.add(this.gridMesh);
                 
                 this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }));
-                this.inputGridMesh.renderOrder = 20;
                 this.inputGroup.add(this.inputGridMesh);
 
                 this.outPoints = []; this.inPoints = [];
@@ -508,6 +516,7 @@
             }
 
             updateUVs(inEdges = null) {
+                if(this.isMask) return; // Masks ไม่ต้องอัปเดต UV
                 if(isCheckerActive) return;
                 if(!inEdges) inEdges = this.getEdges(this.inPoints);
                 const bgW = inputBgMesh.scale.x; const bgH = inputBgMesh.scale.y;
@@ -534,6 +543,7 @@
             }
 
             resetUVsToFull() {
+                if(this.isMask) return;
                 const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
                 for(let i=0; i<uv.count; i++) { const ix = i%wVerts; const iy = Math.floor(i/wVerts); uv.setXY(i, ix/config.segments, 1-(iy/config.segments)); }
                 uv.needsUpdate = true;
@@ -581,11 +591,15 @@
                     this.inPoints.forEach(p => { p.mesh.visible = isActive && guidesOn; if(!guidesOn || !isActive) p.hideHandles(); });
                     
                     if(isActive) {
-                        this.inputMesh.material.opacity = 0.4; this.inputMesh.material.color.setHex(0x00ffaa);
-                        this.inWire.material.color.setHex(0x00ffaa); this.inputMesh.renderOrder = 10;
+                        this.inputMesh.material.opacity = 0.4; 
+                        this.inputMesh.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa);
+                        this.inWire.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa); 
+                        this.inputMesh.renderOrder = 10;
                     } else {
-                        this.inputMesh.material.opacity = 0.5; this.inputMesh.material.color.setHex(0x444444); 
-                        this.inWire.material.color.setHex(0xffffff); this.inputMesh.renderOrder = 0;
+                        this.inputMesh.material.opacity = 0.5; 
+                        this.inputMesh.material.color.setHex(this.isMask ? 0x880000 : 0x444444); 
+                        this.inWire.material.color.setHex(0xffffff); 
+                        this.inputMesh.renderOrder = 0;
                     }
                 }
             }
@@ -605,6 +619,7 @@
             toJSON() {
                 return {
                     id: this.id,
+                    isMask: this.isMask,
                     outPoints: this.outPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner })),
                     inPoints: this.inPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner }))
                 };
@@ -633,22 +648,19 @@
             setupPlaceholderSource(); 
             createCheckerTexture();
 
-            // ✅ FIX: ปรับ opacity เป็น 1.0 เพื่อให้รูปภาพและวิดีโอแสดงผลได้อย่างชัดเจนเต็มที่ในหน้า Input
-            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 1.0, transparent: true }));
+            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 0.5, transparent: true }));
             inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); inputGroup.add(inputBgMesh);
 
             if (isProjectorMode) {
                 document.body.classList.add('projector-mode'); document.body.classList.add('presentation-mode');
                 appStarted = true; showGuides = false; mode = 'OUTPUT';
-                inputGroup.visible = false; // ป้องกันพื้นหลังหลุดไปโชว์ในจอโปรเจคเตอร์
-                
                 channel.onmessage = (event) => {
                     const msg = event.data;
                     if(msg.type === 'sync_state') {
                         loadState(msg.state, false);
                         if(msg.videoSrc && videoElement.src !== msg.videoSrc) {
                             videoElement.src = msg.videoSrc; videoElement.play().catch(e=>{});
-                            mainTexture = new THREE.VideoTexture(videoElement); mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBAFormat;
+                            mainTexture = new THREE.VideoTexture(videoElement); mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
                             updateAllTextures();
                         }
                     }
@@ -704,56 +716,38 @@
         function handleUpload(e) {
             const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
-            
-            // ✅ FIX: แก้ไขวิธีโหลดรูปภาพและวิดีโอให้เสถียร 100%
             if (file.type.indexOf('image') !== -1) {
                 videoElement.pause();
-                const img = new Image();
-                img.onload = () => {
-                    sourceAspectRatio = img.width / img.height; updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose(); 
-                    mainTexture = new THREE.Texture(img); 
-                    mainTexture.needsUpdate = true;
-                    mainTexture.minFilter = THREE.LinearFilter;
-                    
-                    // ปิดลายตารางหมารุกอัตโนมัติเพื่อให้เห็นรูปชัดเจน
-                    if(isCheckerActive) toggleCheckerPattern();
-                    else updateAllTextures();
-                    broadcastSync();
-                };
-                img.src = url;
+                new THREE.TextureLoader().load(url, (tex) => {
+                    sourceAspectRatio = tex.image.width / tex.image.height; updateInputBgAspect();
+                    if(mainTexture) mainTexture.dispose(); mainTexture = tex; mainTexture.minFilter = THREE.LinearFilter;
+                    updateAllTextures(); broadcastSync();
+                });
             } else if (file.type.indexOf('video') !== -1) {
                 videoElement.src = url;
-                videoElement.load();
                 videoElement.play().catch(err => console.log('Autoplay prevented:', err));
                 videoElement.onloadedmetadata = function() {
                     sourceAspectRatio = this.videoWidth / this.videoHeight; updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose(); 
-                    mainTexture = new THREE.VideoTexture(videoElement);
-                    mainTexture.minFilter = THREE.LinearFilter; 
-                    mainTexture.format = THREE.RGBAFormat; // ป้องกันปัญหาวิดีโอจอดำในบางเบราว์เซอร์
-                    
-                    // ปิดลายตารางหมากรุกอัตโนมัติ
-                    if(isCheckerActive) toggleCheckerPattern();
-                    else updateAllTextures();
-                    broadcastSync();
+                    if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.VideoTexture(videoElement);
+                    mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
+                    updateAllTextures(); broadcastSync();
                 };
             } e.target.value = '';
         }
 
         function updateInputBgAspect() { inputBgMesh.scale.set(16, 16 / sourceAspectRatio, 1); }
-        
-        function toggleCheckerPattern() { 
-            isCheckerActive = !isCheckerActive; 
-            document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; 
-            document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; 
-            updateAllTextures(); broadcastSync(); 
-        }
+        function toggleCheckerPattern() { isCheckerActive = !isCheckerActive; document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; updateAllTextures(); broadcastSync(); }
         
         function updateAllTextures() {
             const tex = isCheckerActive ? checkerTexture : mainTexture;
             if(inputBgMesh) { inputBgMesh.material.map = tex; inputBgMesh.material.needsUpdate = true; }
-            layers.forEach(l => { l.mesh.material.map = tex; l.mesh.material.needsUpdate = true; if(isCheckerActive) l.resetUVsToFull(); else l.updateUVs(); });
+            layers.forEach(l => { 
+                if(!l.isMask) {
+                    l.mesh.material.map = tex; 
+                    l.mesh.material.needsUpdate = true; 
+                    if(isCheckerActive) l.resetUVsToFull(); else l.updateUVs(); 
+                }
+            });
         }
 
         function togglePresentationMode() {
@@ -811,7 +805,6 @@
 
             const l = getActiveLayer(); if(!l) return;
             
-            // 1. Check Points
             const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
             const hitTargets = []; pts.forEach(p => { hitTargets.push(p.hit, p.ctrl1.children[0], p.ctrl2.children[0]); });
             const hits = raycaster.intersectObjects(hitTargets);
@@ -828,7 +821,6 @@
                 return;
             }
 
-            // 2. Double Tap Line -> Add Point
             if (isDoubleTap) {
                 let bestDist = Infinity; let insertIdx = -1; let insertPos = null;
                 for(let i=0; i<pts.length; i++) {
@@ -851,7 +843,6 @@
                 }
             }
 
-            // 3. Check Body
             const bodies = [];
             if(mode === 'OUTPUT') bodies.push(...layers.map(ly => ly.mesh));
             else if(mode === 'INPUT') bodies.push(...layers.map(ly => ly.inputMesh)); 
@@ -864,7 +855,6 @@
                 if(l && l !== hitLayer) l.clearSelection();
                 previousWorldPos.copy(wp);
             } else {
-                // Remote Control
                 if (selectedNode && selectedPart !== 'body' && l) {
                     isDragging = true; 
                     const wPos = new THREE.Vector3();
@@ -900,7 +890,6 @@
                 if(mode === 'INPUT') targetPos = l.inputMesh.worldToLocal(targetPos);
 
                 if (selectedPart === 'main') {
-                    // Snap
                     let snappedPos = targetPos.clone(); let minDist = config.snapDist; let snapped = false;
                     layers.forEach(other => {
                         if(other.id === l.id) return;
@@ -918,7 +907,6 @@
                         ring.style.display = 'block'; targetPos.copy(snappedPos);
                     } else { ring.style.display = 'none'; }
 
-                    // Merge check
                     if (!selectedNode.isCorner) {
                         const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
                         const idx = pts.indexOf(selectedNode);
@@ -1003,10 +991,6 @@
         function setMode(m) {
             mode = m; document.getElementById('mode-text').innerText = mode;
             document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
-            
-            // ✅ FIX: ซ่อนภาพ Background (global inputGroup) เมื่ออยู่ในหน้าจอ OUTPUT
-            if (m === 'INPUT') { inputGroup.visible = true; } else { inputGroup.visible = false; }
-
             layers.forEach(l => l.updateVisibilityState()); if(!isProjectorMode) broadcastSync();
         }
 
@@ -1022,17 +1006,38 @@
         function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1])); broadcastSync(); }
         function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n)); broadcastSync(); }
         function loadState(d, shouldBroadcast = true) {
-            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld))); activeLayerId = d.activeId; 
+            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld, ld.isMask))); activeLayerId = d.activeId; 
             layers.forEach(l => l.updateVisibilityState()); updateLayerList(); mode = isProjectorMode ? 'OUTPUT' : mode; 
             if(shouldBroadcast && !isProjectorMode) broadcastSync();
         }
         function saveProject() { const d={version:"43.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v43.json"; a.click(); }
         function loadProject(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(evt){ try{ const d=JSON.parse(evt.target.result); loadState(d); alert("Loaded!"); }catch(err){alert("Error");} }; r.readAsText(f); e.target.value=''; }
         function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); activeLayerId = l.id; layers.forEach(ly => ly.updateVisibilityState()); updateLayerList(); setMode(mode); recordHistory(); broadcastSync(); }
+        function addNewMask() { 
+            const l = new Layer(layerCounter++, null, true); 
+            layers.push(l); 
+            activeLayerId = l.id; 
+            layers.forEach(ly => ly.updateVisibilityState()); 
+            updateLayerList(); 
+            setMode(mode); 
+            recordHistory(); 
+            broadcastSync(); 
+        }
         function setActiveLayer(id) { activeLayerId=id; layers.forEach(l=>l.updateVisibilityState()); updateLayerList(); broadcastSync(); }
         function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(); } }
         function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory(); broadcastSync(); } }
-        function updateLayerList() { const l=document.getElementById('layer-list'); l.innerHTML=''; layers.forEach(ly=>{ const d=document.createElement('div'); d.className=`layer-item ${ly.id===activeLayerId?'active':''}`; d.innerHTML=`<span>${ly.name}</span>`; d.onclick=()=>setActiveLayer(ly.id); l.appendChild(d); }); }
+        function updateLayerList() { 
+            const l=document.getElementById('layer-list'); 
+            l.innerHTML=''; 
+            layers.forEach(ly=>{ 
+                const d=document.createElement('div'); 
+                d.className=`layer-item ${ly.id===activeLayerId?'active':''}`; 
+                const icon = ly.isMask ? '⬛' : '📺';
+                d.innerHTML=`<span>${icon} ${ly.name}</span>`; 
+                d.onclick=()=>setActiveLayer(ly.id); 
+                l.appendChild(d); 
+            }); 
+        }
         function togglePanel() { document.body.classList.toggle('panel-hidden'); }
         function onResize() { const a=window.innerWidth/window.innerHeight; const f=40; camera.left=-f*a/2; camera.right=f*a/2; camera.top=f/2; camera.bottom=-f/2; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
         function animate() { requestAnimationFrame(animate); if(videoElement && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) { if(mainTexture) mainTexture.needsUpdate = true; } renderer.render(scene, camera); }
