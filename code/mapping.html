@@ -412,16 +412,21 @@
                 this.inputMesh.userData = { id: id, type: 'input_body' };
                 this.inputGroup.add(this.inputMesh);
 
-                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x00ffaa, opacity: 0.8, transparent: true }));
+                // ✅ FIX: แก้ไขเส้น Grid และ Wireframe ให้ลอยขึ้นมาบนสุด ไม่โดน Mesh บัง
+                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x00ffaa, opacity: 0.8, transparent: true, depthTest: false }));
+                this.outWire.renderOrder = 20;
                 this.outputGroup.add(this.outWire);
 
-                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
+                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false }));
+                this.inWire.renderOrder = 20;
                 this.inputGroup.add(this.inWire);
                 
                 this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false }));
+                this.gridMesh.renderOrder = 20;
                 this.outputGroup.add(this.gridMesh);
                 
                 this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }));
+                this.inputGridMesh.renderOrder = 20;
                 this.inputGroup.add(this.inputGridMesh);
 
                 this.outPoints = []; this.inPoints = [];
@@ -628,19 +633,22 @@
             setupPlaceholderSource(); 
             createCheckerTexture();
 
-            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 0.5, transparent: true }));
+            // ✅ FIX: ปรับ opacity เป็น 1.0 เพื่อให้รูปภาพและวิดีโอแสดงผลได้อย่างชัดเจนเต็มที่ในหน้า Input
+            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 1.0, transparent: true }));
             inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); inputGroup.add(inputBgMesh);
 
             if (isProjectorMode) {
                 document.body.classList.add('projector-mode'); document.body.classList.add('presentation-mode');
                 appStarted = true; showGuides = false; mode = 'OUTPUT';
+                inputGroup.visible = false; // ป้องกันพื้นหลังหลุดไปโชว์ในจอโปรเจคเตอร์
+                
                 channel.onmessage = (event) => {
                     const msg = event.data;
                     if(msg.type === 'sync_state') {
                         loadState(msg.state, false);
                         if(msg.videoSrc && videoElement.src !== msg.videoSrc) {
                             videoElement.src = msg.videoSrc; videoElement.play().catch(e=>{});
-                            mainTexture = new THREE.VideoTexture(videoElement); mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
+                            mainTexture = new THREE.VideoTexture(videoElement); mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBAFormat;
                             updateAllTextures();
                         }
                     }
@@ -673,7 +681,6 @@
         function initVideoElement() {
             videoElement = document.createElement('video'); videoElement.crossOrigin = "anonymous";
             videoElement.loop = true; 
-            // V43: ต้องตั้งค่า muted เพื่อให้สามารถเล่นอัตโนมัติบนมือถือได้
             videoElement.muted = true; 
             videoElement.playsInline = true; videoElement.style.display = 'none';
             document.body.appendChild(videoElement);
@@ -697,28 +704,52 @@
         function handleUpload(e) {
             const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
+            
+            // ✅ FIX: แก้ไขวิธีโหลดรูปภาพและวิดีโอให้เสถียร 100%
             if (file.type.indexOf('image') !== -1) {
                 videoElement.pause();
-                new THREE.TextureLoader().load(url, (tex) => {
-                    sourceAspectRatio = tex.image.width / tex.image.height; updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose(); mainTexture = tex; mainTexture.minFilter = THREE.LinearFilter;
-                    updateAllTextures(); broadcastSync();
-                });
+                const img = new Image();
+                img.onload = () => {
+                    sourceAspectRatio = img.width / img.height; updateInputBgAspect();
+                    if(mainTexture) mainTexture.dispose(); 
+                    mainTexture = new THREE.Texture(img); 
+                    mainTexture.needsUpdate = true;
+                    mainTexture.minFilter = THREE.LinearFilter;
+                    
+                    // ปิดลายตารางหมารุกอัตโนมัติเพื่อให้เห็นรูปชัดเจน
+                    if(isCheckerActive) toggleCheckerPattern();
+                    else updateAllTextures();
+                    broadcastSync();
+                };
+                img.src = url;
             } else if (file.type.indexOf('video') !== -1) {
                 videoElement.src = url;
-                // V43: พยายามเล่น VDO ทันทีที่อัปโหลดเสร็จ
+                videoElement.load();
                 videoElement.play().catch(err => console.log('Autoplay prevented:', err));
                 videoElement.onloadedmetadata = function() {
                     sourceAspectRatio = this.videoWidth / this.videoHeight; updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.VideoTexture(videoElement);
-                    mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
-                    updateAllTextures(); broadcastSync();
+                    if(mainTexture) mainTexture.dispose(); 
+                    mainTexture = new THREE.VideoTexture(videoElement);
+                    mainTexture.minFilter = THREE.LinearFilter; 
+                    mainTexture.format = THREE.RGBAFormat; // ป้องกันปัญหาวิดีโอจอดำในบางเบราว์เซอร์
+                    
+                    // ปิดลายตารางหมากรุกอัตโนมัติ
+                    if(isCheckerActive) toggleCheckerPattern();
+                    else updateAllTextures();
+                    broadcastSync();
                 };
             } e.target.value = '';
         }
 
         function updateInputBgAspect() { inputBgMesh.scale.set(16, 16 / sourceAspectRatio, 1); }
-        function toggleCheckerPattern() { isCheckerActive = !isCheckerActive; document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; updateAllTextures(); broadcastSync(); }
+        
+        function toggleCheckerPattern() { 
+            isCheckerActive = !isCheckerActive; 
+            document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; 
+            document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; 
+            updateAllTextures(); broadcastSync(); 
+        }
+        
         function updateAllTextures() {
             const tex = isCheckerActive ? checkerTexture : mainTexture;
             if(inputBgMesh) { inputBgMesh.material.map = tex; inputBgMesh.material.needsUpdate = true; }
@@ -869,7 +900,7 @@
                 if(mode === 'INPUT') targetPos = l.inputMesh.worldToLocal(targetPos);
 
                 if (selectedPart === 'main') {
-                    // Snap to other screens
+                    // Snap
                     let snappedPos = targetPos.clone(); let minDist = config.snapDist; let snapped = false;
                     layers.forEach(other => {
                         if(other.id === l.id) return;
@@ -887,7 +918,7 @@
                         ring.style.display = 'block'; targetPos.copy(snappedPos);
                     } else { ring.style.display = 'none'; }
 
-                    // V43 FIX: Better Merge (Delete) logic
+                    // Merge check
                     if (!selectedNode.isCorner) {
                         const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
                         const idx = pts.indexOf(selectedNode);
@@ -899,13 +930,9 @@
                         else if (targetPos.distanceTo(next.pos) < config.mergeDist) { targetPos.copy(next.pos); nodeToMerge = selectedNode; isMerging = true; }
                         else { nodeToMerge = null; }
                         
-                        // Visual feedback for merging
                         selectedNode.mesh.userData.isMerging = isMerging;
-                        if(isMerging) {
-                            selectedNode.mesh.scale.set(0.8, 0.8, 1);
-                        } else {
-                            selectedNode.mesh.scale.set(1.5, 1.5, 1);
-                        }
+                        if(isMerging) selectedNode.mesh.scale.set(0.8, 0.8, 1);
+                        else selectedNode.mesh.scale.set(1.5, 1.5, 1);
                     }
                     selectedNode.setPos(targetPos);
                 } else if (selectedPart === 'ctrl1') {
@@ -930,7 +957,6 @@
             isDragging=false; isGesture=false; isHistoryPaused=false; recordHistory(); document.getElementById('snap-ring').style.display='none'; broadcastSync(); 
         }
 
-        // --- MOBILE GESTURES ---
         function onTouchStart(e) {
             if(document.body.classList.contains('presentation-mode')) return;
             if (e.touches.length === 2 && (mode==='INPUT' || showGuides)) { 
@@ -977,6 +1003,10 @@
         function setMode(m) {
             mode = m; document.getElementById('mode-text').innerText = mode;
             document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
+            
+            // ✅ FIX: ซ่อนภาพ Background (global inputGroup) เมื่ออยู่ในหน้าจอ OUTPUT
+            if (m === 'INPUT') { inputGroup.visible = true; } else { inputGroup.visible = false; }
+
             layers.forEach(l => l.updateVisibilityState()); if(!isProjectorMode) broadcastSync();
         }
 
