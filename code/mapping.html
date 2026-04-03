@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>MR Mapping v37.1 (Restore Fix)</title>
+    <title>MR Mapping v39 (Curve & Master Snap)</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background-color: #050505; 
@@ -12,34 +12,26 @@
         }
         canvas { display: block; outline: none; }
         
-        /* RESTORE OVERLAY: Only visible in Presentation Mode */
+        /* RESTORE OVERLAY: แผ่นใสสำหรับรับสัมผัสตอนซ่อน UI */
         #restore-overlay {
-            display: none; /* Hidden by default */
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 9999; /* Top most */
-            background: transparent; /* Invisible */
-            cursor: pointer;
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; background: transparent; cursor: pointer;
         }
         
-        /* UI Panel */
         #ui-panel {
-            position: absolute; top: 0; left: 0; width: 240px; 
-            height: 100vh;
+            position: absolute; top: 0; left: 0; width: 240px; height: 100vh;
             background: rgba(15, 15, 15, 0.95); border-right: 1px solid #333;
             color: #ccc; z-index: 100; display: flex; flex-direction: column;
             transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             backdrop-filter: blur(15px); pointer-events: auto;
         }
         
-        .header { 
-            padding: 60px 15px 15px 15px; 
-            background: rgba(25, 25, 25, 0.8); border-bottom: 1px solid #444; 
-        }
+        .header { padding: 60px 15px 15px 15px; background: rgba(25, 25, 25, 0.8); border-bottom: 1px solid #444; }
         h1 { margin: 0; font-size: 16px; color: #00ffaa; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; }
         
         #start-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 9999;
+            background: rgba(0,0,0,0.9); z-index: 10000;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             color: white; cursor: pointer;
         }
@@ -73,14 +65,12 @@
         .btn-tool { background: #333; border: 1px solid #555; }
 
         .top-bar { 
-            position: absolute; top: 10px; left: 10px; z-index: 200; 
-            display: flex; gap: 6px; 
+            position: absolute; top: 10px; left: 10px; z-index: 200; display: flex; gap: 6px; 
             background: rgba(0,0,0,0.5); padding: 4px; border-radius: 8px; backdrop-filter: blur(5px);
         }
         .top-bar .btn {
-            background: rgba(50,50,50,0.9); border: 1px solid #666; 
-            width: 32px; height: 32px; border-radius: 6px; margin: 0; font-size: 14px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5); padding: 0;
+            background: rgba(50,50,50,0.9); border: 1px solid #666; width: 32px; height: 32px; 
+            border-radius: 6px; margin: 0; font-size: 14px; padding: 0;
         }
         
         .panel-hidden #ui-panel { transform: translateX(-100%); }
@@ -95,63 +85,72 @@
         
         .zoom-controls { position: absolute; bottom: 20px; right: 15px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
         .zoom-btn {
-            width: 40px; height: 40px; border-radius: 50%; 
-            background: rgba(30,30,30,0.8); border: 1px solid #555; color: white;
-            font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3); backdrop-filter: blur(5px); transition: 0.2s;
+            width: 40px; height: 40px; border-radius: 50%; background: rgba(30,30,30,0.8); 
+            border: 1px solid #555; color: white; font-size: 18px; cursor: pointer;
+            backdrop-filter: blur(5px); transition: 0.2s;
         }
 
-        /* Guides Toggle Switch */
+        .right-toggles { position: absolute; top: 15px; right: 15px; z-index: 200; display: flex; gap: 10px; }
+        
         .switch-container {
-            position: absolute; top: 15px; right: 15px; z-index: 201; /* Higher than others */
-            display: flex; align-items: center; gap: 8px;
-            background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 20px;
-            backdrop-filter: blur(5px); border: 1px solid #444; height: 30px;
-            cursor: pointer;
+            display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.6); 
+            padding: 5px 10px; border-radius: 20px; backdrop-filter: blur(5px); border: 1px solid #444; height: 30px; cursor: pointer;
         }
         .switch-label { color: #aaa; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-        .switch-btn {
-            width: 30px; height: 16px; background: #333; border-radius: 8px;
-            position: relative; transition: 0.3s;
-        }
+        .switch-btn { width: 30px; height: 16px; background: #333; border-radius: 8px; position: relative; transition: 0.3s; }
         .switch-btn::after {
-            content: ''; position: absolute; top: 2px; left: 2px;
-            width: 12px; height: 12px; background: #888; border-radius: 50%;
-            transition: 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; 
+            background: #888; border-radius: 50%; transition: 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
         .switch-btn.active { background: #00ffaa; }
         .switch-btn.active::after { left: 16px; background: #fff; }
 
-        .row { display: flex; gap: 5px; }
+        .tool-btn {
+            width: 42px; height: 42px; border-radius: 8px; background: rgba(30,30,30,0.8); 
+            border: 1px solid #555; color: #fff; font-size: 20px; cursor: pointer; transition: 0.2s;
+        }
+        .tool-btn.active { background: #00aaff; border-color: #0088cc; }
+        .tool-btn.cast { background: #ff3366; border-color: #cc0044; }
 
-        /* Presentation Mode Hides */
+        #snap-ring {
+            position: absolute; width: 40px; height: 40px; border: 2px solid #fff; border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 1000; 
+            box-shadow: 0 0 15px rgba(255,255,255,0.8);
+        }
+
+        .row { display: flex; gap: 5px; }
+        
+        #sync-indicator {
+            position: absolute; bottom: 10px; left: 10px; z-index: 999;
+            color: #00ffaa; font-size: 10px; background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px;
+            display: none; font-weight: bold; text-transform: uppercase;
+        }
+
+        /* PRESENTATION MODE CSS (ซ่อนทุกอย่าง) */
         body.presentation-mode #ui-panel,
         body.presentation-mode .top-bar,
-        body.presentation-mode .switch-container,
+        body.presentation-mode .right-toggles,
         body.presentation-mode .zoom-controls,
         body.presentation-mode .mode-indicator,
         body.presentation-mode #snap-ring {
             display: none !important;
         }
-        
-        /* Show Restore Overlay when in Presentation Mode */
-        body.presentation-mode #restore-overlay {
-            display: block !important;
-        }
+        body.presentation-mode #restore-overlay { display: block !important; } /* เปิดแผ่นใสรับแตะ */
+        body.projector-mode { cursor: none; }
+        body.projector-mode #start-overlay { display: none !important; }
     </style>
 </head>
 <body>
 
-    <!-- Full screen transparent layer to catch tap when UI is hidden -->
     <div id="restore-overlay" onclick="togglePresentationMode()"></div>
 
     <div id="start-overlay" onclick="startApp()">
-        <h2>MR MAPPING v37.1</h2>
-        <p>▶ Click to Start</p>
+        <h2>MR MAPPING v39</h2>
+        <p>▶ Click to Start (Controller)</p>
     </div>
     
-    <div id="snap-ring" style="position: absolute; width: 30px; height: 30px; border: 3px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 1000; box-shadow: 0 0 15px #fff;"></div>
-
+    <div id="sync-indicator">📡 SYNC ACTIVE</div>
+    <div id="snap-ring"></div>
     <div class="mode-indicator" id="mode-text">OUTPUT</div>
 
     <div class="top-bar">
@@ -160,10 +159,13 @@
         <button class="btn btn-tool" onclick="redo()">↪</button>
     </div>
 
-    <!-- Switch for Presentation Mode -->
-    <div class="switch-container" onclick="togglePresentationMode(event)">
-        <span class="switch-label">GUIDES</span>
-        <div class="switch-btn active" id="vis-switch"></div>
+    <div class="right-toggles">
+        <button class="tool-btn cast" onclick="openProjectorWindow()" title="Open Projector Window">🖥️</button>
+        <button class="tool-btn" id="pan-toggle" onclick="togglePanMode()" title="Pan View">✋</button>
+        <div class="switch-container" onclick="togglePresentationMode()">
+            <span class="switch-label">GUIDES</span>
+            <div class="switch-btn active" id="vis-switch"></div>
+        </div>
     </div>
 
     <div class="zoom-controls">
@@ -175,7 +177,7 @@
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>MR Mapping</h1>
-                <span style="font-size:10px; color:#666">v37.1 Restore Fix</span>
+                <span style="font-size:10px; color:#666">v39.0 Master Curve</span>
             </div>
         </div>
 
@@ -207,8 +209,10 @@
             </div>
             
             <div style="margin-top:8px; font-size:9px; color:#555; text-align:center;">
-                Toggle Guides to Hide UI.<br>
-                Tap screen to Restore.
+                <b>2x แตะเส้น:</b> เพิ่มจุดดัดโค้ง<br>
+                <b>2x แตะจุด:</b> สลับ โค้ง/เหลี่ยม<br>
+                <b>ลากชนจุดเดิม:</b> ลบจุด<br>
+                แตะจอเพื่อคืนเมนูตอนซ่อน
             </div>
         </div>
     </div>
@@ -216,7 +220,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        const config = { segments: 20, snapDist: 0.5 };
+        const config = { segments: 24, snapDist: 0.6 }; // จำนวน Segment ยิ่งเยอะโค้งยิ่งเนียน
         let mode = 'OUTPUT';
         let layers = [];
         let activeLayerId = null;
@@ -229,34 +233,346 @@
         let showGuides = true;
         let isPanMode = false;
         
-        let scene, camera, renderer, raycaster, mouse, inputGroup, inputBgMesh;
-        
+        // --- BROADCAST CHANNEL SYNC ---
+        const channel = new BroadcastChannel('mr_mapping_sync_v39');
+        let isProjectorMode = new URLSearchParams(window.location.search).get('projector') === 'true';
+
+        let scene, camera, renderer, raycaster, mouse, inputGroup, outputGroup, inputBgMesh;
         let historyStack = []; let redoStack = []; let isHistoryPaused = false;
 
-        let isDragging = false, isGesture = false, selectedObject = null;
-        let activeHandle = null; 
-        let dragStartPos = new THREE.Vector3(); 
+        let isDragging = false, isGesture = false, selectedNode = null, selectedPart = null;
+        let dragStartOffset = new THREE.Vector3(); 
         let previousWorldPos = new THREE.Vector3(); 
         let planeNormal = new THREE.Vector3(0, 0, 1);
         let panStart = new THREE.Vector2();
-        
-        let gestureStartDist = 0, gestureStartAngle = 0;
-        let gestureStartCenter = new THREE.Vector3();
-        let gestureStartHandlePositions = [];
         let lastTapTime = 0;
+        let nodeToMerge = null;
 
+        // --- MATH: Cubic Bezier ---
+        function cubicBezier(p0, p1, p2, p3, t) {
+            const mt = 1 - t, mt2 = mt * mt, t2 = t * t;
+            const a = mt2 * mt, b = mt2 * t * 3, c = mt * t2 * 3, d = t * t2;
+            return new THREE.Vector3(
+                a*p0.x + b*p1.x + c*p2.x + d*p3.x,
+                a*p0.y + b*p1.y + c*p2.y + d*p3.y,
+                0
+            );
+        }
+
+        function evalEdgeBezier(pts, t) {
+            if (pts.length < 2) return pts[0].pos.clone();
+            const nSeg = pts.length - 1;
+            let scaledT = t * nSeg;
+            let i = Math.floor(scaledT);
+            if (i >= nSeg) { i = nSeg - 1; scaledT = nSeg; }
+            let localT = scaledT - i;
+
+            const n0 = pts[i], n1 = pts[i+1];
+            const p0 = n0.pos;
+            const p1 = new THREE.Vector3().addVectors(n0.pos, n0.h2); // Outgoing handle
+            const p2 = new THREE.Vector3().addVectors(n1.pos, n1.h1); // Incoming handle
+            const p3 = n1.pos;
+
+            return cubicBezier(p0, p1, p2, p3, localT);
+        }
+
+        // --- CLASSES ---
+        class BezierNode {
+            constructor(group, isCorner, posArray) {
+                this.pos = new THREE.Vector3().fromArray(posArray);
+                this.h1 = new THREE.Vector3(); // Offset ไปหาจุดก่อนหน้า
+                this.h2 = new THREE.Vector3(); // Offset ไปหาจุดถัดไป
+                this.type = 'linear'; // 'linear' | 'smooth'
+                this.isCorner = isCorner;
+                this.group = group;
+                
+                // จุดหลัก
+                const geo = isCorner ? new THREE.PlaneGeometry(0.5, 0.5) : new THREE.CircleGeometry(0.3, 16);
+                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false }));
+                this.hit = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({visible:false}));
+                this.mesh.add(this.hit);
+                
+                // ก้านควบคุม (Handles)
+                this.ctrl1 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+                const hitC1 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
+                this.ctrl1.add(hitC1);
+                
+                this.ctrl2 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+                const hitC2 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
+                this.ctrl2.add(hitC2);
+                
+                this.lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+                this.line1 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
+                this.line2 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
+                
+                // ชี้กลับมาที่ Class
+                this.hit.userData = { node: this, part: 'main' };
+                hitC1.userData = { node: this, part: 'ctrl1' };
+                hitC2.userData = { node: this, part: 'ctrl2' };
+                
+                this.mesh.renderOrder = 1000; this.ctrl1.renderOrder = 1001; this.ctrl2.renderOrder = 1001;
+                group.add(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2);
+                this.updateVisuals();
+            }
+
+            updateVisuals() {
+                this.mesh.position.copy(this.pos);
+                if(this.type === 'linear') {
+                    this.h1.set(0,0,0); this.h2.set(0,0,0);
+                    this.hideHandles();
+                } else {
+                    this.ctrl1.position.copy(this.pos).add(this.h1);
+                    this.ctrl2.position.copy(this.pos).add(this.h2);
+                    this.line1.geometry.setFromPoints([this.pos, this.ctrl1.position]);
+                    this.line2.geometry.setFromPoints([this.pos, this.ctrl2.position]);
+                }
+                this.mesh.material.color.setHex(this.type === 'linear' ? 0xffcc00 : 0x00aaff);
+            }
+
+            showHandles() {
+                if(this.type !== 'linear') {
+                    this.ctrl1.visible = true; this.ctrl2.visible = true;
+                    this.line1.visible = true; this.line2.visible = true;
+                }
+            }
+
+            hideHandles() {
+                this.ctrl1.visible = false; this.ctrl2.visible = false;
+                this.line1.visible = false; this.line2.visible = false;
+            }
+
+            setPos(p) { this.pos.copy(p); this.updateVisuals(); }
+            
+            setCtrl1(p) { 
+                this.h1.subVectors(p, this.pos); 
+                if(this.type === 'smooth') this.h2.copy(this.h1).multiplyScalar(-1); // Mirror
+                this.updateVisuals(); 
+            }
+            
+            setCtrl2(p) { 
+                this.h2.subVectors(p, this.pos); 
+                if(this.type === 'smooth') this.h1.copy(this.h2).multiplyScalar(-1); // Mirror
+                this.updateVisuals(); 
+            }
+
+            toggleType() {
+                this.type = this.type === 'linear' ? 'smooth' : 'linear';
+                if(this.type === 'smooth') {
+                    // กางแขนออกเป็นค่าเริ่มต้น
+                    this.h1.set(-0.5, 0, 0); this.h2.set(0.5, 0, 0); 
+                }
+                this.updateVisuals();
+            }
+
+            destroy() {
+                this.group.remove(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2);
+            }
+        }
+
+        class Layer {
+            constructor(id, data = null) {
+                this.id = id; this.name = `Screen ${id}`;
+                this.outputGroup = new THREE.Group(); outputGroup.add(this.outputGroup);
+                this.inputGroup = new THREE.Group(); inputGroup.add(this.inputGroup);
+                
+                const geo = new THREE.PlaneGeometry(1, 1, config.segments, config.segments);
+                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide }));
+                this.mesh.userData = { id: id, type: 'output_body' };
+                this.outputGroup.add(this.mesh);
+
+                this.inputMesh = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5, side: THREE.DoubleSide, map: null }));
+                this.inputMesh.userData = { id: id, type: 'input_body' };
+                this.inputGroup.add(this.inputMesh);
+
+                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x00ffaa, opacity: 0.8, transparent: true }));
+                this.outputGroup.add(this.outWire);
+
+                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
+                this.inputGroup.add(this.inWire);
+
+                if (data) this.loadFromData(data);
+                else this.initDefault();
+                
+                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+                this.updateVisibilityState();
+            }
+
+            initDefault() {
+                const w = 4; const h = 4*(9/16);
+                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]];
+                this.outPoints = corners.map(p => new BezierNode(this.outputGroup, true, p));
+                this.inPoints = corners.map(p => new BezierNode(this.inputGroup, true, p));
+                this.updateGeometry();
+            }
+
+            getEdges(pts) {
+                const corners = []; pts.forEach((p, i) => { if(p.isCorner) corners.push(i); });
+                const getSlice = (start, end) => {
+                    if(start < end) return pts.slice(start, end + 1);
+                    return [...pts.slice(start), pts[0]]; // Wrap around
+                };
+                return {
+                    T: getSlice(corners[0], corners[1]), // TL -> TR
+                    R: getSlice(corners[1], corners[2]), // TR -> BR
+                    B: getSlice(corners[2], corners[3]), // BR -> BL
+                    L: getSlice(corners[3], corners[0])  // BL -> TL
+                };
+            }
+
+            warpCoons(posAttribute, edges) {
+                const wVerts = config.segments + 1;
+                const cTL = edges.T[0].pos, cTR = edges.T[edges.T.length-1].pos;
+                const cBR = edges.B[0].pos, cBL = edges.B[edges.B.length-1].pos; // Wait, B edge is BR -> BL. So B[0] is BR, B[last] is BL.
+                
+                for(let i=0; i<posAttribute.count; i++) {
+                    const ix = i % wVerts; const iy = Math.floor(i / wVerts);
+                    const u = ix / config.segments; const v = 1 - (iy / config.segments); // v=0 is bottom, v=1 is top
+                    
+                    const ptTop = evalEdgeBezier(edges.T, u);
+                    const ptBot = evalEdgeBezier(edges.B, 1 - u); // B edge is BR(u=0) -> BL(u=1). We want u=0 to be BL.
+                    const ptLft = evalEdgeBezier(edges.L, v);     // L edge is BL(v=0) -> TL(v=1).
+                    const ptRgt = evalEdgeBezier(edges.R, 1 - v); // R edge is TR(v=0) -> BR(v=1). We want v=0 to be BR.
+                    
+                    // Standard Coons Bi-linear blending
+                    const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x 
+                            - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
+                    const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y 
+                            - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
+                    
+                    posAttribute.setXY(i, x, y, 0);
+                }
+                posAttribute.needsUpdate = true;
+            }
+
+            updateWire(wireMesh, edges) {
+                const wirePts = [];
+                const addEdge = (e) => { for(let i=0; i<=20; i++) wirePts.push(evalEdgeBezier(e, i/20)); };
+                addEdge(edges.T); addEdge(edges.R); addEdge(edges.B); addEdge(edges.L);
+                wireMesh.geometry.setFromPoints(wirePts);
+            }
+
+            updateGeometry() {
+                const outEdges = this.getEdges(this.outPoints);
+                this.warpCoons(this.mesh.geometry.attributes.position, outEdges);
+                this.updateWire(this.outWire, outEdges);
+                
+                const inEdges = this.getEdges(this.inPoints);
+                this.warpCoons(this.inputMesh.geometry.attributes.position, inEdges);
+                this.updateWire(this.inWire, inEdges);
+                
+                this.updateUVs(inEdges);
+            }
+
+            updateUVs(inEdges) {
+                if(isCheckerActive) return;
+                const bgW = inputBgMesh.scale.x; const bgH = inputBgMesh.scale.y;
+                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
+                
+                const cTL = inEdges.T[0].pos, cTR = inEdges.T[inEdges.T.length-1].pos;
+                const cBR = inEdges.B[0].pos, cBL = inEdges.B[inEdges.B.length-1].pos;
+
+                for(let i=0; i<uv.count; i++) {
+                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
+                     const u = ix / config.segments; const v = 1 - (iy / config.segments);
+                     
+                     const ptTop = evalEdgeBezier(inEdges.T, u);
+                     const ptBot = evalEdgeBezier(inEdges.B, 1 - u);
+                     const ptLft = evalEdgeBezier(inEdges.L, v);
+                     const ptRgt = evalEdgeBezier(inEdges.R, 1 - v);
+                     
+                     const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
+                     const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
+                     
+                     uv.setXY(i, (x+bgW/2)/bgW, (y+bgH/2)/bgH);
+                }
+                uv.needsUpdate = true;
+            }
+
+            resetUVsToFull() {
+                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
+                for(let i=0; i<uv.count; i++) { const ix = i%wVerts; const iy = Math.floor(i/wVerts); uv.setXY(i, ix/config.segments, 1-(iy/config.segments)); }
+                uv.needsUpdate = true;
+            }
+
+            moveBody(delta) {
+                const pts = mode === 'OUTPUT' ? this.outPoints : this.inPoints;
+                pts.forEach(p => p.setPos(p.pos.clone().add(delta)));
+                this.updateGeometry();
+            }
+
+            setSelection(node) {
+                [...this.outPoints, ...this.inPoints].forEach(n => {
+                    if(n === node) {
+                        n.mesh.scale.set(1.5, 1.5, 1);
+                        n.mesh.material.color.setHex(0xff3366); // Red
+                        n.showHandles();
+                    } else {
+                        n.mesh.scale.set(1, 1, 1);
+                        n.mesh.material.color.setHex(n.type === 'linear' ? 0xffcc00 : 0x00aaff);
+                        n.hideHandles();
+                    }
+                });
+            }
+            
+            clearSelection() { this.setSelection(null); }
+
+            updateVisibilityState() {
+                const isOutput = (mode === 'OUTPUT'); const isInput = (mode === 'INPUT');
+                const isActive = (this.id === activeLayerId);
+                const guidesOn = showGuides && !isProjectorMode;
+
+                this.outputGroup.visible = isOutput;
+                this.inputGroup.visible = isInput && !isProjectorMode;
+
+                this.outWire.visible = guidesOn;
+                this.outPoints.forEach(p => { p.mesh.visible = guidesOn; if(!guidesOn) p.hideHandles(); });
+                
+                if (isInput) {
+                    this.inWire.visible = guidesOn;
+                    this.inPoints.forEach(p => { p.mesh.visible = isActive && guidesOn; if(!guidesOn || !isActive) p.hideHandles(); });
+                    
+                    if(isActive) {
+                        this.inputMesh.material.opacity = 0.4; this.inputMesh.material.color.setHex(0x00ffaa);
+                        this.inWire.material.color.setHex(0x00ffaa); this.inputMesh.renderOrder = 10;
+                    } else {
+                        // V39: High Vis for inactive
+                        this.inputMesh.material.opacity = 0.5; this.inputMesh.material.color.setHex(0x444444); 
+                        this.inWire.material.color.setHex(0xffffff); this.inputMesh.renderOrder = 0;
+                    }
+                }
+            }
+
+            loadFromData(data) {
+                if(this.outPoints) { this.outPoints.forEach(p => p.destroy()); this.inPoints.forEach(p => p.destroy()); }
+                if(data.outPoints) {
+                    this.outPoints = data.outPoints.map(d => { const n = new BezierNode(this.outputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
+                    this.inPoints = data.inPoints.map(d => { const n = new BezierNode(this.inputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
+                } else {
+                    // Fallback
+                    this.outPoints = data.handles.map(p => new BezierNode(this.outputGroup, true, p));
+                    this.inPoints = data.inHandles ? data.inHandles.map(p => new BezierNode(this.inputGroup, true, p)) : data.handles.map(p => new BezierNode(this.inputGroup, true, p));
+                }
+                this.updateGeometry();
+            }
+
+            toJSON() {
+                return {
+                    id: this.id,
+                    outPoints: this.outPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner })),
+                    inPoints: this.inPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner }))
+                };
+            }
+            destroy() { this.outputGroup.parent.remove(this.outputGroup); this.inputGroup.parent.remove(this.inputGroup); }
+        }
+
+        // --- INIT & CORE ---
         function init() {
             scene = new THREE.Scene();
-            inputGroup = new THREE.Group();
-            inputGroup.visible = false;
-            scene.add(inputGroup);
+            outputGroup = new THREE.Group(); scene.add(outputGroup);
+            inputGroup = new THREE.Group(); scene.add(inputGroup);
             
             const aspect = window.innerWidth / window.innerHeight;
-            const frustum = 40;
-            camera = new THREE.OrthographicCamera(
-                frustum * aspect / -2, frustum * aspect / 2,
-                frustum / 2, frustum / -2, 0.1, 1000
-            );
+            camera = new THREE.OrthographicCamera(40 * aspect / -2, 40 * aspect / 2, 40 / 2, 40 / -2, 0.1, 1000);
             camera.position.z = 100;
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -264,668 +580,235 @@
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             document.body.appendChild(renderer.domElement);
 
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
+            raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
 
-            initVideoElement();
-            setupPlaceholderSource();
-            createCheckerTexture();
+            initVideoElement(); setupPlaceholderSource(); createCheckerTexture();
 
-            const bgGeo = new THREE.PlaneGeometry(1, 1); 
-            const bgMat = new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 0.5, transparent: true });
-            inputBgMesh = new THREE.Mesh(bgGeo, bgMat);
-            inputBgMesh.position.z = -1;
-            inputBgMesh.scale.set(16, 9, 1);
-            inputGroup.add(inputBgMesh);
+            inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 0.5, transparent: true }));
+            inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); inputGroup.add(inputBgMesh);
 
-            const cvs = renderer.domElement;
-            cvs.addEventListener('mousedown', onPointerDown);
-            cvs.addEventListener('mousemove', onPointerMove);
-            window.addEventListener('mouseup', onPointerUp);
-            cvs.addEventListener('touchstart', onTouchStart, {passive:false});
-            cvs.addEventListener('touchmove', onTouchMove, {passive:false});
-            cvs.addEventListener('touchend', onPointerUp);
-            cvs.addEventListener('wheel', onWheel, {passive:false});
-            
+            if (isProjectorMode) {
+                document.body.classList.add('projector-mode'); document.body.classList.add('presentation-mode');
+                appStarted = true; showGuides = false; mode = 'OUTPUT';
+                channel.onmessage = (event) => {
+                    const msg = event.data;
+                    if(msg.type === 'sync_state') {
+                        loadState(msg.state, false);
+                        if(msg.videoSrc && videoElement.src !== msg.videoSrc) {
+                            videoElement.src = msg.videoSrc; videoElement.play().catch(e=>console.log(e));
+                            mainTexture = new THREE.VideoTexture(videoElement); mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
+                            updateAllTextures();
+                        }
+                    }
+                };
+                channel.postMessage({ type: 'request_sync' });
+            } else {
+                const cvs = renderer.domElement;
+                cvs.addEventListener('mousedown', onPointerDown); cvs.addEventListener('mousemove', onPointerMove); window.addEventListener('mouseup', onPointerUp);
+                cvs.addEventListener('touchstart', onTouchStart, {passive:false}); cvs.addEventListener('touchmove', onTouchMove, {passive:false}); cvs.addEventListener('touchend', onPointerUp);
+                cvs.addEventListener('wheel', onWheel, {passive:false});
+                
+                addNewLayer(); recordHistory();
+                channel.onmessage = (event) => { if (event.data.type === 'request_sync') { broadcastSync(); const d=document.getElementById('sync-indicator'); d.style.display='block'; setTimeout(()=>d.style.display='none',3000); } };
+            }
+
             window.addEventListener('resize', onResize);
             document.getElementById('mediaInput').addEventListener('change', handleUpload);
             document.getElementById('jsonInput').addEventListener('change', loadProject);
-
-            addNewLayer();
-            recordHistory();
             animate();
         }
 
-        window.startApp = function() {
-            document.getElementById('start-overlay').style.display = 'none';
-            appStarted = true;
-            if(videoElement) videoElement.play().catch(e=>{});
-        };
-
-        function initVideoElement() {
-            videoElement = document.createElement('video');
-            videoElement.crossOrigin = "anonymous";
-            videoElement.loop = true; videoElement.muted = false;
-            videoElement.playsInline = true; videoElement.style.display = 'none';
-            document.body.appendChild(videoElement);
-        }
-
-        function setupPlaceholderSource() {
-            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024;
-            const ctx = cvs.getContext('2d');
-            ctx.fillStyle = '#111'; ctx.fillRect(0,0,1024,1024);
-            ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
-            for(let i=0; i<=1024; i+=100) { ctx.moveTo(i,0); ctx.lineTo(i,1024); ctx.moveTo(0,i); ctx.lineTo(1024,i); }
-            ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center';
-            ctx.fillText('MR MAPPING v37.1', 512, 512);
-            if(mainTexture) mainTexture.dispose(); mainTexture = new THREE.CanvasTexture(cvs);
-        }
-
-        function createCheckerTexture() {
-            const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 1024;
-            const ctx = cvs.getContext('2d');
-            ctx.fillStyle = 'white'; ctx.fillRect(0,0,1024,1024); ctx.fillStyle = 'black';
-            for(let y=0; y<1024; y+=128) for(let x=0; x<1024; x+=128) if((x/128+y/128)%2===1) ctx.fillRect(x,y,128,128);
-            ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 5; ctx.strokeRect(0,0,1024,1024);
-            checkerTexture = new THREE.CanvasTexture(cvs);
-        }
-
-        function handleUpload(e) {
-            const file = e.target.files[0]; if(!file) return;
-            const url = URL.createObjectURL(file);
-            if (file.type.indexOf('image') !== -1) {
-                videoElement.pause();
-                new THREE.TextureLoader().load(url, (tex) => {
-                    sourceAspectRatio = tex.image.width / tex.image.height;
-                    updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose(); mainTexture = tex; mainTexture.minFilter = THREE.LinearFilter;
-                    updateAllTextures();
-                });
-            } else if (file.type.indexOf('video') !== -1) {
-                videoElement.src = url;
-                videoElement.onloadedmetadata = function() {
-                    sourceAspectRatio = this.videoWidth / this.videoHeight;
-                    updateInputBgAspect();
-                    if(mainTexture) mainTexture.dispose();
-                    mainTexture = new THREE.VideoTexture(videoElement);
-                    mainTexture.minFilter = THREE.LinearFilter; mainTexture.format = THREE.RGBFormat;
-                    updateAllTextures();
-                    if(appStarted) videoElement.play().catch(()=>{});
-                };
-            }
-            e.target.value = '';
-        }
-
-        function updateInputBgAspect() { inputBgMesh.scale.set(16, 16 / sourceAspectRatio, 1); }
-        function toggleCheckerPattern() { isCheckerActive = !isCheckerActive; document.getElementById('btn-checker').style.background = isCheckerActive ? '#00ffaa' : '#333'; document.getElementById('btn-checker').style.color = isCheckerActive ? '#000' : '#fff'; updateAllTextures(); }
-        
-        function updateAllTextures() {
-            const tex = isCheckerActive ? checkerTexture : mainTexture;
-            if(inputBgMesh) { inputBgMesh.material.map = tex; inputBgMesh.material.needsUpdate = true; }
-            layers.forEach(l => {
-                l.mesh.material.map = tex; l.mesh.material.needsUpdate = true;
-                if(isCheckerActive) l.resetUVsToFull(); else l.updateUVs();
-            });
-        }
-
-        function togglePresentationMode(e) {
-            if(e) e.stopPropagation();
-            showGuides = !showGuides;
-            const btn = document.getElementById('vis-switch');
-            if (showGuides) {
-                btn.classList.add('active');
-                document.body.classList.remove('presentation-mode');
-            } else {
-                btn.classList.remove('active');
-                document.body.classList.add('presentation-mode');
-            }
-            layers.forEach(l => l.updateVisibilityState());
-        }
-
-        // --- SNAPPING LOGIC ---
-        function applySnapping(pos, currentLayerId) {
-            let bestPos = pos.clone();
-            let minDist = config.snapDist;
-            let snapped = false;
-
-            layers.forEach(l => {
-                if(l.id === currentLayerId) return;
-
-                const handles = mode==='OUTPUT' ? l.handles : l.inputHandles;
-                handles.forEach(h => {
-                    const hPos = new THREE.Vector3();
-                    h.getWorldPosition(hPos);
-
-                    const d = pos.distanceTo(hPos);
-                    if(d < minDist) {
-                        minDist = d;
-                        bestPos.copy(hPos);
-                        snapped = true;
-                    }
-                });
-            });
-
-            const ring = document.getElementById('snap-ring');
-            if(snapped) {
-                const screenPos = bestPos.clone().project(camera);
-                const x = (screenPos.x * .5 + .5) * window.innerWidth;
-                const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
-                ring.style.left = x + 'px'; ring.style.top = y + 'px';
-                ring.style.display = 'block';
-            } else {
-                ring.style.display = 'none';
-            }
-
-            return bestPos;
-        }
-
-        function checkSnappingBody(layer, delta) {
-            const handles = mode==='OUTPUT' ? layer.handles : layer.inputHandles;
-            let bestDelta = delta.clone();
-            let minDist = config.snapDist;
-            let snapped = false;
-            let snapPoint = new THREE.Vector3();
-
-            for(let myH of handles) {
-                const myPos = new THREE.Vector3();
-                myH.getWorldPosition(myPos);
-                const predictedPos = myPos.clone().add(delta);
-
-                layers.forEach(otherL => {
-                    if(otherL.id === layer.id) return;
-                    const otherHandles = mode==='OUTPUT' ? otherL.handles : otherL.inputHandles;
-                    otherHandles.forEach(otherH => {
-                        const otherPos = new THREE.Vector3();
-                        otherH.getWorldPosition(otherPos);
-                        const d = predictedPos.distanceTo(otherPos);
-                        if(d < minDist) {
-                            bestDelta.subVectors(otherPos, myPos);
-                            minDist = d;
-                            snapped = true;
-                            snapPoint.copy(otherPos);
-                        }
-                    });
-                });
-                if(snapped) break;
-            }
-
-            const ring = document.getElementById('snap-ring');
-            if(snapped) {
-                const screenPos = snapPoint.clone().project(camera);
-                const x = (screenPos.x * .5 + .5) * window.innerWidth;
-                const y = (-(screenPos.y * .5) + .5) * window.innerHeight;
-                ring.style.left = x + 'px'; ring.style.top = y + 'px';
-                ring.style.display = 'block';
-            } else {
-                ring.style.display = 'none';
-            }
-            return bestDelta;
-        }
-
-        class Layer {
-            constructor(id, data = null) {
-                this.id = id; this.name = `Screen ${id}`;
-                
-                // OUTPUT MESH
-                const geo = new THREE.PlaneGeometry(1, 1, config.segments, config.segments);
-                const mat = new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide });
-                this.mesh = new THREE.Mesh(geo, mat);
-                this.mesh.userData = { id: id, type: 'output_screen' };
-                this.mesh.position.z = id * 0.01; 
-                scene.add(this.mesh);
-                
-                this.grid = new THREE.Group();
-                this.createInternalGrid();
-                scene.add(this.grid);
-                
-                this.helper = new THREE.Group();
-                scene.add(this.helper);
-                
-                this.handles = []; this.createHandles(this.mesh, this.handles, 'output_handle');
-
-                // INPUT MESH
-                const inGeo = new THREE.PlaneGeometry(1, 1, 1, 1);
-                // CLEAN INPUT: Transparent Yellow Tint (No Texture)
-                const inMat = new THREE.MeshBasicMaterial({ 
-                    color: 0xffff00, 
-                    wireframe: false, 
-                    transparent: true, 
-                    opacity: 0.2, 
-                    side: THREE.DoubleSide,
-                    map: null 
-                });
-                this.inputMesh = new THREE.Mesh(inGeo, inMat);
-                this.inputMesh.userData = { id: id, type: 'input_slice' };
-                
-                // Wireframe for visibility
-                const wGeo = new THREE.EdgesGeometry(inGeo);
-                const wMat = new THREE.LineBasicMaterial({ color: 0xffff00 });
-                this.inputWire = new THREE.LineSegments(wGeo, wMat);
-                this.inputMesh.add(this.inputWire);
-
-                this.inputHandles = []; 
-                this.createHandles(this.inputMesh, this.inputHandles, 'input_handle');
-                
-                this.inputGrid = new THREE.Group();
-                this.createInternalGridForInput();
-                this.inputMesh.add(this.inputGrid);
-                
-                inputGroup.add(this.inputMesh);
-
-                if (data) this.loadFromData(data);
-                else this.initDefault();
-                
-                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
-                this.updateHelpers();
-                this.updateVisibilityState();
-            }
-
-            createInternalGrid() {
-                const geo = new THREE.PlaneGeometry(1, 1, 4, 4);
-                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false });
-                this.gridMesh = new THREE.Mesh(geo, mat);
-                this.grid.add(this.gridMesh);
-            }
-
-            createInternalGridForInput() {
-                const geo = new THREE.PlaneGeometry(1, 1, 2, 2);
-                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }); 
-                this.inputGridMesh = new THREE.Mesh(geo, mat);
-                this.inputGrid.add(this.inputGridMesh);
-            }
-
-            createHandles(parent, array, type) {
-                const pos = [{x:-0.5, y:0.5}, {x:0.5, y:0.5}, {x:-0.5, y:-0.5}, {x:0.5, y:-0.5}];
-                const mat = new THREE.MeshBasicMaterial({ color: 0x00ffaa, depthTest:false });
-                
-                pos.forEach((p, i) => {
-                    const h = new THREE.Mesh(new THREE.CircleGeometry(0.5, 16), mat.clone());
-                    const hit = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
-                    h.add(hit);
-                    h.userData = { id: this.id, type: type, index: i, originalColor: mat.color.clone() };
-                    hit.userData = { id: this.id, type: type, index: i };
-                    h.renderOrder = 999;
-                    if(type === 'output_handle') scene.add(h); else this.inputMesh.add(h);
-                    array.push(h);
-                });
-            }
-
-            setHandleSelected(index, isSelected) {
-                const list = mode === 'OUTPUT' ? this.handles : this.inputHandles;
-                list.forEach((h, i) => {
-                    if (i === index && isSelected) {
-                        h.material.color.setHex(0xffff00); h.scale.set(1.5, 1.5, 1);
-                    } else {
-                        h.material.color.copy(h.userData.originalColor); h.scale.set(1, 1, 1);
-                    }
-                });
-            }
-
-            clearSelection() {
-                this.handles.forEach(h => { h.material.color.copy(h.userData.originalColor); h.scale.set(1,1,1); });
-                this.inputHandles.forEach(h => { h.material.color.copy(h.userData.originalColor); h.scale.set(1,1,1); });
-            }
-
-            initDefault() {
-                const w = 4; const h = 4*(9/16);
-                const corners = [
-                    new THREE.Vector3(-w/2, h/2, 0), new THREE.Vector3(w/2, h/2, 0),
-                    new THREE.Vector3(-w/2, -h/2, 0), new THREE.Vector3(w/2, -h/2, 0)
-                ];
-                this.inputHandles.forEach((h, i) => h.position.copy(corners[i]));
-                this.handles.forEach((h, i) => {
-                    h.position.copy(corners[i]);
-                    h.position.z = this.mesh.position.z + 0.1;
-                });
-                this.updateInputGeometry();
-                this.updateOutputGeometry();
-            }
-
-            setHandlePos(index, newPos) {
-                 const list = mode === 'OUTPUT' ? this.handles : this.inputHandles;
-                 if(list[index]) {
-                     if(mode==='OUTPUT') {
-                         list[index].position.set(newPos.x, newPos.y, list[index].position.z);
-                         this.updateOutputGeometry();
-                     } else {
-                         const local = this.inputMesh.worldToLocal(newPos.clone());
-                         list[index].position.set(local.x, local.y, 0);
-                         this.updateInputGeometry();
-                     }
-                 }
-            }
-
-            move(delta) {
-                if (mode === 'OUTPUT') {
-                    this.handles.forEach(h => h.position.add(delta));
-                    this.updateOutputGeometry();
-                } else {
-                    this.inputHandles.forEach(h => h.position.add(delta));
-                    this.updateInputGeometry();
-                }
-            }
-
-            transform(scale, rotDelta, center) {
-                const targetHandles = mode === 'OUTPUT' ? this.handles : this.inputHandles;
-                targetHandles.forEach(h => {
-                    const vec = new THREE.Vector3().subVectors(h.position, center);
-                    vec.multiplyScalar(scale);
-                    vec.applyAxisAngle(new THREE.Vector3(0,0,1), -rotDelta); 
-                    h.position.addVectors(center, vec);
-                });
-                if(mode === 'OUTPUT') this.updateOutputGeometry();
-                else this.updateInputGeometry();
-            }
-
-            updateOutputGeometry() {
-                const pos = this.mesh.geometry.attributes.position;
-                const gridPos = this.gridMesh.geometry.attributes.position;
-                const tl = this.handles[0].position; const tr = this.handles[1].position;
-                const bl = this.handles[2].position; const br = this.handles[3].position;
-                this.warpGeometry(pos, tl, tr, bl, br, config.segments);
-                this.warpGeometry(gridPos, tl, tr, bl, br, 4); 
-                this.gridMesh.position.z = this.mesh.position.z + 0.05;
-                this.updateHelpers();
-            }
-
-            updateInputGeometry() {
-                const pos = this.inputMesh.geometry.attributes.position;
-                const tl = this.inputHandles[0].position; const tr = this.inputHandles[1].position;
-                const bl = this.inputHandles[2].position; const br = this.inputHandles[3].position;
-                this.warpGeometry(pos, tl, tr, bl, br, 1);
-                this.updateUVs();
-            }
-
-            warpGeometry(posAttribute, tl, tr, bl, br, segments) {
-                const wVerts = segments + 1;
-                for(let i=0; i<posAttribute.count; i++) {
-                    const ix = i % wVerts; const iy = Math.floor(i / wVerts);
-                    const u = ix / segments; const v = 1 - (iy / segments);
-                    const x = (1-u)*(1-v)*tl.x + u*(1-v)*tr.x + (1-u)*v*bl.x + u*v*br.x;
-                    const y = (1-u)*(1-v)*tl.y + u*(1-v)*tr.y + (1-u)*v*bl.y + u*v*br.y;
-                    posAttribute.setXY(i, x, y, 0);
-                }
-                posAttribute.needsUpdate = true;
-                if(segments === config.segments) this.mesh.geometry.computeBoundingSphere();
-            }
-
-            updateHelpers() {
-                if(mode !== 'OUTPUT') { 
-                    this.helper.visible = false; 
-                    this.grid.visible = false;
-                    return; 
-                }
-                
-                this.helper.visible = showGuides;
-                this.grid.visible = showGuides;
-                this.handles.forEach(h => h.visible = showGuides);
-                if(!showGuides) return;
-                this.helper.clear();
-                const points = [ this.handles[0].position, this.handles[1].position, this.handles[3].position, this.handles[2].position, this.handles[0].position ];
-                const geo = new THREE.BufferGeometry().setFromPoints(points);
-                const mat = new THREE.LineBasicMaterial({ color: 0x00ffaa, opacity: 0.8, transparent: true });
-                this.helper.add(new THREE.Line(geo, mat));
-            }
-            
-            updateVisibilityState() {
-                const isOutput = (mode === 'OUTPUT');
-                const isInput = (mode === 'INPUT');
-                const isActive = (this.id === activeLayerId);
-
-                this.mesh.visible = isOutput;
-                
-                const outputGuides = isOutput && showGuides;
-                this.helper.visible = outputGuides;
-                this.grid.visible = outputGuides;
-                this.handles.forEach(h => h.visible = outputGuides);
-                
-                // V36: Input Visibility
-                this.inputMesh.visible = isInput;
-                this.inputGrid.visible = isInput && isActive && showGuides; 
-                this.inputHandles.forEach(h => h.visible = isInput && isActive && showGuides);
-                
-                if(isInput) {
-                    if(isActive) {
-                        this.inputMesh.material.opacity = 0.4;
-                        this.inputMesh.material.color.set(0x00ffaa);
-                        this.inputWire.material.color.set(0x00ffaa);
-                        this.inputMesh.renderOrder = 10;
-                    } else {
-                        // Inactive High Vis
-                        this.inputMesh.material.opacity = 0.5; 
-                        this.inputMesh.material.color.set(0x444444); 
-                        this.inputWire.material.color.set(0xffffff); 
-                        this.inputMesh.renderOrder = 0;
-                    }
-                }
-            }
-
-            updateUVs() {
-                if(isCheckerActive) return;
-                const bgW = inputBgMesh.scale.x; const bgH = inputBgMesh.scale.y;
-                const getUV = (h) => {
-                    const wp = h.position.clone().applyMatrix4(this.inputMesh.matrixWorld);
-                    return { u: (wp.x+bgW/2)/bgW, v: (wp.y+bgH/2)/bgH };
-                };
-                const uvTL = getUV(this.inputHandles[0]); const uvTR = getUV(this.inputHandles[1]);
-                const uvBL = getUV(this.inputHandles[2]); const uvBR = getUV(this.inputHandles[3]);
-                const uv = this.mesh.geometry.attributes.uv;
-                const wVerts = config.segments + 1;
-                for(let i=0; i<uv.count; i++) {
-                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
-                     const u = ix / config.segments; const v = 1 - (iy / config.segments);
-                     const newU = (1-u)*(1-v)*uvTL.u + u*(1-v)*uvTR.u + (1-u)*v*uvBL.u + u*v*uvBR.u;
-                     const newV = (1-u)*(1-v)*uvTL.v + u*(1-v)*uvTR.v + (1-u)*v*uvBL.v + u*v*uvBR.v;
-                     uv.setXY(i, newU, newV);
-                }
-                uv.needsUpdate = true;
-            }
-
-            resetUVsToFull() {
-                const uv = this.mesh.geometry.attributes.uv;
-                const wVerts = config.segments + 1;
-                for(let i=0; i<uv.count; i++) {
-                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
-                     const u = ix / config.segments; const v = 1 - (iy / config.segments);
-                     uv.setXY(i, u, v);
-                }
-                uv.needsUpdate = true;
-            }
-
-            loadFromData(data) {
-                data.handles.forEach((p, i) => this.handles[i].position.fromArray(p));
-                if(data.inHandles) data.inHandles.forEach((p, i) => this.inputHandles[i].position.fromArray(p));
-                if(data.inPos) {
-                    this.inputMesh.position.fromArray(data.inPos);
-                    this.inputMesh.updateMatrixWorld(true);
-                }
-                this.updateOutputGeometry();
-                this.updateInputGeometry();
-            }
-
-            toJSON() {
-                return {
-                    id: this.id,
-                    handles: this.handles.map(h => h.position.toArray()), 
-                    inHandles: this.inputHandles.map(h => h.position.toArray()),
-                    inPos: this.inputMesh.position.toArray()
-                };
-            }
-
-            setVisible(v) { 
-                this.mesh.visible = v; 
-                this.updateVisibilityState();
-            }
-            setInputVisible(v) { 
-                this.inputMesh.visible = v; 
-                this.updateVisibilityState();
-            }
-            destroy() { scene.remove(this.mesh); scene.remove(this.helper); scene.remove(this.grid); this.handles.forEach(h => scene.remove(h)); inputGroup.remove(this.inputMesh); }
-        }
-
         // --- INTERACTION ---
-        function onPointerDown(e) {
-            // Block dragging if in presentation mode
-            if(document.body.classList.contains('presentation-mode')) return;
+        function getActiveLayer() { return layers.find(l => l.id === activeLayerId); }
 
+        function onPointerDown(e) {
+            if(document.body.classList.contains('presentation-mode')) return;
             const ndc = getMousePos(e); 
             if(isPanMode) { isDragging = true; panStart.copy(ndc); return; }
-            
             if(isGesture || (mode==='OUTPUT' && !showGuides)) return; 
             
-            mouse.set(ndc.x, ndc.y); raycaster.setFromCamera(mouse, camera);
-            isHistoryPaused = true;
+            mouse.set(ndc.x, ndc.y); raycaster.setFromCamera(mouse, camera); isHistoryPaused = true;
+            const wp = getWorldPos(ndc);
+            const now = Date.now(); const isDoubleTap = (now - lastTapTime) < 300; lastTapTime = now;
 
-            const now = Date.now();
-            const isDoubleTap = (now - lastTapTime) < 300;
-            lastTapTime = now;
-
-            const check = (list) => {
-                const t = []; list.forEach(h=>{t.push(h); t.push(...h.children)});
-                const h = raycaster.intersectObjects(t);
-                return h.length>0 ? (h[0].object.userData.type ? h[0].object : h[0].object.parent) : null;
-            };
-
-            const l = layers.find(l => l.id === activeLayerId);
+            const l = getActiveLayer(); if(!l) return;
             
-            if (l) {
-                const h = check(mode === 'OUTPUT' ? l.handles : l.inputHandles);
-                if (h) { 
-                    isDragging = true; 
-                    if (activeHandle && activeHandle !== h) l.setHandleSelected(activeHandle.userData.index, false);
-                    activeHandle = h;
-                    l.setHandleSelected(activeHandle.userData.index, true);
-                    selectedObject = h; 
-                    
-                    const hPos = new THREE.Vector3();
-                    h.getWorldPosition(hPos);
-                    dragStartPos.subVectors(hPos, getWorldPos(ndc));
-                    return; 
+            // Check Points (Nodes & Handles)
+            const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+            const hitTargets = [];
+            pts.forEach(p => { hitTargets.push(p.hit, p.ctrl1.children[0], p.ctrl2.children[0]); });
+            
+            const hits = raycaster.intersectObjects(hitTargets);
+            if (hits.length > 0) {
+                const hitData = hits[0].object.userData;
+                const node = hitData.node;
+                
+                if (hitData.part === 'main' && isDoubleTap) {
+                    node.toggleType(); l.updateGeometry(); broadcastSync();
+                }
+                
+                isDragging = true; selectedNode = node; selectedPart = hitData.part;
+                l.setSelection(node);
+                
+                const wPos = new THREE.Vector3(); hits[0].object.parent.getWorldPosition(wPos);
+                dragStartOffset.subVectors(wPos, wp);
+                return;
+            }
+
+            // If Double Tap empty space -> Try Add Point to Edge
+            if (isDoubleTap) {
+                let minDist = 1.0; let insertIdx = -1; let insertPos = null;
+                for(let i=0; i<pts.length; i++) {
+                    const p1 = pts[i]; const p2 = pts[(i+1)%pts.length];
+                    for(let t=0; t<=1; t+=0.05) {
+                        const pt = cubicBezier(p1.pos, new THREE.Vector3().addVectors(p1.pos, p1.h2), new THREE.Vector3().addVectors(p2.pos, p2.h1), p2.pos, t);
+                        const d = wp.distanceTo(pt);
+                        if (d < minDist) { minDist = d; insertIdx = i + 1; insertPos = pt; }
+                    }
+                }
+                if (insertIdx !== -1 && minDist < 0.8) {
+                    const group = mode === 'INPUT' ? l.inputGroup : l.outputGroup;
+                    const newNode = new BezierNode(group, false, insertPos.toArray());
+                    pts.splice(insertIdx, 0, newNode);
+                    l.updateGeometry(); broadcastSync(); return; // Stop here
                 }
             }
 
-            const targets = [];
-            if(mode === 'OUTPUT') targets.push(...layers.map(ly => ly.mesh));
-            else if(mode === 'INPUT') targets.push(...layers.map(ly => ly.inputMesh)); // Hit input body
+            // Check Body
+            const bodies = [];
+            if(mode === 'OUTPUT') bodies.push(...layers.map(ly => ly.mesh));
+            else if(mode === 'INPUT') bodies.push(...layers.map(ly => ly.inputMesh)); 
 
-            const hits = raycaster.intersectObjects(targets);
-            if(hits.length > 0) {
-                const hit = hits[0];
-                setActiveLayer(hit.object.userData.id);
-                isDragging = true; selectedObject = layers.find(lay => lay.id === hit.object.userData.id);
-                if(l) l.clearSelection(); activeHandle = null;
-                previousWorldPos.copy(getWorldPos(ndc));
+            const bodyHits = raycaster.intersectObjects(bodies);
+            if(bodyHits.length > 0) {
+                const hitLayer = layers.find(lay => lay.id === bodyHits[0].object.userData.id);
+                setActiveLayer(hitLayer.id);
+                isDragging = true; selectedNode = hitLayer; selectedPart = 'body';
+                if(l && l !== hitLayer) l.clearSelection();
+                previousWorldPos.copy(wp);
             } else {
-                if (activeHandle && l) {
-                    isDragging = true; selectedObject = activeHandle;
-                    const hPos = new THREE.Vector3();
-                    activeHandle.getWorldPosition(hPos);
-                    dragStartPos.subVectors(hPos, getWorldPos(ndc));
+                if (selectedNode && selectedPart !== 'body' && l) {
+                    isDragging = true; 
+                    const wPos = new THREE.Vector3();
+                    if(selectedPart==='main') wPos.copy(selectedNode.pos);
+                    else if(selectedPart==='ctrl1') wPos.addVectors(selectedNode.pos, selectedNode.h1);
+                    else if(selectedPart==='ctrl2') wPos.addVectors(selectedNode.pos, selectedNode.h2);
+                    dragStartOffset.subVectors(wPos, wp);
                 } else {
-                    if (l) l.clearSelection(); activeHandle = null;
+                    if (l) l.clearSelection(); selectedNode = null; selectedPart = null;
                 }
             }
-            previousWorldPos.copy(getWorldPos(ndc));
         }
 
         function onPointerMove(e) {
+            if(isProjectorMode) return;
             const ndc = getMousePos(e);
             if(isPanMode && isDragging) {
-                const dx = (ndc.x - panStart.x) * (20 * (1/camera.zoom)); 
-                const dy = (ndc.y - panStart.y) * (20 * (1/camera.zoom)); 
-                camera.position.x -= dx; camera.position.y -= dy;
-                panStart.copy(ndc);
-                return;
+                camera.position.x -= (ndc.x - panStart.x) * (20 * (1/camera.zoom)); 
+                camera.position.y -= (ndc.y - panStart.y) * (20 * (1/camera.zoom)); 
+                panStart.copy(ndc); return;
             }
-            if(!isDragging || !selectedObject) return;
-            const wp = getWorldPos(ndc);
-            const l = layers.find(l => l.id === activeLayerId);
+            if(!isDragging || !selectedNode) return;
+            const wp = getWorldPos(ndc); const l = getActiveLayer();
 
-            if (selectedObject instanceof Layer) {
+            if (selectedPart === 'body') {
                 const delta = new THREE.Vector3().subVectors(wp, previousWorldPos);
-                const snapDelta = checkSnappingBody(selectedObject, delta);
-                selectedObject.move(snapDelta);
-                previousWorldPos.copy(wp);
+                selectedNode.moveBody(delta); previousWorldPos.copy(wp);
             } else {
-                let targetPos = new THREE.Vector3().addVectors(wp, dragStartPos);
-                targetPos = applySnapping(targetPos, l.id);
-                const idx = selectedObject.userData.index;
-                l.setHandlePos(idx, targetPos);
+                let targetPos = new THREE.Vector3().addVectors(wp, dragStartOffset);
+                
+                if (selectedPart === 'main') {
+                    // Master Snap (to other layers)
+                    let snappedPos = targetPos.clone();
+                    let minDist = config.snapDist; let snapped = false;
+                    layers.forEach(other => {
+                        if(other.id === l.id) return;
+                        const otherPts = mode === 'OUTPUT' ? other.outPoints : other.inPoints;
+                        otherPts.forEach(op => {
+                            if(targetPos.distanceTo(op.pos) < minDist) { minDist = targetPos.distanceTo(op.pos); snappedPos.copy(op.pos); snapped = true; }
+                        });
+                    });
+                    const ring = document.getElementById('snap-ring');
+                    if(snapped) {
+                        const sp = snappedPos.clone().project(camera);
+                        ring.style.left = ((sp.x*.5+.5)*window.innerWidth)+'px'; ring.style.top = (-(sp.y*.5)+.5)*window.innerHeight+'px';
+                        ring.style.display = 'block'; targetPos.copy(snappedPos);
+                    } else { ring.style.display = 'none'; }
+
+                    // Merge Snap (Delete self if close to neighbor)
+                    if (!selectedNode.isCorner) {
+                        const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
+                        const idx = pts.indexOf(selectedNode);
+                        const prev = pts[(idx - 1 + pts.length) % pts.length];
+                        const next = pts[(idx + 1) % pts.length];
+                        if (targetPos.distanceTo(prev.pos) < 0.3) { targetPos.copy(prev.pos); nodeToMerge = selectedNode; }
+                        else if (targetPos.distanceTo(next.pos) < 0.3) { targetPos.copy(next.pos); nodeToMerge = selectedNode; }
+                        else { nodeToMerge = null; }
+                    }
+                    selectedNode.setPos(targetPos);
+                } else if (selectedPart === 'ctrl1') {
+                    selectedNode.setCtrl1(targetPos);
+                } else if (selectedPart === 'ctrl2') {
+                    selectedNode.setCtrl2(targetPos);
+                }
+                l.updateGeometry();
             }
         }
 
+        function onPointerUp() { 
+            if(isProjectorMode) return;
+            if (nodeToMerge) {
+                const l = getActiveLayer(); const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
+                const idx = pts.indexOf(nodeToMerge);
+                if (idx > -1) pts.splice(idx, 1);
+                nodeToMerge.destroy(); nodeToMerge = null;
+                l.clearSelection(); selectedNode = null; selectedPart = null;
+                l.updateGeometry();
+            }
+            isDragging=false; isGesture=false; isHistoryPaused=false; recordHistory(); document.getElementById('snap-ring').style.display='none'; broadcastSync(); 
+        }
+        
         function onTouchStart(e) {
             if(document.body.classList.contains('presentation-mode')) return;
-
             if (e.touches.length === 2 && (mode==='INPUT' || showGuides)) { 
                 isGesture = true; isDragging = false;
-                const layer = layers.find(l => l.id === activeLayerId);
-                if(!layer) return;
-
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                gestureStartDist = Math.sqrt(dx*dx + dy*dy);
-                gestureStartAngle = Math.atan2(dy, dx);
+                const l = getActiveLayer(); if(!l) return;
+                const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
+                gestureStartDist = Math.sqrt(dx*dx + dy*dy); gestureStartAngle = Math.atan2(dy, dx);
                 
-                const center = new THREE.Vector3();
-                const list = mode==='OUTPUT' ? layer.handles : layer.inputHandles;
-                list.forEach(h=>center.add(h.position)); center.divideScalar(4);
-                gestureStartCenter.copy(center);
-                
-                gestureStartHandlePositions = list.map(h => h.position.clone());
-            } else if (e.touches.length === 1) {
-                onPointerDown(e.touches[0]);
-            }
+                const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
+                pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
+                gestureStartCenter.copy(center); gestureStartHandlePositions = pts.map(p => p.pos.clone());
+            } else if (e.touches.length === 1) { onPointerDown(e.touches[0]); }
         }
 
         function onTouchMove(e) {
             if (e.touches.length === 2 && isGesture) {
-                e.preventDefault();
-                const layer = layers.find(l => l.id === activeLayerId);
-                if(!layer) return;
+                e.preventDefault(); const l = getActiveLayer(); if(!l) return;
+                const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const scale = Math.sqrt(dx*dx + dy*dy) / gestureStartDist; const rotation = Math.atan2(dy, dx) - gestureStartAngle;
 
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                const angle = Math.atan2(dy, dx);
-
-                const scale = dist / gestureStartDist;
-                const rotation = angle - gestureStartAngle;
-
-                const targetHandles = mode === 'OUTPUT' ? layer.handles : layer.inputHandles;
-                targetHandles.forEach((h, i) => {
-                    const originalPos = gestureStartHandlePositions[i];
-                    const vec = new THREE.Vector3().subVectors(originalPos, gestureStartCenter);
-                    vec.multiplyScalar(scale);
-                    vec.applyAxisAngle(new THREE.Vector3(0,0,1), -rotation); 
-                    h.position.addVectors(gestureStartCenter, vec);
+                const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+                pts.forEach((p, i) => {
+                    const vec = new THREE.Vector3().subVectors(gestureStartHandlePositions[i], gestureStartCenter);
+                    vec.multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0,0,1), -rotation); 
+                    p.setPos(new THREE.Vector3().addVectors(gestureStartCenter, vec));
                 });
-
-                if(mode === 'OUTPUT') layer.updateOutputGeometry();
-                else layer.updateInputGeometry();
-
-            } else if (e.touches.length === 1) {
-                onPointerMove(e.touches[0]);
-            }
+                l.updateGeometry();
+            } else if (e.touches.length === 1) { onPointerMove(e.touches[0]); }
         }
 
         function onWheel(e) {
             if(isPanMode || document.body.classList.contains('presentation-mode')) return;
-            if(mode==='OUTPUT' && !showGuides) return;
-            e.preventDefault();
-            const layer = layers.find(l => l.id === activeLayerId);
-            if(!layer) return;
+            if(mode==='OUTPUT' && !showGuides) return; e.preventDefault();
+            const l = getActiveLayer(); if(!l) return;
             const scale = e.deltaY < 0 ? 1.05 : 0.95;
-            
-            const center = new THREE.Vector3();
-            const list = mode==='OUTPUT' ? layer.handles : layer.inputHandles;
-            list.forEach(h=>center.add(h.position)); center.divideScalar(4);
-            
-            layer.transform(scale, 0, center);
-            recordHistory();
+            const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
+            pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
+            pts.forEach(p => { p.setPos(new THREE.Vector3().subVectors(p.pos, center).multiplyScalar(scale).add(center)); });
+            l.updateGeometry(); recordHistory();
         }
 
-        function onPointerUp() { isDragging=false; isGesture=false; isHistoryPaused=false; recordHistory(); document.getElementById('snap-ring').style.display='none'; }
         function zoomIn() { camera.zoom = Math.min(camera.zoom+0.1, 5); camera.updateProjectionMatrix(); }
         function zoomOut() { camera.zoom = Math.max(camera.zoom-0.1, 0.2); camera.updateProjectionMatrix(); }
         function getMousePos(e) { const cX=e.changedTouches?e.changedTouches[0].clientX:e.clientX; const cY=e.changedTouches?e.changedTouches[0].clientY:e.clientY; return {x:(cX/window.innerWidth)*2-1, y:-(cY/window.innerHeight)*2+1}; }
@@ -933,46 +816,48 @@
         
         function setMode(m) {
             mode = m; document.getElementById('mode-text').innerText = mode;
-            document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn';
-            document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
-            if(m==='INPUT') { inputGroup.visible=true; layers.forEach(l=>{l.setVisible(false); l.setInputVisible(true); l.updateVisibilityState(); }); camera.position.set(0,0,100); camera.zoom=1; camera.updateProjectionMatrix(); }
-            else { inputGroup.visible=false; layers.forEach(l=>{l.setVisible(true); l.setInputVisible(false); l.updateVisibilityState(); }); }
+            document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
+            layers.forEach(l => l.updateVisibilityState()); if(!isProjectorMode) broadcastSync();
+        }
+
+        function broadcastSync() {
+            if (isProjectorMode) return;
+            channel.postMessage({ type: 'sync_state', state: { layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId }, videoSrc: videoElement.src || null });
+        }
+
+        function togglePresentationMode() {
+            if(isProjectorMode) return; showGuides = !showGuides; const btn = document.getElementById('vis-switch');
+            if (showGuides) { btn.classList.add('active'); document.body.classList.remove('presentation-mode'); } 
+            else { btn.classList.remove('active'); document.body.classList.add('presentation-mode'); }
+            layers.forEach(l => l.updateVisibilityState());
+        }
+
+        function openProjectorWindow() {
+            const win = window.open(window.location.href.split('?')[0] + '?projector=true', 'MR_Projector', 'width=1280,height=720');
+            if(!win) alert("⚠️ ไม่สามารถเปิดหน้าต่างโปรเจคเตอร์ได้ กรุณาอนุญาต Pop-ups (Allow Pop-ups) ในเบราว์เซอร์ของคุณ");
         }
 
         function recordHistory() {
-            if(isHistoryPaused) return;
-            const s = JSON.stringify({ layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId });
-            if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return;
-            historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
+            if(isHistoryPaused) return; const s = JSON.stringify({ layers: layers.map(l=>l.toJSON()), layerCounter, activeId: activeLayerId });
+            if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return; historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
         }
-        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1])); }
-        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n)); }
-        function loadState(d) {
-            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; 
-            d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld)));
-            setActiveLayer(d.activeId); updateAllTextures(); setMode(mode);
+        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1])); broadcastSync(); }
+        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n)); broadcastSync(); }
+        function loadState(d, shouldBroadcast = true) {
+            while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; d.layers.forEach(ld=>layers.push(new Layer(ld.id, ld))); activeLayerId = d.activeId; 
+            layers.forEach(l => l.updateVisibilityState()); updateLayerList(); mode = isProjectorMode ? 'OUTPUT' : mode; 
+            if(shouldBroadcast && !isProjectorMode) broadcastSync();
         }
-        function saveProject() { const d={version:"37.1", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v37_1.json"; a.click(); }
+        function saveProject() { const d={version:"39.0", layerCounter, layers:layers.map(l=>l.toJSON())}; const b=new Blob([JSON.stringify(d)],{type:"application/json"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_v39.json"; a.click(); }
         function loadProject(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=function(evt){ try{ const d=JSON.parse(evt.target.result); loadState(d); alert("Loaded!"); }catch(err){alert("Error");} }; r.readAsText(f); e.target.value=''; }
-
-        function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); setActiveLayer(l.id); updateLayerList(); setMode(mode); recordHistory(); }
-        function setActiveLayer(id) { 
-            activeLayerId=id; 
-            layers.forEach(l=>{ 
-                l.updateVisibilityState(); 
-            }); 
-            updateLayerList(); 
-        }
-        function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); } }
-        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory();} }
+        function addNewLayer() { const l=new Layer(layerCounter++); layers.push(l); activeLayerId = l.id; layers.forEach(ly => ly.updateVisibilityState()); updateLayerList(); setMode(mode); recordHistory(); broadcastSync(); }
+        function setActiveLayer(id) { activeLayerId=id; layers.forEach(l=>l.updateVisibilityState()); updateLayerList(); broadcastSync(); }
+        function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(); } }
+        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.initDefault(); recordHistory(); broadcastSync(); } }
         function updateLayerList() { const l=document.getElementById('layer-list'); l.innerHTML=''; layers.forEach(ly=>{ const d=document.createElement('div'); d.className=`layer-item ${ly.id===activeLayerId?'active':''}`; d.innerHTML=`<span>${ly.name}</span>`; d.onclick=()=>setActiveLayer(ly.id); l.appendChild(d); }); }
         function togglePanel() { document.body.classList.toggle('panel-hidden'); }
         function onResize() { const a=window.innerWidth/window.innerHeight; const f=40; camera.left=-f*a/2; camera.right=f*a/2; camera.top=f/2; camera.bottom=-f/2; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
-        function animate() { 
-            requestAnimationFrame(animate); 
-            if(videoElement && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) { if(mainTexture) mainTexture.needsUpdate = true; }
-            renderer.render(scene, camera); 
-        }
+        function animate() { requestAnimationFrame(animate); if(videoElement && videoElement.readyState >= videoElement.HAVE_CURRENT_DATA) { if(mainTexture) mainTexture.needsUpdate = true; } renderer.render(scene, camera); }
         init();
     </script>
 </body>
