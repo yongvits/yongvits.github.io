@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>MR Mapping v46.1 (Multi-Media Blob System & Fixed Load)</title>
+    <title>MR Mapping v48.3 (English / Smart Reset & Depth Fix)</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background-color: #050505; 
@@ -57,6 +57,8 @@
             background: #444; color: white; border: none; padding: 8px; width: 100%; 
             cursor: pointer; font-size: 11px; border-radius: 4px; margin-bottom: 6px;
             display: flex; align-items: center; justify-content: center; gap: 5px; 
+            transition: 0.3s;
+            box-sizing: border-box;
         }
         .btn:active { transform: scale(0.98); }
         .btn-primary { background: linear-gradient(45deg, #00ffaa, #00cc88); color: #000; font-weight: bold; }
@@ -137,6 +139,13 @@
         body.presentation-mode #restore-overlay { display: block !important; }
         body.projector-mode { cursor: none; }
         body.projector-mode #start-overlay { display: none !important; }
+        
+        select.btn-tool {
+            appearance: none;
+            background-color: #222;
+            color: #fff;
+            padding-left: 8px;
+        }
     </style>
 </head>
 <body>
@@ -144,13 +153,20 @@
     <div id="restore-overlay" onclick="togglePresentationMode()"></div>
 
     <div id="start-overlay" onclick="startApp()">
-        <h2>MR MAPPING v46</h2>
-        <p>▶ Click to Start (Multi-Media)</p>
+        <h2>MR MAPPING v48</h2>
+        <p>▶ Click to Start</p>
     </div>
     
     <div id="sync-indicator">📡 SYNC ACTIVE</div>
     <div id="snap-ring"></div>
     <div class="mode-indicator" id="mode-text">OUTPUT</div>
+
+    <!-- ✅ POP-UP MENU FOR EDITING -->
+    <div id="node-edit-menu" style="display:none; position:absolute; z-index:1000; background:rgba(15,15,15,0.95); padding:10px; border-radius:8px; border:1px solid #00ffaa; backdrop-filter:blur(5px); transform:translate(-50%, -120%); pointer-events:auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+        <div style="color:#00ffaa; font-size:10px; margin-bottom:8px; text-align:center; font-weight:bold;">🛠️ EDIT POINT</div>
+        <button class="btn btn-primary" onclick="toggleSelectedNodeCurve()" style="margin-bottom:5px; width:100%; font-size:10px; padding:6px;">↔️ Curve / Linear</button>
+        <button class="btn btn-danger" onclick="deleteSelectedNode()" style="margin:0; width:100%; font-size:10px; padding:6px;">🗑️ Delete</button>
+    </div>
 
     <div class="top-bar">
         <button class="btn" onclick="togglePanel()">☰</button>
@@ -159,7 +175,8 @@
     </div>
 
     <div class="right-toggles">
-        <button class="tool-btn cast" onclick="openProjectorWindow()" title="Open Projector Window">🖥️</button>
+        <button class="tool-btn cast" onclick="openProjectorWindow()" title="Open Projector Window on Extended Display">🖥️</button>
+        <button class="tool-btn" id="fullscreen-toggle" onclick="toggleFullScreen()" title="Toggle Fullscreen">🔲</button>
         <button class="tool-btn" id="pan-toggle" onclick="togglePanMode()" title="Pan View">✋</button>
         <button class="tool-btn" id="multi-toggle" onclick="toggleMultiSelect()" title="Multi-Select Points">🔗</button>
         <div class="switch-container" onclick="togglePresentationMode()">
@@ -177,7 +194,7 @@
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>MR Mapping</h1>
-                <span style="font-size:10px; color:#666">v46.1 Stable Load</span>
+                <span style="font-size:10px; color:#666">v48.3 English</span>
             </div>
         </div>
 
@@ -201,17 +218,22 @@
         <div id="layer-list"></div>
 
         <div class="controls">
-            <label class="btn" style="background: #2266aa; border: 1px solid #4488dd;">
-                <span id="upload-label-text">🎥 Upload VDO/Image to Layer</span> 
-                <input type="file" id="mediaInput" accept="video/*,image/*">
-            </label>
+            <div style="font-size: 10px; color:#00ffaa; margin-bottom:4px; font-weight:bold;">🎥 Media Pool (Reusable)</div>
+            <div class="row" style="margin-bottom: 8px;">
+                <select id="media-select" class="btn btn-tool" style="flex: 2; margin: 0; text-align: left;" onchange="setLayerMediaFromDropdown(this.value)">
+                    <option value="">-- No Media (Black) --</option>
+                </select>
+                <label class="btn btn-primary" style="flex: 1; margin: 0; background: linear-gradient(45deg, #0088ff, #0055cc); color: white; padding: 4px;">
+                    <span id="upload-label-text">➕ Upload</span> 
+                    <input type="file" id="mediaInput" accept="video/*,image/*">
+                </label>
+            </div>
             
             <div class="row" style="margin-top:8px;">
                 <button class="btn btn-tool" id="btn-playpause" onclick="togglePlayPause()" style="flex:1;">⏸️ Pause All</button>
                 <button class="btn btn-tool" id="btn-mute" onclick="toggleMute()" style="flex:1;">🔇 Unmute All</button>
             </div>
 
-            <!-- INDIVIDUAL LAYER CONTROLS -->
             <div id="layer-media-section" style="display:none; margin-top:8px; border-top: 1px dashed #444; padding-top: 8px;">
                 <div style="font-size: 10px; color:#aaa; margin-bottom:4px;">Layer Controls (<span id="layer-control-name">Screen 1</span>)</div>
                 <div class="row">
@@ -230,9 +252,11 @@
             <button class="btn btn-tool" onclick="clearAutoSave()" style="margin-top:8px; border-color: #ffaa00; color: #ffaa00;">🗑️ Clear Auto-Save</button>
             
             <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
-                <span style="color:#00ffaa; font-weight:bold;">v46.1 แก้บัคการโหลด:</span><br>
-                • โหลดโปรเจคแล้ววิดีโอ/รูป มาครบตรงจุด<br>
-                • ลดการใช้ RAM วิดีโอไม่หน่วง
+                <span style="color:#00ffaa; font-weight:bold;">Instructions:</span><br>
+                • <b>Add Point:</b> Double-click a line.<br>
+                • <b>Curve/Delete:</b> Click a point to open Edit Menu.<br>
+                • <b>Easy Handles:</b> Extended control handles.<br>
+                • <b>Touch (iPad):</b> 2-finger tap = Undo, 3-finger = Redo
             </div>
         </div>
     </div>
@@ -246,7 +270,7 @@
             async init() {
                 if(this.db) return;
                 return new Promise((resolve, reject) => {
-                    const req = indexedDB.open('MRMappingDB_V3', 1);
+                    const req = indexedDB.open('MRMappingDB_V4', 1);
                     req.onupgradeneeded = e => {
                         if (!e.target.result.objectStoreNames.contains('saves')) {
                             e.target.result.createObjectStore('saves');
@@ -277,7 +301,6 @@
             }
         };
 
-        // แปลงไฟล์เป็น Base64 สำหรับการ Export JSON (Save Project)
         function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -294,6 +317,9 @@
         let activeLayerId = null;
         let layerCounter = 1;
         
+        const mediaPool = {}; 
+        let mediaCounter = 1;
+        
         let mainTexture = null, checkerTexture = null; 
         let isCheckerActive = false;
         let appStarted = false;
@@ -301,7 +327,7 @@
         let isPanMode = false;
         let isMultiSelect = false;
         
-        const channel = new BroadcastChannel('mr_mapping_sync_v44');
+        const channel = new BroadcastChannel('mr_mapping_sync_v48');
         let isProjectorMode = new URLSearchParams(window.location.search).get('projector') === 'true';
 
         let scene, camera, renderer, raycaster, mouse, inputGroup, outputGroup, inputBgMesh;
@@ -315,23 +341,120 @@
         let planeNormal = new THREE.Vector3(0, 0, 1);
         let panStart = new THREE.Vector2();
         let lastTapTime = 0;
+        let lastUndoRedoTime = 0;
         let nodeToMerge = null;
 
         window.startApp = function() {
             document.getElementById('start-overlay').style.display = 'none';
             appStarted = true;
-            layers.forEach(l => { if(l.videoElement) l.videoElement.play().catch(e=>{}); });
+            Object.values(mediaPool).forEach(m => { if(m.element) m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); }); });
             updateMediaUI(); broadcastSync(true);
         };
 
-        // --- MEDIA CONTROLS ---
+        // --- GLOBAL UI FUNCTIONS ---
+        window.toggleSelectedNodeCurve = function() {
+            if(selectedNodes.length === 1) {
+                const l = getActiveLayer();
+                const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+                const idx = pts.indexOf(selectedNodes[0]);
+                if (idx > -1) {
+                    pts[idx].toggleType();
+                    l.updateGeometry(); recordHistory(); broadcastSync(false);
+                }
+            }
+        };
+
+        window.deleteSelectedNode = function() {
+            if(selectedNodes.length === 1) {
+                if (selectedNodes[0].isCorner) {
+                    alert("⚠️ Cannot delete the 4 main corners.");
+                    return;
+                }
+                const l = getActiveLayer();
+                const idx = mode === 'OUTPUT' ? l.outPoints.indexOf(selectedNodes[0]) : l.inPoints.indexOf(selectedNodes[0]);
+                if (idx > -1) {
+                    l.outPoints[idx].destroy();
+                    l.inPoints[idx].destroy();
+                    l.outPoints.splice(idx, 1);
+                    l.inPoints.splice(idx, 1);
+                    l.clearSelection();
+                    selectedNodes = [];
+                    l.updateGeometry();
+                    recordHistory();
+                    broadcastSync(true);
+                }
+            }
+        };
+
+        // --- MEDIA POOL CONTROLS ---
+        function loadMediaIntoPool(file, id, name) {
+            return new Promise((resolve) => {
+                const isVideo = file.type.indexOf('video') !== -1;
+                const url = URL.createObjectURL(file);
+                const mediaObj = { id, name, type: isVideo ? 'video' : 'image', file, blob: file, url, element: null, texture: null, aspect: 16/9 };
+                
+                if (isVideo) {
+                    const vid = document.createElement('video');
+                    vid.crossOrigin = "anonymous"; vid.loop = true; vid.muted = true; vid.playsInline = true; vid.preload = "auto";
+                    vid.src = url; vid.style.display = 'none';
+                    document.body.appendChild(vid);
+                    mediaObj.element = vid;
+                    vid.onloadedmetadata = () => {
+                        mediaObj.aspect = vid.videoWidth / vid.videoHeight;
+                        mediaObj.texture = new THREE.VideoTexture(vid);
+                        mediaObj.texture.minFilter = THREE.LinearFilter; mediaObj.texture.format = THREE.RGBAFormat;
+                        mediaPool[id] = mediaObj;
+                        if(appStarted) vid.play().catch(e=>{ console.warn("Autoplay prevented", e); });
+                        resolve(id);
+                    };
+                    vid.onerror = () => resolve(null); 
+                } else {
+                    const img = new Image();
+                    img.onload = () => {
+                        mediaObj.aspect = img.width / img.height;
+                        mediaObj.texture = new THREE.Texture(img);
+                        mediaObj.texture.needsUpdate = true; mediaObj.texture.minFilter = THREE.LinearFilter;
+                        mediaPool[id] = mediaObj;
+                        resolve(id);
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = url;
+                }
+            });
+        }
+
+        function updateMediaDropdown() {
+            const select = document.getElementById('media-select');
+            if(!select) return;
+            select.innerHTML = '<option value="">-- No Media (Black) --</option>';
+            Object.values(mediaPool).forEach(m => {
+                select.innerHTML += `<option value="${m.id}">${m.type === 'video' ? '🎥' : '🖼️'} ${m.name}</option>`;
+            });
+            const l = getActiveLayer();
+            if(l && l.mediaId && mediaPool[l.mediaId]) {
+                select.value = l.mediaId;
+            } else {
+                select.value = "";
+            }
+        }
+
+        function setLayerMediaFromDropdown(mediaId) {
+            const layer = getActiveLayer();
+            if(!layer || layer.isMask) return;
+            layer.mediaId = mediaId || null;
+            layer.updateTexture();
+            updateInputBackground();
+            recordHistory();
+            broadcastSync(true); 
+        }
+
         function togglePlayPause() {
             let anyPlaying = false;
-            layers.forEach(l => { if(l.videoElement && !l.videoElement.paused) anyPlaying = true; });
-            layers.forEach(l => {
-                if(l.videoElement) {
-                    if(anyPlaying) l.videoElement.pause();
-                    else l.videoElement.play().catch(e=>{});
+            Object.values(mediaPool).forEach(m => { if(m.element && !m.element.paused) anyPlaying = true; });
+            Object.values(mediaPool).forEach(m => {
+                if(m.element) {
+                    if(anyPlaying) m.element.pause();
+                    else m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); });
                 }
             });
             updateMediaUI(); broadcastPlaybackState();
@@ -339,41 +462,38 @@
 
         function toggleMute() {
             let anyMuted = true;
-            layers.forEach(l => { if(l.videoElement && !l.videoElement.muted) anyMuted = false; });
+            Object.values(mediaPool).forEach(m => { if(m.element && !m.element.muted) anyMuted = false; });
             let newState = !anyMuted; 
-            layers.forEach(l => { if(l.videoElement) l.videoElement.muted = newState; });
+            Object.values(mediaPool).forEach(m => { if(m.element) m.element.muted = newState; });
             updateMediaUI(); broadcastPlaybackState();
         }
 
         function toggleLayerPlayPause() {
             const l = getActiveLayer();
-            if(!l || !l.videoElement) return;
-            if(l.videoElement.paused) l.videoElement.play().catch(e=>{});
-            else l.videoElement.pause();
+            if(!l || !l.mediaId || !mediaPool[l.mediaId]) return;
+            const m = mediaPool[l.mediaId];
+            if(!m.element) return;
+            if(m.element.paused) m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); });
+            else m.element.pause();
             updateMediaUI(); broadcastPlaybackState();
         }
 
         function toggleLayerMute() {
             const l = getActiveLayer();
-            if(!l || !l.videoElement) return;
-            l.videoElement.muted = !l.videoElement.muted;
+            if(!l || !l.mediaId || !mediaPool[l.mediaId]) return;
+            const m = mediaPool[l.mediaId];
+            if(!m.element) return;
+            m.element.muted = !m.element.muted;
             updateMediaUI(); broadcastPlaybackState();
-        }
-
-        function toggleMultiSelect() {
-            if(isProjectorMode) return;
-            isMultiSelect = !isMultiSelect;
-            const btn = document.getElementById('multi-toggle');
-            if(isMultiSelect) btn.classList.add('active'); else btn.classList.remove('active');
         }
 
         function updateMediaUI() {
             let anyVdo = false, anyPlaying = false, anyMuted = true;
-            layers.forEach(l => { 
-                if(l.videoElement) {
+            Object.values(mediaPool).forEach(m => { 
+                if(m.element) {
                     anyVdo = true;
-                    if(!l.videoElement.paused) anyPlaying = true;
-                    if(!l.videoElement.muted) anyMuted = false;
+                    if(!m.element.paused) anyPlaying = true;
+                    if(!m.element.muted) anyMuted = false;
                 }
             });
 
@@ -397,29 +517,49 @@
 
             const l = getActiveLayer();
             const layerSec = document.getElementById('layer-media-section');
-            if (l && l.videoElement && !l.isMask) {
+            if (l && l.mediaId && mediaPool[l.mediaId] && mediaPool[l.mediaId].element && !l.isMask) {
                 layerSec.style.display = 'block';
                 document.getElementById('layer-control-name').innerText = l.name;
                 const bPlay = document.getElementById('btn-layer-playpause');
                 const bMute = document.getElementById('btn-layer-mute');
+                const m = mediaPool[l.mediaId];
 
-                if(l.videoElement.paused) { bPlay.innerHTML = '▶️ Play Screen'; bPlay.style.background = '#333'; bPlay.style.color = '#fff'; } 
+                if(m.element.paused) { bPlay.innerHTML = '▶️ Play Screen'; bPlay.style.background = '#333'; bPlay.style.color = '#fff'; } 
                 else { bPlay.innerHTML = '⏸️ Pause Screen'; bPlay.style.background = '#0088cc'; bPlay.style.color = '#fff'; }
 
-                if(l.videoElement.muted) { bMute.innerHTML = '🔇 Unmute Screen'; bMute.style.background = '#333'; bMute.style.color = '#fff'; } 
+                if(m.element.muted) { bMute.innerHTML = '🔇 Unmute Screen'; bMute.style.background = '#333'; bMute.style.color = '#fff'; } 
                 else { bMute.innerHTML = '🔊 Mute Screen'; bMute.style.background = '#0088cc'; bMute.style.color = '#fff'; }
             } else { layerSec.style.display = 'none'; }
         }
 
         function broadcastPlaybackState() {
             if(isProjectorMode) return;
-            const states = layers.map(l => ({
-                id: l.id,
-                paused: l.videoElement ? l.videoElement.paused : true,
-                muted: l.videoElement ? l.videoElement.muted : true,
-                currentTime: l.videoElement ? l.videoElement.currentTime : 0
+            const states = Object.values(mediaPool).map(m => ({
+                id: m.id,
+                paused: m.element ? m.element.paused : true,
+                muted: m.element ? m.element.muted : true,
+                currentTime: m.element ? m.element.currentTime : 0
             }));
             channel.postMessage({ type: 'playback_states', states: states });
+        }
+
+        function toggleMultiSelect() {
+            if(isProjectorMode) return;
+            isMultiSelect = !isMultiSelect;
+            const btn = document.getElementById('multi-toggle');
+            if(isMultiSelect) btn.classList.add('active'); else btn.classList.remove('active');
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
         }
 
         // --- 2. MATH FUNCTIONS ---
@@ -490,19 +630,19 @@
                 this.type = 'linear'; this.isCorner = isCorner; this.group = group;
                 
                 const geo = isCorner ? new THREE.PlaneGeometry(0.5, 0.5) : new THREE.CircleGeometry(0.3, 16);
-                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false }));
-                this.hit = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({visible:false}));
+                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false, depthWrite: false }));
+                this.hit = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5), new THREE.MeshBasicMaterial({visible:false}));
                 this.mesh.add(this.hit);
                 
-                this.ctrl1 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
-                const hitC1 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
+                this.ctrl1 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false }));
+                const hitC1 = new THREE.Mesh(new THREE.CircleGeometry(2.5, 8), new THREE.MeshBasicMaterial({visible:false}));
                 this.ctrl1.add(hitC1);
                 
-                this.ctrl2 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
-                const hitC2 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 8), new THREE.MeshBasicMaterial({visible:false}));
+                this.ctrl2 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false }));
+                const hitC2 = new THREE.Mesh(new THREE.CircleGeometry(2.5, 8), new THREE.MeshBasicMaterial({visible:false}));
                 this.ctrl2.add(hitC2);
                 
-                this.lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+                this.lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthTest: false, depthWrite: false });
                 this.line1 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
                 this.line2 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
                 
@@ -511,6 +651,7 @@
                 hitC2.userData = { node: this, part: 'ctrl2' };
                 
                 this.mesh.renderOrder = 1000; this.ctrl1.renderOrder = 1001; this.ctrl2.renderOrder = 1001;
+                this.line1.renderOrder = 999; this.line2.renderOrder = 999;
                 group.add(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2);
                 this.updateVisuals();
             }
@@ -540,7 +681,7 @@
             setCtrl2(p) { this.h2.subVectors(p, this.pos); if(this.type === 'smooth') this.h1.copy(this.h2).multiplyScalar(-1); this.updateVisuals(); }
             toggleType() {
                 this.type = this.type === 'linear' ? 'smooth' : 'linear';
-                if(this.type === 'smooth') { this.h1.set(-0.8, 0, 0); this.h2.set(0.8, 0, 0); }
+                if(this.type === 'smooth') { this.h1.set(-3.0, 0, 0); this.h2.set(3.0, 0, 0); }
                 this.updateVisuals();
             }
             destroy() { this.group.remove(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2); }
@@ -549,17 +690,9 @@
         class Layer {
             constructor(id, data = null, isMask = false) {
                 this.id = id; 
-                this.isMask = data && data.isMask !== undefined ? data.isMask : isMask;
+                this.isMask = data?.isMask ?? isMask;
                 this.name = this.isMask ? `Mask ${id}` : `Screen ${id}`;
-                
-                this.texture = mainTexture; 
-                this.videoElement = null;
-                // ✅ รักษา Aspect Ratio เดิมที่เคยเซฟไว้
-                this.sourceAspectRatio = data && data.sourceAspect ? data.sourceAspect : 16/9;
-                
-                this.mediaFile = null; 
-                this.mediaBlob = null;
-                this.isVdo = false;
+                this.mediaId = data?.mediaId ?? null;
 
                 this.outputGroup = new THREE.Group(); outputGroup.add(this.outputGroup);
                 this.inputGroup = new THREE.Group(); inputGroup.add(this.inputGroup);
@@ -568,32 +701,34 @@
                 
                 const outMat = this.isMask 
                     ? new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }) 
-                    : new THREE.MeshBasicMaterial({ map: this.texture, side: THREE.DoubleSide });
+                    : new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide });
                 this.mesh = new THREE.Mesh(geo, outMat);
                 this.mesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01); 
                 this.mesh.userData = { id: id, type: 'output_body' };
+                this.mesh.renderOrder = 1;
                 this.outputGroup.add(this.mesh);
 
                 const inMatColor = this.isMask ? 0xff0000 : 0xffff00;
                 this.inputMesh = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: inMatColor, transparent: true, opacity: 0.5, side: THREE.DoubleSide, map: null }));
                 this.inputMesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01);
                 this.inputMesh.userData = { id: id, type: 'input_body' };
+                this.inputMesh.renderOrder = 2;
                 this.inputGroup.add(this.inputMesh);
 
                 const outWireColor = this.isMask ? 0xff3366 : 0x00ffaa;
-                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true, depthTest: false }));
+                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true, depthTest: false, depthWrite: false }));
                 this.outWire.renderOrder = 20;
                 this.outputGroup.add(this.outWire);
 
-                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false }));
+                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false, depthWrite: false }));
                 this.inWire.renderOrder = 20;
                 this.inputGroup.add(this.inWire);
                 
-                this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false }));
+                this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false, depthWrite: false }));
                 this.gridMesh.renderOrder = 20;
                 this.outputGroup.add(this.gridMesh);
                 
-                this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }));
+                this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false, depthWrite: false }));
                 this.inputGridMesh.renderOrder = 20;
                 this.inputGroup.add(this.inputGridMesh);
 
@@ -602,12 +737,12 @@
                 if (data) this.loadFromData(data);
                 else this.initDefault();
                 
-                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+                this.updateTexture();
                 this.updateVisibilityState();
             }
 
             initDefault() {
-                const aspect = this.sourceAspectRatio;
+                const aspect = (this.mediaId && mediaPool[this.mediaId]) ? mediaPool[this.mediaId].aspect : 16/9;
                 const w = 16; const h = 16 / aspect;
                 const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
                 
@@ -620,27 +755,47 @@
             }
 
             resetToDefault(targetMode) {
-                const aspect = this.sourceAspectRatio;
+                const aspect = (this.mediaId && mediaPool[this.mediaId]) ? mediaPool[this.mediaId].aspect : 16/9;
                 const w = 16; const h = 16 / aspect;
-                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
-                
-                if (targetMode === 'OUTPUT' || targetMode === 'ALL') {
-                    for(let i = this.outPoints.length - 1; i >= 0; i--) {
-                        if (!this.outPoints[i].isCorner) { this.outPoints[i].destroy(); this.outPoints.splice(i, 1); }
-                    }
-                    for(let i=0; i<4; i++) {
-                        this.outPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
-                        this.outPoints[i].type = 'linear'; this.outPoints[i].updateVisuals();
+                const cornerPos = [
+                    new THREE.Vector3(-w/2, h/2, 0),
+                    new THREE.Vector3(w/2, h/2, 0),
+                    new THREE.Vector3(w/2, -h/2, 0),
+                    new THREE.Vector3(-w/2, -h/2, 0)
+                ];
+
+                if (targetMode === 'INPUT' || targetMode === 'ALL') {
+                    const corners = [];
+                    this.inPoints.forEach((p, i) => { if (p.isCorner) corners.push(i); });
+                    
+                    if (corners.length === 4) {
+                        const distributeEdge = (startIdx, endIdx, startPos, endPos) => {
+                            let slice = [];
+                            if (startIdx < endIdx) slice = this.inPoints.slice(startIdx, endIdx + 1);
+                            else slice = [...this.inPoints.slice(startIdx), this.inPoints[0]];
+                            
+                            const n = slice.length - 1;
+                            slice.forEach((p, index) => {
+                                const t = n === 0 ? 0 : index / n;
+                                p.setPos(new THREE.Vector3().lerpVectors(startPos, endPos, t));
+                                p.type = 'linear';
+                                p.updateVisuals();
+                            });
+                        };
+                        distributeEdge(corners[0], corners[1], cornerPos[0], cornerPos[1]);
+                        distributeEdge(corners[1], corners[2], cornerPos[1], cornerPos[2]);
+                        distributeEdge(corners[2], corners[3], cornerPos[2], cornerPos[3]);
+                        distributeEdge(corners[3], corners[0], cornerPos[3], cornerPos[0]);
                     }
                 }
-                if (targetMode === 'INPUT' || targetMode === 'ALL') {
-                    for(let i = this.inPoints.length - 1; i >= 0; i--) {
-                        if (!this.inPoints[i].isCorner) { this.inPoints[i].destroy(); this.inPoints.splice(i, 1); }
-                    }
-                    for(let i=0; i<4; i++) {
-                        this.inPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
-                        this.inPoints[i].type = 'linear'; this.inPoints[i].updateVisuals();
-                    }
+
+                if (targetMode === 'OUTPUT' || targetMode === 'ALL') {
+                    this.outPoints.forEach(p => p.destroy());
+                    this.outPoints = this.inPoints.map(inp => {
+                        const n = new BezierNode(this.outputGroup, inp.isCorner, inp.pos.toArray());
+                        n.h1.copy(inp.h1); n.h2.copy(inp.h2); n.type = inp.type; n.updateVisuals();
+                        return n;
+                    });
                 }
                 this.updateGeometry();
             }
@@ -692,8 +847,8 @@
                 if(isCheckerActive) return;
                 if(!inEdges) inEdges = this.getEdges(this.inPoints);
                 
-                const targetRatio = this.sourceAspectRatio;
-                const bgW = 16; const bgH = 16 / targetRatio;
+                const aspect = (this.mediaId && mediaPool[this.mediaId]) ? mediaPool[this.mediaId].aspect : 16/9;
+                const bgW = 16; const bgH = 16 / aspect;
                 
                 const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
                 const cTL = inEdges.T[0].pos, cTR = inEdges.T[inEdges.T.length-1].pos;
@@ -721,13 +876,17 @@
 
             updateTexture() {
                 if(this.isMask) return;
-                const tex = isCheckerActive ? checkerTexture : (this.texture || mainTexture);
+                let tex = mainTexture;
+                if (isCheckerActive) {
+                    tex = checkerTexture;
+                } else if (this.mediaId && mediaPool[this.mediaId]) {
+                    tex = mediaPool[this.mediaId].texture;
+                }
                 this.mesh.material.map = tex;
                 this.mesh.material.needsUpdate = true;
                 if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
             }
 
-            // ✅ รับไฟล์ดิบ (File) ไม่ทำให้ Memory ค้าง
             setMediaFile(file) {
                 if (this.isMask) return;
                 this.mediaFile = file; 
@@ -737,7 +896,6 @@
                 this.applyMedia(url, this.isVdo);
             }
 
-            // ✅ รับจาก Base64/URL แต่แปลงเป็น Blob อัตโนมัติทันที
             async setMediaBase64(urlOrBase64, isVideo) {
                 if (this.isMask) return;
                 this.mediaFile = null; 
@@ -746,7 +904,7 @@
                 
                 if (urlOrBase64.startsWith('data:')) {
                     try {
-                        const res = await fetch(urlOrBase64); // Convert massive base64 to blob instantly
+                        const res = await fetch(urlOrBase64); 
                         const blob = await res.blob();
                         this.mediaBlob = blob;
                         const blobUrl = URL.createObjectURL(blob);
@@ -770,17 +928,17 @@
 
                 if (isVideo) {
                     const vid = document.createElement('video');
-                    vid.loop = true; vid.muted = true; vid.playsInline = true;
+                    vid.crossOrigin = "anonymous"; vid.loop = true; vid.muted = true; vid.playsInline = true;
                     vid.preload = "auto";
                     vid.src = url; vid.style.display = 'none';
                     document.body.appendChild(vid);
                     this.videoElement = vid;
                     
-                    vid.play().then(() => updateMediaUI()).catch(e=>{});
+                    vid.play().catch(e=>{ console.warn("Autoplay prevented", e); });
                     vid.onloadedmetadata = () => {
                         this.sourceAspectRatio = vid.videoWidth / vid.videoHeight;
                         this.texture = new THREE.VideoTexture(vid);
-                        this.texture.minFilter = THREE.LinearFilter; this.texture.format = THREE.RGBAFormat; // แก้อาการจอดำ
+                        this.texture.minFilter = THREE.LinearFilter; this.texture.format = THREE.RGBAFormat; 
                         if(isCheckerActive) toggleCheckerPattern(); else this.updateTexture();
                         updateInputBackground();
                         if(!isProjectorMode) broadcastSync(true);
@@ -862,21 +1020,17 @@
             }
 
             toJSON(includeMedia = false) {
-                // ส่งค่า Media แบบ Base64 ก็ต่อเมื่อเป็นโหมด fullSync
                 return {
                     id: this.id,
                     isMask: this.isMask,
-                    mediaUrl: includeMedia ? (this.mediaBlob ? URL.createObjectURL(this.mediaBlob) : null) : null, 
-                    isVdo: this.isVdo,
-                    sourceAspect: this.sourceAspectRatio, // สำคัญ: ส่งค่า Aspect Ratio เสมอ
+                    mediaId: this.mediaId, 
                     outPoints: this.outPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner })),
                     inPoints: this.inPoints.map(n => ({ pos: n.pos.toArray(), h1: n.h1.toArray(), h2: n.h2.toArray(), type: n.type, isCorner: n.isCorner }))
                 };
             }
             destroy() { 
-                this.outputGroup.parent.remove(this.outputGroup); this.inputGroup.parent.remove(this.inputGroup); 
-                if(this.videoElement) { this.videoElement.pause(); this.videoElement.removeAttribute('src'); this.videoElement.load(); this.videoElement = null; }
-                if(this.texture && this.texture !== mainTexture && this.texture !== checkerTexture) this.texture.dispose();
+                this.outputGroup.parent.remove(this.outputGroup); 
+                this.inputGroup.parent.remove(this.inputGroup); 
             }
         }
 
@@ -903,43 +1057,46 @@
             createCheckerTexture();
 
             inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 1.0, transparent: true }));
-            inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); inputGroup.add(inputBgMesh);
+            inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); 
+            inputGroup.add(inputBgMesh);
 
             if (isProjectorMode) {
                 document.body.classList.add('projector-mode'); document.body.classList.add('presentation-mode');
                 appStarted = true; showGuides = false; mode = 'OUTPUT';
                 inputGroup.visible = false; 
                 
+                document.body.addEventListener('click', () => {
+                    if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e=>{}); }
+                }, { once: false });
+                
                 channel.onmessage = (event) => {
                     const msg = event.data;
-                    if(msg.type === 'sync_state') {
-                        if (msg.fullSync) {
-                            loadState(msg.state, false);
-                        } else {
-                            msg.state.layers.forEach(remoteLayer => {
-                                const localLayer = layers.find(l => l.id === remoteLayer.id);
-                                if (localLayer) {
-                                    remoteLayer.outPoints.forEach((rp, i) => {
-                                        const p = localLayer.outPoints[i];
-                                        p.pos.fromArray(rp.pos);
-                                        p.h1.fromArray(rp.h1); p.h2.fromArray(rp.h2); p.type = rp.type; p.updateVisuals();
-                                    });
-                                    remoteLayer.inPoints.forEach((rp, i) => {
-                                        const p = localLayer.inPoints[i];
-                                        p.pos.fromArray(rp.pos);
-                                        p.h1.fromArray(rp.h1); p.h2.fromArray(rp.h2); p.type = rp.type; p.updateVisuals();
-                                    });
-                                    localLayer.updateGeometry();
-                                }
-                            });
-                        }
+                    if(msg.type === 'sync_full_reload') {
+                        DB.load().then(async savedObj => {
+                            if(savedObj && savedObj.data) await loadState(JSON.parse(savedObj.data), false, savedObj.files);
+                        });
+                    } else if(msg.type === 'sync_fast') {
+                        msg.state.layers.forEach(remoteLayer => {
+                            const localLayer = layers.find(l => l.id === remoteLayer.id);
+                            if (localLayer) {
+                                remoteLayer.outPoints.forEach((rp, i) => {
+                                    const p = localLayer.outPoints[i];
+                                    p.pos.fromArray(rp.pos); p.h1.fromArray(rp.h1); p.h2.fromArray(rp.h2); p.type = rp.type; p.updateVisuals();
+                                });
+                                remoteLayer.inPoints.forEach((rp, i) => {
+                                    const p = localLayer.inPoints[i];
+                                    p.pos.fromArray(rp.pos); p.h1.fromArray(rp.h1); p.h2.fromArray(rp.h2); p.type = rp.type; p.updateVisuals();
+                                });
+                                localLayer.updateGeometry();
+                            }
+                        });
                     } else if (msg.type === 'playback_states') {
                         msg.states.forEach(s => {
-                            const l = layers.find(layer => layer.id === s.id);
-                            if(l && l.videoElement) {
-                                l.videoElement.muted = s.muted;
-                                if(s.paused && !l.videoElement.paused) l.videoElement.pause();
-                                else if(!s.paused && l.videoElement.paused) l.videoElement.play().catch(e=>{});
+                            const m = mediaPool[s.id];
+                            if(m && m.element) {
+                                m.element.muted = s.muted;
+                                if(s.paused && !m.element.paused) m.element.pause();
+                                else if(!s.paused && m.element.paused) m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); });
                             }
                         });
                     }
@@ -957,12 +1114,11 @@
                 window.addEventListener('touchend', onPointerUp);
                 cvs.addEventListener('wheel', onWheel, {passive:false});
                 
-                // 💾 โหลด Auto Save 
-                DB.load().then(savedObj => {
+                DB.load().then(async savedObj => {
                     if (savedObj && savedObj.data) {
                         try { 
                             const d = JSON.parse(savedObj.data);
-                            loadState(d, false, savedObj.files); 
+                            await loadState(d, false, savedObj.files); 
                         } catch(e) { addNewLayer(); recordHistory(); }
                     } else { addNewLayer(); recordHistory(); }
                 }).catch(e => { addNewLayer(); recordHistory(); });
@@ -998,22 +1154,38 @@
             ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 5; ctx.strokeRect(0,0,1024,1024); checkerTexture = new THREE.CanvasTexture(cvs);
         }
 
-        function handleUpload(e) {
+        async function handleUpload(e) {
             const file = e.target.files[0]; if(!file) return;
-            const layer = getActiveLayer();
-            if(!layer || layer.isMask) { alert("⚠️ กรุณาเลือก Screen สีเขียวเพื่อใส่ภาพหรือวิดีโอ"); e.target.value = ''; return; }
+            const btnLabel = document.getElementById('upload-label-text');
+            const originalText = btnLabel.innerHTML;
+            btnLabel.innerHTML = "⏳ Processing...";
+            btnLabel.parentElement.style.background = "#aa7700";
 
-            layer.setMediaFile(file);
+            const newId = 'media_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+            await loadMediaIntoPool(file, newId, file.name);
+
+            const layer = getActiveLayer();
+            if(layer && !layer.isMask) {
+                layer.mediaId = newId;
+                layer.updateTexture();
+                updateInputBackground();
+            }
+
+            updateMediaDropdown();
             recordHistory();
-            e.target.value = ''; // ล้างค่าให้เลือกไฟล์เดิมซ้ำได้
+            broadcastSync(true);
+
+            btnLabel.innerHTML = originalText;
+            btnLabel.parentElement.style.background = "";
+            e.target.value = ''; 
         }
 
         function updateInputBackground() {
             const l = getActiveLayer();
-            if(l && !l.isMask) {
-                inputBgMesh.material.map = isCheckerActive ? checkerTexture : (l.texture || mainTexture);
-                const ratio = l.sourceAspectRatio || 16/9;
-                inputBgMesh.scale.set(16, 16 / ratio, 1);
+            if(l && !l.isMask && l.mediaId && mediaPool[l.mediaId]) {
+                const m = mediaPool[l.mediaId];
+                inputBgMesh.material.map = isCheckerActive ? checkerTexture : m.texture;
+                inputBgMesh.scale.set(16, 16 / m.aspect, 1);
             } else {
                 inputBgMesh.material.map = isCheckerActive ? checkerTexture : mainTexture;
                 inputBgMesh.scale.set(16, 9, 1);
@@ -1063,8 +1235,17 @@
             const l = getActiveLayer(); if(!l) return;
             const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
 
-            const hitTargets = []; pts.forEach(p => { hitTargets.push(p.hit, p.ctrl1.children[0], p.ctrl2.children[0]); });
-            const hits = raycaster.intersectObjects(hitTargets);
+            const handleTargets = []; 
+            const nodeTargets = [];
+            pts.forEach(p => { 
+                nodeTargets.push(p.hit); 
+                if(p.type === 'smooth') handleTargets.push(p.ctrl1.children[0], p.ctrl2.children[0]); 
+            });
+            
+            let hits = raycaster.intersectObjects(handleTargets);
+            if (hits.length === 0) {
+                hits = raycaster.intersectObjects(nodeTargets);
+            }
             
             if (hits.length > 0) {
                 const hitData = hits[0].object.userData; const node = hitData.node;
@@ -1091,23 +1272,35 @@
             }
 
             if (isDoubleTap) {
-                let bestDist = Infinity; let insertIdx = -1; let insertPos = null;
-                for(let i=0; i<pts.length; i++) {
-                    const n0 = pts[i]; const n1 = pts[(i+1)%pts.length];
-                    const p0 = n0.pos; const p1 = new THREE.Vector3().addVectors(n0.pos, n0.h2);
-                    const p2 = new THREE.Vector3().addVectors(n1.pos, n1.h1); const p3 = n1.pos;
+                let bestDist = Infinity; let insertIdx = -1; let bestOutPos = null; let bestInPos = null;
+                const currentPts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+                const otherPts = mode === 'OUTPUT' ? l.inPoints : l.outPoints;
+
+                for(let i=0; i<currentPts.length; i++) {
+                    const n0 = currentPts[i]; const n1 = currentPts[(i+1)%currentPts.length];
+                    const o0 = otherPts[i]; const o1 = otherPts[(i+1)%otherPts.length];
+
                     for(let t=0; t<=1; t+=0.05) {
-                        const pt = cubicBezier(p0, p1, p2, p3, t);
+                        const pt = cubicBezier(n0.pos, new THREE.Vector3().addVectors(n0.pos, n0.h2), new THREE.Vector3().addVectors(n1.pos, n1.h1), n1.pos, t);
                         let wPt = pt.clone(); if(mode==='INPUT') wPt.applyMatrix4(l.inputMesh.matrixWorld);
                         const d = wp.distanceTo(wPt);
-                        if (d < bestDist) { bestDist = d; insertIdx = i + 1; insertPos = pt; }
+                        if (d < bestDist) { 
+                            bestDist = d; insertIdx = i + 1; 
+                            if (mode === 'OUTPUT') {
+                                bestOutPos = pt.clone();
+                                bestInPos = cubicBezier(o0.pos, new THREE.Vector3().addVectors(o0.pos, o0.h2), new THREE.Vector3().addVectors(o1.pos, o1.h1), o1.pos, t);
+                            } else {
+                                bestInPos = pt.clone();
+                                bestOutPos = cubicBezier(o0.pos, new THREE.Vector3().addVectors(o0.pos, o0.h2), new THREE.Vector3().addVectors(o1.pos, o1.h1), o1.pos, t);
+                            }
+                        }
                     }
                 }
                 if (insertIdx !== -1 && bestDist < 1.0) {
-                    const group = mode === 'INPUT' ? l.inputGroup : l.outputGroup;
-                    const newNode = new BezierNode(group, false, insertPos.toArray());
-                    newNode.toggleType(); 
-                    pts.splice(insertIdx, 0, newNode);
+                    const outNode = new BezierNode(l.outputGroup, false, bestOutPos.toArray());
+                    const inNode = new BezierNode(l.inputGroup, false, bestInPos.toArray());
+                    l.outPoints.splice(insertIdx, 0, outNode);
+                    l.inPoints.splice(insertIdx, 0, inNode);
                     l.updateGeometry(); broadcastSync(true); return; 
                 }
             }
@@ -1209,10 +1402,17 @@
             if(isProjectorMode) return;
             let merged = false;
             if (nodeToMerge && selectedNodes.length === 1) {
-                const l = getActiveLayer(); const pts = mode === 'INPUT' ? l.inPoints : l.outPoints;
-                const idx = pts.indexOf(nodeToMerge);
-                if (idx > -1) pts.splice(idx, 1);
-                nodeToMerge.destroy(); nodeToMerge = null;
+                const l = getActiveLayer(); 
+                const isOutput = l.outPoints.includes(nodeToMerge);
+                const idx = isOutput ? l.outPoints.indexOf(nodeToMerge) : l.inPoints.indexOf(nodeToMerge);
+                
+                if (idx > -1) {
+                    l.outPoints[idx].destroy();
+                    l.inPoints[idx].destroy();
+                    l.outPoints.splice(idx, 1);
+                    l.inPoints.splice(idx, 1);
+                }
+                nodeToMerge = null;
                 if(!isMultiSelect) { l.clearSelection(); selectedNodes = []; selectedPart = null; }
                 l.updateGeometry();
                 merged = true;
@@ -1220,17 +1420,34 @@
             isDragging=false; isGesture=false; isHistoryPaused=false; 
             recordHistory(); 
             document.getElementById('snap-ring').style.display='none'; 
-            broadcastSync(merged); 
+            if(merged) broadcastSync(true); 
         }
 
         // --- MOBILE GESTURES ---
         function onTouchStart(e) {
             if(document.body.classList.contains('presentation-mode')) return;
-            if (e.touches.length === 2 && (mode==='INPUT' || showGuides)) { 
-                isGesture = true; isDragging = false; const l = getActiveLayer(); if(!l) return;
-                const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY;
-                gestureStartDist = Math.sqrt(dx*dx + dy*dy); gestureStartAngle = Math.atan2(dy, dx);
-            } else if (e.touches.length === 1) { onPointerDown(e.touches[0]); }
+            
+            const now = Date.now();
+            if (e.touches.length === 3) {
+                isGesture = true; isDragging = false;
+                if (now - lastUndoRedoTime > 400) {
+                    redo(); lastUndoRedoTime = now;
+                    const s = document.getElementById('sync-indicator');
+                    s.innerText = '↪ REDO'; s.style.display = 'block';
+                    setTimeout(()=> { s.style.display = 'none'; s.innerText = '📡 SYNC ACTIVE'; }, 800);
+                }
+            } else if (e.touches.length === 2) { 
+                isGesture = true; isDragging = false;
+                if (now - lastUndoRedoTime > 400) {
+                    undo(); lastUndoRedoTime = now;
+                    const s = document.getElementById('sync-indicator');
+                    s.innerText = '↩ UNDO'; s.style.display = 'block';
+                    setTimeout(()=> { s.style.display = 'none'; s.innerText = '📡 SYNC ACTIVE'; }, 800);
+                }
+            } else if (e.touches.length === 1) { 
+                isGesture = false;
+                onPointerDown(e.touches[0]); 
+            }
         }
 
         function onTouchMove(e) {
@@ -1258,96 +1475,136 @@
             mode = m; document.getElementById('mode-text').innerText = mode;
             document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
             document.getElementById('btn-reset').innerText = `Reset ${m}`;
-            layers.forEach(l => l.updateVisibilityState()); 
-            updateInputBackground();
-            if(!isProjectorMode) broadcastSync(true);
+            
+            if (isProjectorMode) {
+                inputGroup.visible = false;
+            } else {
+                inputGroup.visible = (m === 'INPUT');
+                layers.forEach(l => l.updateVisibilityState()); 
+                updateInputBackground();
+                broadcastSync(true);
+            }
         }
 
-        function openProjectorWindow() {
-            const win = window.open(window.location.href.split('?')[0] + '?projector=true', 'MR_Projector', 'width=1280,height=720');
-            if(!win) alert("⚠️ ไม่สามารถเปิดหน้าต่างโปรเจคเตอร์ได้ กรุณาอนุญาต Pop-ups (Allow Pop-ups) ในเบราว์เซอร์ของคุณตรงแถบ URL ด้านบน");
+        async function openProjectorWindow() {
+            const url = window.location.href.split('?')[0] + '?projector=true';
+            let win = null;
+            let features = 'menubar=no,toolbar=no,location=no,status=no,popup=yes';
+
+            try {
+                if ('getScreenDetails' in window) {
+                    const screenDetails = await window.getScreenDetails();
+                    const extScreen = screenDetails.screens.find(s => s !== screenDetails.currentScreen);
+                    if (extScreen) {
+                        features += `,left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight}`;
+                        win = window.open(url, 'MR_Projector', features);
+                    }
+                }
+            } catch (err) { console.log("Multi-Screen API error.", err); }
+
+            if (!win) { win = window.open(url, 'MR_Projector', `width=1280,height=720,${features}`); }
+            if(!win) alert("⚠️ Cannot open projector window. Please allow pop-ups.");
         }
 
         function recordHistory() {
             if(isHistoryPaused) return; 
-            const s = JSON.stringify({ layers: layers.map(l=>l.toJSON(false)), layerCounter, activeId: activeLayerId });
+            const stateData = {
+                version: "48.2 En", layerCounter, activeId: activeLayerId,
+                mediaPoolMeta: {},
+                layers: layers.map(l=>l.toJSON(false))
+            };
+            
             const filesObj = {};
-            layers.forEach(l => { 
-                if (l.mediaFile) filesObj[l.id] = l.mediaFile; 
-                else if (l.mediaBlob) filesObj[l.id] = l.mediaBlob; 
-            });
+            for(const [id, m] of Object.entries(mediaPool)) {
+                stateData.mediaPoolMeta[id] = { id: m.id, name: m.name, type: m.type, aspect: m.aspect };
+                filesObj[id] = m.blob;
+            }
 
+            const s = JSON.stringify(stateData);
             if(historyStack.length>0 && historyStack[historyStack.length-1]===s) return; 
             historyStack.push(s); if(historyStack.length>20) historyStack.shift(); redoStack=[];
             DB.save(s, filesObj).catch(e => console.log('Auto-save error:', e)); 
         }
+
         function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1]), true); }
         function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n), true); }
         
-        // ✅ รับไฟล์จาก IndexedDB หรือ JSON ทำให้โหลดกลับมาครบเป๊ะทุกจอ
-        function loadState(d, shouldBroadcast = true, savedFiles = null) {
+        async function loadState(d, shouldBroadcast = true, savedFiles = null) {
             while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; 
             
-            d.layers.forEach(ld => {
-                const l = new Layer(ld.id, ld, ld.isMask);
-                if (savedFiles && savedFiles[ld.id]) {
-                    const fileOrBlob = savedFiles[ld.id];
-                    if (fileOrBlob instanceof File) {
-                        l.setMediaFile(fileOrBlob);
-                    } else if (fileOrBlob instanceof Blob) {
-                        l.mediaFile = null; l.mediaBlob = fileOrBlob; l.isVdo = ld.isVdo;
-                        const url = URL.createObjectURL(fileOrBlob);
-                        l.applyMedia(url, ld.isVdo);
-                    }
-                } else if (ld.mediaUrl) {
-                    l.setMediaBase64(ld.mediaUrl, ld.isVdo); 
+            if (savedFiles) {
+                for(const m of Object.values(mediaPool)) {
+                    if(m.element) { m.element.pause(); m.element.removeAttribute('src'); m.element.load(); }
+                    if(m.texture) m.texture.dispose();
                 }
-                layers.push(l);
-            });
+                for (let key in mediaPool) delete mediaPool[key];
+
+                if (d.mediaPoolMeta) {
+                    const loadPromises = [];
+                    for(const [id, meta] of Object.entries(d.mediaPoolMeta)) {
+                        if (savedFiles[id]) {
+                            loadPromises.push(loadMediaIntoPool(savedFiles[id], id, meta.name));
+                        }
+                    }
+                    await Promise.all(loadPromises);
+                }
+            }
+
+            d.layers.forEach(ld => { layers.push(new Layer(ld.id, ld, ld.isMask)); });
 
             activeLayerId = d.activeId; 
-            layers.forEach(l => l.updateVisibilityState()); updateLayerList(); mode = isProjectorMode ? 'OUTPUT' : mode; 
-            updateInputBackground(); updateMediaUI();
+            layers.forEach(l => l.updateVisibilityState()); 
+            updateLayerList(); 
+            updateMediaDropdown(); 
+            updateInputBackground(); 
+            updateMediaUI();
+            setMode(isProjectorMode ? 'OUTPUT' : mode); 
             if(shouldBroadcast && !isProjectorMode) broadcastSync(true);
         }
         
-        // ✅ ระบบ Save Project แบบรวมวิดีโอเข้าไฟล์ .json
         async function saveProject() { 
-            const btn = document.querySelector('button[onclick="saveProject()"]');
+            const btn = document.getElementById('btn-save');
             const origText = btn.innerHTML;
-            btn.innerHTML = "⏳ Saving...";
-            btn.style.background = "#aa7700";
+            btn.innerHTML = "⏳ Saving..."; btn.style.background = "#aa7700";
 
-            const exportData = {version:"46.1", layerCounter, activeId: activeLayerId, layers: []};
+            const exportData = {version:"48.2", layerCounter, activeId: activeLayerId, mediaPool: {}, layers: layers.map(l=>l.toJSON(false))};
 
-            for(const l of layers) {
-                const lData = l.toJSON(false);
-                if (l.mediaFile) {
-                    lData.mediaUrl = await fileToBase64(l.mediaFile);
-                } else if (l.mediaBlob) {
-                    lData.mediaUrl = await fileToBase64(l.mediaBlob);
-                } else if (l.mediaUrl && l.mediaUrl.startsWith('data:')) {
-                    lData.mediaUrl = l.mediaUrl;
+            for(const [id, m] of Object.entries(mediaPool)) {
+                if (m.blob) {
+                    exportData.mediaPool[id] = {
+                        id: m.id, name: m.name, type: m.type, aspect: m.aspect,
+                        base64: await fileToBase64(m.blob)
+                    };
                 }
-                exportData.layers.push(lData);
             }
 
             const b=new Blob([JSON.stringify(exportData)],{type:"application/json"}); 
             const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="mr_map_project.json"; a.click(); 
-            btn.innerHTML = origText;
-            btn.style.background = "";
+            btn.innerHTML = origText; btn.style.background = "";
         }
         
         function loadProject(e) { 
             const f=e.target.files[0]; if(!f)return; 
             const btnLabel = e.target.parentElement; const originalText = btnLabel.innerHTML;
-            btnLabel.innerHTML = "⏳ กำลังโหลด... (Loading)";
-            btnLabel.style.background = "#aa7700";
+            btnLabel.innerHTML = "⏳ Loading..."; btnLabel.style.background = "#aa7700";
             const r=new FileReader(); 
-            r.onload=function(evt){ 
-                try{ const d=JSON.parse(evt.target.result); loadState(d, true); recordHistory(); alert("Loaded!"); }catch(err){alert("Error");} 
-                btnLabel.innerHTML = originalText;
-                btnLabel.style.background = "";
+            r.onload = async function(evt) { 
+                try { 
+                    const d = JSON.parse(evt.target.result); 
+                    const reconstructedFiles = {};
+                    if (d.mediaPool) {
+                        d.mediaPoolMeta = {}; 
+                        for (const [id, mData] of Object.entries(d.mediaPool)) {
+                            d.mediaPoolMeta[id] = { id: mData.id, name: mData.name, type: mData.type, aspect: mData.aspect };
+                            const res = await fetch(mData.base64);
+                            const blob = await res.blob();
+                            reconstructedFiles[id] = new File([blob], mData.name, { type: blob.type });
+                        }
+                    }
+                    await loadState(d, true, reconstructedFiles); 
+                    recordHistory(); alert("Loaded!"); 
+                } catch(err) { alert("Error loading project"); console.error(err); } 
+                btnLabel.innerHTML = originalText; btnLabel.style.background = "";
             }; 
             r.readAsText(f); e.target.value=''; 
         }
@@ -1358,17 +1615,18 @@
             activeLayerId=id; 
             layers.forEach(l=>l.updateVisibilityState()); 
             updateLayerList(); 
+            updateMediaDropdown();
             updateInputBackground();
             updateMediaUI();
             selectedNodes = []; 
-            broadcastSync(true); 
+            broadcastSync(false); 
         }
         
         function deleteCurrentLayer() { if(!activeLayerId)return; const i=layers.findIndex(l=>l.id===activeLayerId); if(i>-1){ layers[i].destroy(); layers.splice(i,1); setActiveLayer(layers.length?layers[layers.length-1].id:null); recordHistory(); broadcastSync(true); } }
-        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.resetToDefault(mode); recordHistory(); broadcastSync(true); } }
+        function resetCurrentLayer() { const l=layers.find(l=>l.id===activeLayerId); if(l){l.resetToDefault(mode); recordHistory(); broadcastSync(false); } }
         
         function clearAutoSave() {
-            if(confirm("ยืนยันการล้างข้อมูล Auto-Save? (หน้าจอจะรีเซ็ตกลับเป็นค่าเริ่มต้นทั้งหมด)")) {
+            if(confirm("Confirm clearing Auto-Save data? (Screens will reset to default)")) {
                 DB.clear().then(() => location.reload());
             }
         }
@@ -1385,26 +1643,45 @@
         function togglePanel() { document.body.classList.toggle('panel-hidden'); }
         function onResize() { const a=window.innerWidth/window.innerHeight; const f=40; camera.left=-f*a/2; camera.right=f*a/2; camera.top=f/2; camera.bottom=-f/2; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
         
+        function updateNodeEditMenu() {
+            const menu = document.getElementById('node-edit-menu');
+            if (isProjectorMode || !showGuides || selectedNodes.length !== 1 || isDragging) {
+                menu.style.display = 'none';
+                return;
+            }
+            
+            const node = selectedNodes[0];
+            const pos = node.pos.clone();
+            if(mode === 'INPUT') pos.applyMatrix4(getActiveLayer().inputMesh.matrixWorld);
+            pos.project(camera);
+            
+            const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(pos.y * 0.5) + 0.5) * window.innerHeight;
+            
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y - 30}px`;
+            menu.style.display = 'block';
+        }
+
         function animate() { 
             requestAnimationFrame(animate); 
-            let needRender = false;
-            layers.forEach(l => {
-                if(l.videoElement && l.videoElement.readyState >= l.videoElement.HAVE_CURRENT_DATA) {
-                    if(l.texture && l.texture instanceof THREE.VideoTexture) needRender = true; 
+            Object.values(mediaPool).forEach(m => {
+                if(m.element && m.element.readyState >= m.element.HAVE_CURRENT_DATA) {
+                    if(m.texture) m.texture.needsUpdate = true; 
                 }
             });
+            updateNodeEditMenu(); 
             renderer.render(scene, camera); 
         }
         
         function broadcastSync(fullSync = false) {
             if (isProjectorMode) return;
-            // ส่งแค่ Blob URL ใน FullSync เพื่อไม่ให้ทำงานหนัก
-            const stateData = {
-                layers: layers.map(l => l.toJSON(fullSync)),
-                layerCounter, 
-                activeId: activeLayerId 
-            };
-            channel.postMessage({ type: 'sync_state', state: stateData, fullSync: fullSync });
+            if (fullSync) {
+                channel.postMessage({ type: 'sync_full_reload' });
+            } else {
+                const stateData = { layers: layers.map(l => l.toJSON(false)), layerCounter, activeId: activeLayerId };
+                channel.postMessage({ type: 'sync_fast', state: stateData });
+            }
         }
 
         init(); 
