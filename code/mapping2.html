@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>MR Mapping v48.2 (English / Independent Curves & Long Handles)</title>
+    <title>MR Mapping v48.10 (Perfect Checker Sync & Clean BG)</title>
     <style>
         body { 
             margin: 0; overflow: hidden; background-color: #050505; 
@@ -127,6 +127,16 @@
             display: none; font-weight: bold; text-transform: uppercase;
         }
 
+        /* ✅ CSS สำหรับไฟกระพริบตอนอัดวิดีโอ */
+        @keyframes blinkRecord {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        .recording-blink {
+            animation: blinkRecord 1s infinite;
+        }
+
         /* PRESENTATION MODE CSS */
         body.presentation-mode #ui-panel,
         body.presentation-mode .top-bar,
@@ -153,7 +163,7 @@
     <div id="restore-overlay" onclick="togglePresentationMode()"></div>
 
     <div id="start-overlay" onclick="startApp()">
-        <h2>MR MAPPING v48</h2>
+        <h2>MR MAPPING v48.10</h2>
         <p>▶ Click to Start</p>
     </div>
     
@@ -164,7 +174,7 @@
     <!-- ✅ POP-UP MENU FOR EDITING -->
     <div id="node-edit-menu" style="display:none; position:absolute; z-index:1000; background:rgba(15,15,15,0.95); padding:10px; border-radius:8px; border:1px solid #00ffaa; backdrop-filter:blur(5px); transform:translate(-50%, -120%); pointer-events:auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
         <div style="color:#00ffaa; font-size:10px; margin-bottom:8px; text-align:center; font-weight:bold;">🛠️ EDIT POINT</div>
-        <button class="btn btn-primary" onclick="toggleSelectedNodeCurve()" style="margin-bottom:5px; width:100%; font-size:10px; padding:6px;">↔️ Curve / Linear</button>
+        <button id="btn-curve-toggle" class="btn btn-primary" onclick="toggleSelectedNodeCurve()" style="margin-bottom:5px; width:100%; font-size:10px; padding:6px;">↔️ Curve / Linear</button>
         <button class="btn btn-danger" onclick="deleteSelectedNode()" style="margin:0; width:100%; font-size:10px; padding:6px;">🗑️ Delete</button>
     </div>
 
@@ -194,7 +204,7 @@
         <div class="header">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>MR Mapping</h1>
-                <span style="font-size:10px; color:#666">v48.2 English</span>
+                <span style="font-size:10px; color:#666">v48.10 Auto-Mesh</span>
             </div>
         </div>
 
@@ -249,14 +259,20 @@
                 <button class="btn btn-danger" onclick="deleteCurrentLayer()">Delete</button>
             </div>
             
+            <!-- ✅ เพิ่มเมนู Export -->
+            <div style="font-size: 10px; color:#00ffaa; margin-top:12px; margin-bottom:4px; font-weight:bold;">📤 Export (สำหรับนำไปเปิดบน Projector)</div>
+            <div class="row">
+                <button class="btn btn-primary" onclick="exportImage()" style="flex:1; background: #00aaff; color: white; border: none;">📸 Image (PNG)</button>
+                <button class="btn btn-primary" id="btn-record" onclick="toggleRecording()" style="flex:1; background: #ff3366; color: white; border: none;">⏺️ Record VDO</button>
+            </div>
+            
             <button class="btn btn-tool" onclick="clearAutoSave()" style="margin-top:8px; border-color: #ffaa00; color: #ffaa00;">🗑️ Clear Auto-Save</button>
             
             <div style="margin-top:8px; font-size:10px; color:#aaa; text-align:left; line-height: 1.4;">
                 <span style="color:#00ffaa; font-weight:bold;">Instructions:</span><br>
-                • <b>Add Point:</b> Double-click a line.<br>
-                • <b>Curve/Delete:</b> Click a point to open Edit Menu.<br>
-                • <b>Easy Handles:</b> Extended control handles.<br>
-                • <b>Touch (iPad):</b> 2-finger tap = Undo, 3-finger = Redo
+                • <b>Add Edge Point:</b> Double-click a line.<br>
+                • <b>Rotate / Scale:</b> Drag blue ↻ or pink ⤡ icon.<br>
+                • <b>Curve/Delete:</b> Click a point to open Edit Menu.
             </div>
         </div>
     </div>
@@ -320,7 +336,7 @@
         const mediaPool = {}; 
         let mediaCounter = 1;
         
-        let mainTexture = null, checkerTexture = null; 
+        let mainTexture = null, checkerTexture = null, scaleIconTexture = null, rotateIconTexture = null; 
         let isCheckerActive = false;
         let appStarted = false;
         let showGuides = true;
@@ -344,10 +360,21 @@
         let lastUndoRedoTime = 0;
         let nodeToMerge = null;
 
+        // ✅ ตัวแปรสำหรับระบบ Export
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let isRecording = false;
+        let preRecordState = { mode: 'OUTPUT', showGuides: true };
+
         window.startApp = function() {
             document.getElementById('start-overlay').style.display = 'none';
             appStarted = true;
-            Object.values(mediaPool).forEach(m => { if(m.element) m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); }); });
+            Object.values(mediaPool).forEach(m => { 
+                if(m.element && m.element.src) {
+                    const p = m.element.play();
+                    if(p !== undefined) p.catch(e => { console.warn("Autoplay prevented", e); });
+                }
+            });
             updateMediaUI(); broadcastSync(true);
         };
 
@@ -366,11 +393,11 @@
 
         window.deleteSelectedNode = function() {
             if(selectedNodes.length === 1) {
+                const l = getActiveLayer();
                 if (selectedNodes[0].isCorner) {
                     alert("⚠️ Cannot delete the 4 main corners.");
                     return;
                 }
-                const l = getActiveLayer();
                 const idx = mode === 'OUTPUT' ? l.outPoints.indexOf(selectedNodes[0]) : l.inPoints.indexOf(selectedNodes[0]);
                 if (idx > -1) {
                     l.outPoints[idx].destroy();
@@ -404,7 +431,10 @@
                         mediaObj.texture = new THREE.VideoTexture(vid);
                         mediaObj.texture.minFilter = THREE.LinearFilter; mediaObj.texture.format = THREE.RGBAFormat;
                         mediaPool[id] = mediaObj;
-                        if(appStarted) vid.play().catch(e=>{ console.warn("Autoplay prevented", e); });
+                        if(appStarted && vid.src) {
+                            const p = vid.play();
+                            if(p !== undefined) p.catch(e => { console.warn("Autoplay prevented", e); });
+                        }
                         resolve(id);
                     };
                     vid.onerror = () => resolve(null); 
@@ -454,7 +484,10 @@
             Object.values(mediaPool).forEach(m => {
                 if(m.element) {
                     if(anyPlaying) m.element.pause();
-                    else m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); });
+                    else if (m.element.src) {
+                        const p = m.element.play();
+                        if(p !== undefined) p.catch(e => { console.warn("Autoplay prevented", e); });
+                    }
                 }
             });
             updateMediaUI(); broadcastPlaybackState();
@@ -473,8 +506,13 @@
             if(!l || !l.mediaId || !mediaPool[l.mediaId]) return;
             const m = mediaPool[l.mediaId];
             if(!m.element) return;
-            if(m.element.paused) m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); });
-            else m.element.pause();
+            
+            if(m.element.paused && m.element.src) {
+                const p = m.element.play();
+                if(p !== undefined) p.catch(e => { console.warn("Autoplay prevented", e); });
+            } else {
+                m.element.pause();
+            }
             updateMediaUI(); broadcastPlaybackState();
         }
 
@@ -581,6 +619,16 @@
             return cubicBezier(n0.pos, new THREE.Vector3().addVectors(n0.pos, n0.h2), new THREE.Vector3().addVectors(n1.pos, n1.h1), n1.pos, localT);
         }
 
+        function evalCoons(edges, u, v) {
+            const cTL = edges.T[0].pos, cTR = edges.T[edges.T.length-1].pos;
+            const cBR = edges.B[0].pos, cBL = edges.B[edges.B.length-1].pos; 
+            const ptTop = evalEdgeBezier(edges.T, u); const ptBot = evalEdgeBezier(edges.B, 1 - u); 
+            const ptLft = evalEdgeBezier(edges.L, v); const ptRgt = evalEdgeBezier(edges.R, 1 - v); 
+            const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
+            const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
+            return new THREE.Vector3(x, y, 0);
+        }
+
         function getClosestPointOnSegment(p, v, w) {
             const line = new THREE.Line3(v, w);
             const closest = new THREE.Vector3();
@@ -630,19 +678,19 @@
                 this.type = 'linear'; this.isCorner = isCorner; this.group = group;
                 
                 const geo = isCorner ? new THREE.PlaneGeometry(0.5, 0.5) : new THREE.CircleGeometry(0.3, 16);
-                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false }));
+                this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffcc00, depthTest: false, depthWrite: false }));
                 this.hit = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5), new THREE.MeshBasicMaterial({visible:false}));
                 this.mesh.add(this.hit);
                 
-                this.ctrl1 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+                this.ctrl1 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false }));
                 const hitC1 = new THREE.Mesh(new THREE.CircleGeometry(2.5, 8), new THREE.MeshBasicMaterial({visible:false}));
                 this.ctrl1.add(hitC1);
                 
-                this.ctrl2 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+                this.ctrl2 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false }));
                 const hitC2 = new THREE.Mesh(new THREE.CircleGeometry(2.5, 8), new THREE.MeshBasicMaterial({visible:false}));
                 this.ctrl2.add(hitC2);
                 
-                this.lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+                this.lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthTest: false, depthWrite: false });
                 this.line1 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
                 this.line2 = new THREE.Line(new THREE.BufferGeometry(), this.lineMat);
                 
@@ -651,6 +699,7 @@
                 hitC2.userData = { node: this, part: 'ctrl2' };
                 
                 this.mesh.renderOrder = 1000; this.ctrl1.renderOrder = 1001; this.ctrl2.renderOrder = 1001;
+                this.line1.renderOrder = 999; this.line2.renderOrder = 999;
                 group.add(this.mesh, this.ctrl1, this.ctrl2, this.line1, this.line2);
                 this.updateVisuals();
             }
@@ -692,6 +741,11 @@
                 this.isMask = data?.isMask ?? isMask;
                 this.name = this.isMask ? `Mask ${id}` : `Screen ${id}`;
                 this.mediaId = data?.mediaId ?? null;
+                
+                this.centerPoint = new THREE.Vector3();
+                this.initialPts = [];
+                this.initialScaleDist = 1;
+                this.initialRotateAngle = 0;
 
                 this.outputGroup = new THREE.Group(); outputGroup.add(this.outputGroup);
                 this.inputGroup = new THREE.Group(); inputGroup.add(this.inputGroup);
@@ -700,41 +754,77 @@
                 
                 const outMat = this.isMask 
                     ? new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide }) 
-                    : new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide });
+                    : new THREE.MeshBasicMaterial({ map: null, color: 0x000000, side: THREE.DoubleSide });
                 this.mesh = new THREE.Mesh(geo, outMat);
                 this.mesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01); 
                 this.mesh.userData = { id: id, type: 'output_body' };
+                this.mesh.renderOrder = 1;
                 this.outputGroup.add(this.mesh);
 
                 const inMatColor = this.isMask ? 0xff0000 : 0xffff00;
                 this.inputMesh = new THREE.Mesh(geo.clone(), new THREE.MeshBasicMaterial({ color: inMatColor, transparent: true, opacity: 0.5, side: THREE.DoubleSide, map: null }));
                 this.inputMesh.position.z = (this.isMask ? 5 : 0) + (id * 0.01);
                 this.inputMesh.userData = { id: id, type: 'input_body' };
+                this.inputMesh.renderOrder = 2;
                 this.inputGroup.add(this.inputMesh);
 
                 const outWireColor = this.isMask ? 0xff3366 : 0x00ffaa;
-                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true, depthTest: false }));
+                this.outWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: outWireColor, opacity: 0.8, transparent: true, depthTest: false, depthWrite: false }));
                 this.outWire.renderOrder = 20;
                 this.outputGroup.add(this.outWire);
 
-                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false }));
+                this.inWire = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, depthTest: false, depthWrite: false }));
                 this.inWire.renderOrder = 20;
                 this.inputGroup.add(this.inWire);
                 
-                this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false }));
+                this.gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.15, depthTest: false, depthWrite: false }));
                 this.gridMesh.renderOrder = 20;
                 this.outputGroup.add(this.gridMesh);
                 
-                this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false }));
+                this.inputGridMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 2, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.4, depthTest: false, depthWrite: false }));
                 this.inputGridMesh.renderOrder = 20;
                 this.inputGroup.add(this.inputGridMesh);
+
+                const scaleGeo = new THREE.PlaneGeometry(1.2, 1.2);
+                const scaleMat = new THREE.MeshBasicMaterial({ map: scaleIconTexture, transparent: true, depthTest: false, depthWrite: false });
+                
+                this.scaleHandleOut = new THREE.Mesh(scaleGeo, scaleMat);
+                this.scaleHandleOut.renderOrder = 1005;
+                const scaleHitOut = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({visible: false}));
+                scaleHitOut.userData = { node: this, part: 'scale' };
+                this.scaleHandleOut.add(scaleHitOut);
+                this.outputGroup.add(this.scaleHandleOut);
+
+                this.scaleHandleIn = new THREE.Mesh(scaleGeo, scaleMat.clone());
+                this.scaleHandleIn.renderOrder = 1005;
+                const scaleHitIn = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({visible: false}));
+                scaleHitIn.userData = { node: this, part: 'scale' };
+                this.scaleHandleIn.add(scaleHitIn);
+                this.inputGroup.add(this.scaleHandleIn);
+
+                const rotateGeo = new THREE.PlaneGeometry(1.2, 1.2);
+                const rotateMat = new THREE.MeshBasicMaterial({ map: rotateIconTexture, transparent: true, depthTest: false, depthWrite: false });
+                
+                this.rotateHandleOut = new THREE.Mesh(rotateGeo, rotateMat);
+                this.rotateHandleOut.renderOrder = 1005;
+                const rotateHitOut = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({visible: false}));
+                rotateHitOut.userData = { node: this, part: 'rotate' };
+                this.rotateHandleOut.add(rotateHitOut);
+                this.outputGroup.add(this.rotateHandleOut);
+
+                this.rotateHandleIn = new THREE.Mesh(rotateGeo, rotateMat.clone());
+                this.rotateHandleIn.renderOrder = 1005;
+                const rotateHitIn = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({visible: false}));
+                rotateHitIn.userData = { node: this, part: 'rotate' };
+                this.rotateHandleIn.add(rotateHitIn);
+                this.inputGroup.add(this.rotateHandleIn);
 
                 this.outPoints = []; this.inPoints = [];
 
                 if (data) this.loadFromData(data);
                 else this.initDefault();
                 
-                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+                this.updateTexture();
                 this.updateVisibilityState();
             }
 
@@ -754,25 +844,45 @@
             resetToDefault(targetMode) {
                 const aspect = (this.mediaId && mediaPool[this.mediaId]) ? mediaPool[this.mediaId].aspect : 16/9;
                 const w = 16; const h = 16 / aspect;
-                const corners = [[-w/2, h/2, 0], [w/2, h/2, 0], [w/2, -h/2, 0], [-w/2, -h/2, 0]]; 
-                
-                if (targetMode === 'OUTPUT' || targetMode === 'ALL') {
-                    for(let i = this.outPoints.length - 1; i >= 0; i--) {
-                        if (!this.outPoints[i].isCorner) { this.outPoints[i].destroy(); this.outPoints.splice(i, 1); }
-                    }
-                    for(let i=0; i<4; i++) {
-                        this.outPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
-                        this.outPoints[i].type = 'linear'; this.outPoints[i].updateVisuals();
+                const cornerPos = [
+                    new THREE.Vector3(-w/2, h/2, 0),
+                    new THREE.Vector3(w/2, h/2, 0),
+                    new THREE.Vector3(w/2, -h/2, 0),
+                    new THREE.Vector3(-w/2, -h/2, 0)
+                ];
+
+                if (targetMode === 'INPUT' || targetMode === 'ALL') {
+                    const corners = [];
+                    this.inPoints.forEach((p, i) => { if (p.isCorner) corners.push(i); });
+                    
+                    if (corners.length === 4) {
+                        const distributeEdge = (startIdx, endIdx, startPos, endPos) => {
+                            let slice = [];
+                            if (startIdx < endIdx) slice = this.inPoints.slice(startIdx, endIdx + 1);
+                            else slice = [...this.inPoints.slice(startIdx), this.inPoints[0]];
+                            
+                            const n = slice.length - 1;
+                            slice.forEach((p, index) => {
+                                const t = n === 0 ? 0 : index / n;
+                                p.setPos(new THREE.Vector3().lerpVectors(startPos, endPos, t));
+                                p.type = 'linear';
+                                p.updateVisuals();
+                            });
+                        };
+                        distributeEdge(corners[0], corners[1], cornerPos[0], cornerPos[1]);
+                        distributeEdge(corners[1], corners[2], cornerPos[1], cornerPos[2]);
+                        distributeEdge(corners[2], corners[3], cornerPos[2], cornerPos[3]);
+                        distributeEdge(corners[3], corners[0], cornerPos[3], cornerPos[0]);
                     }
                 }
-                if (targetMode === 'INPUT' || targetMode === 'ALL') {
-                    for(let i = this.inPoints.length - 1; i >= 0; i--) {
-                        if (!this.inPoints[i].isCorner) { this.inPoints[i].destroy(); this.inPoints.splice(i, 1); }
-                    }
-                    for(let i=0; i<4; i++) {
-                        this.inPoints[i].setPos(new THREE.Vector3().fromArray(corners[i]));
-                        this.inPoints[i].type = 'linear'; this.inPoints[i].updateVisuals();
-                    }
+
+                if (targetMode === 'OUTPUT' || targetMode === 'ALL') {
+                    this.outPoints.forEach(p => p.destroy());
+                    this.outPoints = this.inPoints.map(inp => {
+                        const n = new BezierNode(this.outputGroup, inp.isCorner, inp.pos.toArray());
+                        n.h1.copy(inp.h1); n.h2.copy(inp.h2); n.type = inp.type; n.updateVisuals();
+                        return n;
+                    });
                 }
                 this.updateGeometry();
             }
@@ -785,16 +895,11 @@
 
             warpCoons(posAttribute, edges, segments) {
                 const wVerts = segments + 1;
-                const cTL = edges.T[0].pos, cTR = edges.T[edges.T.length-1].pos;
-                const cBR = edges.B[0].pos, cBL = edges.B[edges.B.length-1].pos; 
                 for(let i=0; i<posAttribute.count; i++) {
                     const ix = i % wVerts; const iy = Math.floor(i / wVerts);
                     const u = ix / segments; const v = 1 - (iy / segments);
-                    const ptTop = evalEdgeBezier(edges.T, u); const ptBot = evalEdgeBezier(edges.B, 1 - u); 
-                    const ptLft = evalEdgeBezier(edges.L, v); const ptRgt = evalEdgeBezier(edges.R, 1 - v); 
-                    const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
-                    const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
-                    posAttribute.setXY(i, x, y, 0);
+                    const basePos = evalCoons(edges, u, v);
+                    posAttribute.setXY(i, basePos.x, basePos.y, 0);
                 }
                 posAttribute.needsUpdate = true;
                 if(posAttribute === this.mesh.geometry.attributes.position) this.mesh.geometry.computeBoundingSphere();
@@ -816,52 +921,67 @@
                 this.warpCoons(this.inputMesh.geometry.attributes.position, inEdges, config.segments);
                 this.warpCoons(this.inputGridMesh.geometry.attributes.position, inEdges, 2);
                 this.updateWire(this.inWire, inEdges);
+                
                 this.updateUVs(inEdges);
+
+                let oMinX = Infinity, oMaxX = -Infinity, oMinY = Infinity;
+                this.outPoints.forEach(p => {
+                    if (p.pos.x < oMinX) oMinX = p.pos.x;
+                    if (p.pos.x > oMaxX) oMaxX = p.pos.x;
+                    if (p.pos.y < oMinY) oMinY = p.pos.y;
+                });
+                this.scaleHandleOut.position.set(oMaxX + 1.5, oMinY - 1.5, 10);
+                this.rotateHandleOut.position.set(oMinX - 1.5, oMinY - 1.5, 10);
+
+                let iMinX = Infinity, iMaxX = -Infinity, iMinY = Infinity;
+                this.inPoints.forEach(p => {
+                    if (p.pos.x < iMinX) iMinX = p.pos.x;
+                    if (p.pos.x > iMaxX) iMaxX = p.pos.x;
+                    if (p.pos.y < iMinY) iMinY = p.pos.y;
+                });
+                this.scaleHandleIn.position.set(iMaxX + 1.5, iMinY - 1.5, 10);
+                this.rotateHandleIn.position.set(iMinX - 1.5, iMinY - 1.5, 10);
             }
 
+            // ✅ แก้อาการ Checker ไม่ตรง และไม่ยืดหยุ่นในหน้า Output
             updateUVs(inEdges = null) {
                 if(this.isMask) return; 
-                if(isCheckerActive) return;
+                // ลบคำสั่ง isCheckerActive return ออก เพื่อให้ UV อัปเดตตลอดเวลาแม้จะใช้ตาราง
+                
                 if(!inEdges) inEdges = this.getEdges(this.inPoints);
                 
                 const aspect = (this.mediaId && mediaPool[this.mediaId]) ? mediaPool[this.mediaId].aspect : 16/9;
                 const bgW = 16; const bgH = 16 / aspect;
                 
-                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
-                const cTL = inEdges.T[0].pos, cTR = inEdges.T[inEdges.T.length-1].pos;
-                const cBR = inEdges.B[0].pos, cBL = inEdges.B[inEdges.B.length-1].pos;
+                const uv = this.mesh.geometry.attributes.uv; 
+                const wVerts = config.segments + 1;
 
                 for(let i=0; i<uv.count; i++) {
                      const ix = i % wVerts; const iy = Math.floor(i / wVerts);
                      const u = ix / config.segments; const v = 1 - (iy / config.segments);
-                     const ptTop = evalEdgeBezier(inEdges.T, u); const ptBot = evalEdgeBezier(inEdges.B, 1 - u);
-                     const ptLft = evalEdgeBezier(inEdges.L, v); const ptRgt = evalEdgeBezier(inEdges.R, 1 - v);
-                     const x = (1-v)*ptBot.x + v*ptTop.x + (1-u)*ptLft.x + u*ptRgt.x - ( (1-u)*(1-v)*cBL.x + u*(1-v)*cBR.x + (1-u)*v*cTL.x + u*v*cTR.x );
-                     const y = (1-v)*ptBot.y + v*ptTop.y + (1-u)*ptLft.y + u*ptRgt.y - ( (1-u)*(1-v)*cBL.y + u*(1-v)*cBR.y + (1-u)*v*cTL.y + u*v*cTR.y );
                      
-                     uv.setXY(i, (x+bgW/2)/bgW, (y+bgH/2)/bgH);
+                     // คำนวณพิกัดให้ตรงกับจุดดัดเสมอ
+                     const basePos = evalCoons(inEdges, u, v);
+                     uv.setXY(i, (basePos.x+bgW/2)/bgW, (basePos.y+bgH/2)/bgH);
                 }
-                uv.needsUpdate = true;
-            }
-
-            resetUVsToFull() {
-                if(this.isMask) return;
-                const uv = this.mesh.geometry.attributes.uv; const wVerts = config.segments + 1;
-                for(let i=0; i<uv.count; i++) { const ix = i%wVerts; const iy = Math.floor(i/wVerts); uv.setXY(i, ix/config.segments, 1-(iy/config.segments)); }
                 uv.needsUpdate = true;
             }
 
             updateTexture() {
                 if(this.isMask) return;
-                let tex = mainTexture;
+                
                 if (isCheckerActive) {
-                    tex = checkerTexture;
+                    this.mesh.material.map = checkerTexture;
+                    this.mesh.material.color.setHex(0xffffff);
                 } else if (this.mediaId && mediaPool[this.mediaId]) {
-                    tex = mediaPool[this.mediaId].texture;
+                    this.mesh.material.map = mediaPool[this.mediaId].texture;
+                    this.mesh.material.color.setHex(0xffffff);
+                } else {
+                    this.mesh.material.map = null; 
+                    this.mesh.material.color.setHex(0x000000); 
                 }
-                this.mesh.material.map = tex;
                 this.mesh.material.needsUpdate = true;
-                if(isCheckerActive) this.resetUVsToFull(); else this.updateUVs();
+                this.updateUVs(); // ✅ บังคับอัปเดตพิกัด UV เสมอเวลาเปลี่ยนลาย
             }
 
             setMediaFile(file) {
@@ -963,29 +1083,50 @@
 
                 this.outWire.visible = guidesOn;
                 this.gridMesh.visible = guidesOn;
-                this.outPoints.forEach(p => { p.mesh.visible = guidesOn; if(!guidesOn) p.hideHandles(); });
                 
+                this.scaleHandleOut.visible = isActive && guidesOn && isOutput;
+                this.scaleHandleIn.visible = isActive && guidesOn && isInput;
+                this.rotateHandleOut.visible = isActive && guidesOn && isOutput;
+                this.rotateHandleIn.visible = isActive && guidesOn && isInput;
+
+                this.outPoints.forEach(p => { 
+                    p.mesh.visible = guidesOn && isActive; 
+                    if(!guidesOn || !isActive) p.hideHandles(); 
+                });
+                
+                if (isActive) {
+                    this.outWire.material.opacity = 0.9;
+                    this.outWire.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa); 
+                    this.gridMesh.material.opacity = 0.2;
+                    
+                    this.inputMesh.material.opacity = 0.4; 
+                    this.inputMesh.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa);
+                    this.inWire.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa); 
+                    this.inputMesh.renderOrder = 10;
+                } else {
+                    this.outWire.material.opacity = 0.7;
+                    this.outWire.material.color.setHex(this.isMask ? 0xcc5555 : 0x66ccaa); 
+                    this.gridMesh.material.opacity = 0.15;
+                    
+                    this.inputMesh.material.opacity = 0.25; 
+                    this.inputMesh.material.color.setHex(this.isMask ? 0xaa4444 : 0x449988); 
+                    this.inWire.material.color.setHex(this.isMask ? 0xcc5555 : 0x66ccaa); 
+                    this.inputMesh.renderOrder = 0;
+                }
+
                 if (isInput) {
                     this.inWire.visible = guidesOn;
                     this.inputGridMesh.visible = isActive && guidesOn; 
-                    this.inPoints.forEach(p => { p.mesh.visible = isActive && guidesOn; if(!guidesOn || !isActive) p.hideHandles(); });
-                    
-                    if(isActive) {
-                        this.inputMesh.material.opacity = 0.4; 
-                        this.inputMesh.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa);
-                        this.inWire.material.color.setHex(this.isMask ? 0xff3366 : 0x00ffaa); 
-                        this.inputMesh.renderOrder = 10;
-                    } else {
-                        this.inputMesh.material.opacity = 0.5; 
-                        this.inputMesh.material.color.setHex(this.isMask ? 0x880000 : 0x444444); 
-                        this.inWire.material.color.setHex(0xffffff); 
-                        this.inputMesh.renderOrder = 0;
-                    }
+                    this.inPoints.forEach(p => { 
+                        p.mesh.visible = isActive && guidesOn; 
+                        if(!guidesOn || !isActive) p.hideHandles(); 
+                    });
                 }
             }
 
             loadFromData(data) {
                 if(this.outPoints) { this.outPoints.forEach(p => p.destroy()); this.inPoints.forEach(p => p.destroy()); }
+
                 if(data.outPoints) {
                     this.outPoints = data.outPoints.map(d => { const n = new BezierNode(this.outputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
                     this.inPoints = data.inPoints.map(d => { const n = new BezierNode(this.inputGroup, d.isCorner, d.pos); n.h1.fromArray(d.h1); n.h2.fromArray(d.h2); n.type = d.type; n.updateVisuals(); return n; });
@@ -993,6 +1134,7 @@
                     this.outPoints = data.handles.map((p, i) => new BezierNode(this.outputGroup, true, p));
                     this.inPoints = (data.inHandles || data.handles).map((p, i) => new BezierNode(this.inputGroup, true, p));
                 }
+
                 this.updateGeometry();
             }
 
@@ -1012,6 +1154,27 @@
         }
 
         // --- 4. INIT FLOW ---
+        
+        function createScaleIconTexture() {
+            const cvs = document.createElement('canvas'); cvs.width = 64; cvs.height = 64; const ctx = cvs.getContext('2d');
+            ctx.fillStyle = '#ff33aa'; 
+            ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(52,0); ctx.quadraticCurveTo(64,0,64,12); ctx.lineTo(64,52); ctx.quadraticCurveTo(64,64,52,64); ctx.lineTo(12,64); ctx.quadraticCurveTo(0,64,0,52); ctx.lineTo(0,12); ctx.quadraticCurveTo(0,0,12,0); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 40px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('⤡', 32, 34); 
+            scaleIconTexture = new THREE.CanvasTexture(cvs);
+            scaleIconTexture.needsUpdate = true;
+        }
+
+        function createRotateIconTexture() {
+            const cvs = document.createElement('canvas'); cvs.width = 64; cvs.height = 64; const ctx = cvs.getContext('2d');
+            ctx.fillStyle = '#00aaff'; 
+            ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(52,0); ctx.quadraticCurveTo(64,0,64,12); ctx.lineTo(64,52); ctx.quadraticCurveTo(64,64,52,64); ctx.lineTo(12,64); ctx.quadraticCurveTo(0,64,0,52); ctx.lineTo(0,12); ctx.quadraticCurveTo(0,0,12,0); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 36px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('↻', 32, 34); 
+            rotateIconTexture = new THREE.CanvasTexture(cvs);
+            rotateIconTexture.needsUpdate = true;
+        }
+
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x000000); 
@@ -1023,7 +1186,8 @@
             camera = new THREE.OrthographicCamera(40 * aspect / -2, 40 * aspect / 2, 40 / 2, 40 / -2, 0.1, 1000);
             camera.position.z = 100;
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            // ✅ เพิ่ม preserveDrawingBuffer เพื่อให้แคปภาพจากหน้าจอได้
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             document.body.appendChild(renderer.domElement);
@@ -1032,6 +1196,8 @@
 
             setupPlaceholderSource(); 
             createCheckerTexture();
+            createScaleIconTexture(); 
+            createRotateIconTexture(); 
 
             inputBgMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mainTexture, side: THREE.DoubleSide, opacity: 1.0, transparent: true }));
             inputBgMesh.position.z = -1; inputBgMesh.scale.set(16, 9, 1); 
@@ -1073,7 +1239,10 @@
                             if(m && m.element) {
                                 m.element.muted = s.muted;
                                 if(s.paused && !m.element.paused) m.element.pause();
-                                else if(!s.paused && m.element.paused) m.element.play().catch(e=>{ console.warn("Autoplay prevented", e); });
+                                else if(!s.paused && m.element.paused && m.element.src) {
+                                    const p = m.element.play();
+                                    if(p !== undefined) p.catch(e => { console.warn("Autoplay prevented", e); });
+                                }
                             }
                         });
                     }
@@ -1112,6 +1281,8 @@
             document.getElementById('mediaInput').addEventListener('change', handleUpload);
             document.getElementById('jsonInput').addEventListener('change', loadProject);
             
+            // ✅ บังคับซ่อน Background ตามโหมดเริ่มต้นทันที
+            setMode(mode);
             animate();
         }
 
@@ -1159,14 +1330,22 @@
 
         function updateInputBackground() {
             const l = getActiveLayer();
+            let aspect = 16/9;
+            let tex = mainTexture;
+
             if(l && !l.isMask && l.mediaId && mediaPool[l.mediaId]) {
                 const m = mediaPool[l.mediaId];
-                inputBgMesh.material.map = isCheckerActive ? checkerTexture : m.texture;
-                inputBgMesh.scale.set(16, 16 / m.aspect, 1);
-            } else {
-                inputBgMesh.material.map = isCheckerActive ? checkerTexture : mainTexture;
-                inputBgMesh.scale.set(16, 9, 1);
+                aspect = m.aspect;
+                tex = m.texture;
             }
+
+            if (isCheckerActive) {
+                tex = checkerTexture;
+            }
+
+            // ✅ ปรับขนาดฉากหลังให้เท่ากับสัดส่วนวิดีโอ/รูปที่เลือกไว้เป๊ะๆ
+            inputBgMesh.material.map = tex;
+            inputBgMesh.scale.set(16, 16 / aspect, 1);
             inputBgMesh.material.needsUpdate = true;
         }
 
@@ -1210,8 +1389,41 @@
             const now = Date.now(); const isDoubleTap = (now - lastTapTime) < 300; lastTapTime = now;
 
             const l = getActiveLayer(); if(!l) return;
-            const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
+            
+            const controlTargets = [];
+            layers.forEach(ly => {
+                if (ly.scaleHandleOut.visible) controlTargets.push(ly.scaleHandleOut.children[0] || ly.scaleHandleOut);
+                if (ly.scaleHandleIn.visible) controlTargets.push(ly.scaleHandleIn.children[0] || ly.scaleHandleIn);
+                if (ly.rotateHandleOut.visible) controlTargets.push(ly.rotateHandleOut.children[0] || ly.rotateHandleOut);
+                if (ly.rotateHandleIn.visible) controlTargets.push(ly.rotateHandleIn.children[0] || ly.rotateHandleIn);
+            });
+            
+            let hits = raycaster.intersectObjects(controlTargets);
+            if (hits.length > 0) {
+                const hitData = hits[0].object.userData;
+                selectedObject = hitData.node;
+                selectedPart = hitData.part; 
+                isDragging = true;
+                
+                const pts = mode === 'OUTPUT' ? selectedObject.outPoints : selectedObject.inPoints;
+                let center = new THREE.Vector3();
+                pts.forEach(p => center.add(p.pos));
+                center.divideScalar(pts.length);
+                selectedObject.centerPoint = center;
+                
+                selectedObject.initialPts = pts.map(p => ({
+                    pos: p.pos.clone().sub(center), h1: p.h1.clone(), h2: p.h2.clone()
+                }));
+                
+                if (selectedPart === 'scale') {
+                    selectedObject.initialScaleDist = wp.distanceTo(center);
+                } else if (selectedPart === 'rotate') {
+                    selectedObject.initialRotateAngle = Math.atan2(wp.y - center.y, wp.x - center.x);
+                }
+                return;
+            }
 
+            const pts = mode === 'OUTPUT' ? l.outPoints : l.inPoints;
             const handleTargets = []; 
             const nodeTargets = [];
             pts.forEach(p => { 
@@ -1219,10 +1431,8 @@
                 if(p.type === 'smooth') handleTargets.push(p.ctrl1.children[0], p.ctrl2.children[0]); 
             });
             
-            let hits = raycaster.intersectObjects(handleTargets);
-            if (hits.length === 0) {
-                hits = raycaster.intersectObjects(nodeTargets);
-            }
+            hits = raycaster.intersectObjects(handleTargets);
+            if (hits.length === 0) hits = raycaster.intersectObjects(nodeTargets);
             
             if (hits.length > 0) {
                 const hitData = hits[0].object.userData; const node = hitData.node;
@@ -1232,7 +1442,7 @@
                 previousWorldPos.copy(wp);
 
                 if (hitData.part === 'main') {
-                    selectedPart = 'nodes';
+                    selectedPart = 'nodes'; 
                     if (isMultiSelect) {
                         if (!selectedNodes.includes(node)) selectedNodes.push(node);
                     } else {
@@ -1331,7 +1541,44 @@
             const wp = getWorldPos(ndc); const l = getActiveLayer();
             const rawDelta = new THREE.Vector3().subVectors(wp, previousWorldPos);
 
-            if (selectedPart === 'body' && selectedObject) {
+            if (selectedPart === 'scale' && selectedObject) {
+                const currentDist = wp.distanceTo(selectedObject.centerPoint);
+                let scaleFactor = currentDist / selectedObject.initialScaleDist;
+                scaleFactor = Math.max(0.1, scaleFactor); 
+                
+                const pts = mode === 'OUTPUT' ? selectedObject.outPoints : selectedObject.inPoints;
+                pts.forEach((p, i) => {
+                    const initData = selectedObject.initialPts[i];
+                    p.pos.copy(selectedObject.centerPoint).add(initData.pos.clone().multiplyScalar(scaleFactor));
+                    p.h1.copy(initData.h1).multiplyScalar(scaleFactor);
+                    p.h2.copy(initData.h2).multiplyScalar(scaleFactor);
+                    p.updateVisuals();
+                });
+                
+                selectedObject.updateGeometry();
+                broadcastSync(false);
+                return;
+            }
+            else if (selectedPart === 'rotate' && selectedObject) {
+                const currentAngle = Math.atan2(wp.y - selectedObject.centerPoint.y, wp.x - selectedObject.centerPoint.x);
+                const angleDelta = currentAngle - selectedObject.initialRotateAngle;
+                
+                const pts = mode === 'OUTPUT' ? selectedObject.outPoints : selectedObject.inPoints;
+                pts.forEach((p, i) => {
+                    const initData = selectedObject.initialPts[i];
+                    const rotatedPos = initData.pos.clone();
+                    rotatedPos.applyAxisAngle(new THREE.Vector3(0, 0, 1), angleDelta);
+                    p.pos.copy(selectedObject.centerPoint).add(rotatedPos);
+                    p.h1.copy(initData.h1).applyAxisAngle(new THREE.Vector3(0, 0, 1), angleDelta);
+                    p.h2.copy(initData.h2).applyAxisAngle(new THREE.Vector3(0, 0, 1), angleDelta);
+                    p.updateVisuals();
+                });
+                
+                selectedObject.updateGeometry();
+                broadcastSync(false);
+                return;
+            } 
+            else if (selectedPart === 'body' && selectedObject) {
                 const pts = mode === 'OUTPUT' ? selectedObject.outPoints : selectedObject.inPoints;
                 const movingPoints = pts.map(n => n.pos);
                 const snapDelta = getSnapDelta(movingPoints, rawDelta, selectedObject.id);
@@ -1439,6 +1686,7 @@
             const center = new THREE.Vector3(); const pts = mode==='OUTPUT' ? l.outPoints : l.inPoints;
             pts.forEach(p=>center.add(p.pos)); center.divideScalar(pts.length);
             pts.forEach(p => { p.setPos(new THREE.Vector3().subVectors(p.pos, center).multiplyScalar(scale).add(center)); });
+            
             l.updateGeometry(); recordHistory(); broadcastSync(false);
         }
 
@@ -1453,14 +1701,15 @@
             document.getElementById('btn-input').className = m==='INPUT'?'mode-btn active':'mode-btn'; document.getElementById('btn-output').className = m==='OUTPUT'?'mode-btn active':'mode-btn';
             document.getElementById('btn-reset').innerText = `Reset ${m}`;
             
-            if (isProjectorMode) {
+            // ✅ ซ่อนฉากหลังทุกอย่างเมื่ออยู่ในโหมด OUTPUT
+            if (isProjectorMode || mode === 'OUTPUT') {
                 inputGroup.visible = false;
             } else {
-                inputGroup.visible = (m === 'INPUT');
-                layers.forEach(l => l.updateVisibilityState()); 
-                updateInputBackground();
-                broadcastSync(true);
+                inputGroup.visible = true;
             }
+            layers.forEach(l => l.updateVisibilityState()); 
+            updateInputBackground();
+            if(!isProjectorMode) broadcastSync(true);
         }
 
         async function openProjectorWindow() {
@@ -1486,7 +1735,7 @@
         function recordHistory() {
             if(isHistoryPaused) return; 
             const stateData = {
-                version: "48.2 En", layerCounter, activeId: activeLayerId,
+                version: "48.10 En", layerCounter, activeId: activeLayerId,
                 mediaPoolMeta: {},
                 layers: layers.map(l=>l.toJSON(false))
             };
@@ -1503,26 +1752,28 @@
             DB.save(s, filesObj).catch(e => console.log('Auto-save error:', e)); 
         }
 
-        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1]), true); }
-        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n), true); }
+        function undo() { if(historyStack.length<=1)return; redoStack.push(historyStack.pop()); loadState(JSON.parse(historyStack[historyStack.length-1]), true, null, true); }
+        function redo() { if(redoStack.length===0)return; const n=redoStack.pop(); historyStack.push(n); loadState(JSON.parse(n), true, null, true); }
         
-        async function loadState(d, shouldBroadcast = true, savedFiles = null) {
+        async function loadState(d, shouldBroadcast = true, savedFiles = null, isUndoRedo = false) {
             while(layers.length>0){layers[0].destroy();layers.shift();} layerCounter=d.layerCounter; 
             
-            for(const m of Object.values(mediaPool)) {
-                if(m.element) { m.element.pause(); m.element.removeAttribute('src'); m.element.load(); }
-                if(m.texture) m.texture.dispose();
-            }
-            for (let key in mediaPool) delete mediaPool[key];
-
-            if (d.mediaPoolMeta && savedFiles) {
-                const loadPromises = [];
-                for(const [id, meta] of Object.entries(d.mediaPoolMeta)) {
-                    if (savedFiles[id]) {
-                        loadPromises.push(loadMediaIntoPool(savedFiles[id], id, meta.name));
-                    }
+            if (!isUndoRedo) {
+                for(const m of Object.values(mediaPool)) {
+                    if(m.element) { m.element.pause(); m.element.removeAttribute('src'); m.element.load(); }
+                    if(m.texture) m.texture.dispose();
                 }
-                await Promise.all(loadPromises);
+                for (let key in mediaPool) delete mediaPool[key];
+
+                if (d.mediaPoolMeta && savedFiles) {
+                    const loadPromises = [];
+                    for(const [id, meta] of Object.entries(d.mediaPoolMeta)) {
+                        if (savedFiles[id]) {
+                            loadPromises.push(loadMediaIntoPool(savedFiles[id], id, meta.name));
+                        }
+                    }
+                    await Promise.all(loadPromises);
+                }
             }
 
             d.layers.forEach(ld => { layers.push(new Layer(ld.id, ld, ld.isMask)); });
@@ -1542,7 +1793,7 @@
             const origText = btn.innerHTML;
             btn.innerHTML = "⏳ Saving..."; btn.style.background = "#aa7700";
 
-            const exportData = {version:"48.2", layerCounter, activeId: activeLayerId, mediaPool: {}, layers: layers.map(l=>l.toJSON(false))};
+            const exportData = {version:"48.10 En", layerCounter, activeId: activeLayerId, mediaPool: {}, layers: layers.map(l=>l.toJSON(false))};
 
             for(const [id, m] of Object.entries(mediaPool)) {
                 if (m.blob) {
@@ -1658,6 +1909,114 @@
                 channel.postMessage({ type: 'sync_fast', state: stateData });
             }
         }
+
+        // --- 7. EXPORT ENGINE ---
+        function prepareForExport() {
+            preRecordState = { mode: mode, showGuides: showGuides };
+            showGuides = false;
+            mode = 'OUTPUT';
+            layers.forEach(l => l.updateVisibilityState());
+            inputGroup.visible = false;
+            inputBgMesh.visible = false;
+            document.getElementById('mode-text').style.display = 'none';
+        }
+
+        function restoreAfterExport() {
+            showGuides = preRecordState.showGuides;
+            setMode(preRecordState.mode); 
+            document.getElementById('mode-text').style.display = 'block';
+        }
+
+        window.exportImage = function() {
+            prepareForExport();
+            renderer.render(scene, camera); // สั่งเรนเดอร์ภาพสะอาด 1 เฟรม
+            const dataURL = renderer.domElement.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = `Mapping_Export_${Date.now()}.png`;
+            a.click();
+            restoreAfterExport();
+        };
+
+        window.toggleRecording = function() {
+            const btn = document.getElementById('btn-record');
+            
+            if (!isRecording) {
+                // เริ่มอัดวิดีโอ
+                recordedChunks = [];
+                const stream = renderer.domElement.captureStream(60); // ล็อกที่ 60 FPS
+                
+                // ✅ อัปเดต: ค้นหานามสกุลไฟล์ที่ iPad/Apple รองรับก่อน (MP4) ค่อยตามด้วย WebM
+                const types = [
+                    'video/mp4', 
+                    'video/webm;codecs=vp9',
+                    'video/webm;codecs=vp8',
+                    'video/webm'
+                ];
+                
+                let selectedType = '';
+                for (const type of types) {
+                    if (MediaRecorder.isTypeSupported(type)) {
+                        selectedType = type;
+                        break;
+                    }
+                }
+
+                if (!selectedType) {
+                    alert("⚠️ Your browser does not support Video Recording.");
+                    return;
+                }
+
+                try {
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
+                } catch (e) {
+                    alert("⚠️ Error starting video recorder.");
+                    return;
+                }
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: selectedType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    
+                    // ✅ ตั้งชื่อไฟล์ให้ตรงกับนามสกุลที่อัดได้ (mp4 สำหรับ iPad, webm สำหรับ PC)
+                    const ext = selectedType.includes('mp4') ? 'mp4' : 'webm';
+                    a.download = `Mapping_VDO_${Date.now()}.${ext}`;
+                    
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    restoreAfterExport(); // ดึง UI กลับมาหลังเซฟเสร็จ
+                };
+
+                prepareForExport(); // ซ่อน UI
+                mediaRecorder.start();
+                isRecording = true;
+                btn.innerHTML = '⏹️ Stop Rec';
+                btn.style.background = '#aa0000';
+                btn.classList.add('recording-blink');
+                
+                // บังคับให้เล่นวิดีโอทั้งหมดตอนเริ่มอัด
+                Object.values(mediaPool).forEach(m => {
+                    if (m.element && m.element.paused && m.element.src) {
+                        const p = m.element.play();
+                        if(p !== undefined) p.catch(e => { console.warn("Autoplay prevented", e); });
+                    }
+                });
+
+            } else {
+                // หยุดอัดวิดีโอ
+                mediaRecorder.stop();
+                isRecording = false;
+                btn.innerHTML = '⏺️ Record VDO';
+                btn.style.background = '#ff3366';
+                btn.classList.remove('recording-blink');
+            }
+        };
 
         init(); 
     </script>
