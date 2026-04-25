@@ -23,7 +23,8 @@
             </svg>
             <p class="text-lg font-medium text-slate-600">ลากไฟล์มาวางที่นี่ หรือ <span class="text-indigo-500">คลิกเพื่อเลือกไฟล์</span></p>
             <p class="text-sm text-slate-400 mt-2">รองรับไฟล์: .brush, .png</p>
-            <input type="file" id="fileInput" class="hidden" accept=".brush,.png" />
+            <!-- แก้ไขจุดนี้: เอา accept=".brush,.png" ออก เพื่อแก้ปัญหา iPad เลือกไฟล์ไม่ได้ -->
+            <input type="file" id="fileInput" class="hidden" />
         </div>
 
         <!-- พื้นที่แสดงสถานะและพรีวิว -->
@@ -106,6 +107,7 @@
 
         // --- ฟังก์ชันหลักในการประมวลผลไฟล์ ---
         async function processFile(file) {
+            // เช็คนามสกุลไฟล์ด้วย JavaScript แทน HTML
             const ext = file.name.split('.').pop().toLowerCase();
             const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
             
@@ -113,10 +115,11 @@
                 if (ext === 'png') {
                     const imageUrl = URL.createObjectURL(file);
                     await processImageToABR(imageUrl, baseName);
-                } else if (ext === 'brush') {
+                } else if (ext === 'brush' || ext === 'zip') {
+                    // อนุญาตให้ใช้ไฟล์ .brush (ซึ่งแท้จริงคือไฟล์ zip)
                     await processProcreateBrush(file, baseName);
                 } else {
-                    showError("ไม่รองรับนามสกุลไฟล์นี้ กรุณาใช้ไฟล์ .brush หรือ .png");
+                    showError("ไม่รองรับนามสกุลไฟล์นี้ กรุณาเลือกไฟล์ .brush หรือ .png ครับ");
                 }
             } catch (err) {
                 console.error(err);
@@ -226,5 +229,6 @@
     </script>
 </body>
 </html>
+
 
 ```
