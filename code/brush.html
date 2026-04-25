@@ -1,0 +1,230 @@
+```html
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Brush Converter (ToonSquid ABR)</title>
+    <!-- ใช้ Tailwind CSS สำหรับความสวยงาม -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- โหลดไลบรารี JSZip สำหรับแตกไฟล์ .brush -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col items-center py-10 px-4 font-sans">
+
+    <div class="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8">
+        <h1 class="text-3xl font-bold text-center text-indigo-600 mb-2">Web Brush Converter</h1>
+        <p class="text-center text-slate-500 mb-8">แปลงไฟล์ Procreate (.brush) หรือ รูปภาพ (.png) เป็นไฟล์ .abr แบบเรียบง่ายสำหรับ ToonSquid</p>
+
+        <!-- พื้นที่อัปโหลดไฟล์ -->
+        <div id="dropzone" class="border-4 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer hover:bg-slate-50 hover:border-indigo-400 transition-colors duration-200 group">
+            <svg class="mx-auto h-16 w-16 text-slate-400 group-hover:text-indigo-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p class="text-lg font-medium text-slate-600">ลากไฟล์มาวางที่นี่ หรือ <span class="text-indigo-500">คลิกเพื่อเลือกไฟล์</span></p>
+            <p class="text-sm text-slate-400 mt-2">รองรับไฟล์: .brush, .png</p>
+            <input type="file" id="fileInput" class="hidden" accept=".brush,.png" />
+        </div>
+
+        <!-- พื้นที่แสดงสถานะและพรีวิว -->
+        <div id="statusArea" class="mt-8 hidden">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">ผลลัพธ์การแปลงไฟล์</h2>
+            <div class="flex flex-col sm:flex-row gap-6 items-center bg-slate-50 p-4 rounded-lg">
+                <div class="bg-gray-200 rounded-lg w-32 h-32 flex items-center justify-center overflow-hidden shadow-inner">
+                    <img id="previewImage" class="max-w-full max-h-full object-contain" src="" alt="Brush Preview" />
+                </div>
+                <div class="flex-1">
+                    <p id="statusText" class="text-green-600 font-medium mb-2">แปลงไฟล์สำเร็จ!</p>
+                    <p id="fileName" class="text-slate-600 text-sm mb-4">ชื่อไฟล์: -</p>
+                    <button id="downloadBtn" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition-colors">
+                        ดาวน์โหลดไฟล์ .abr
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ข้อความแจ้งเตือน Error -->
+        <div id="errorArea" class="mt-6 hidden bg-red-50 text-red-600 p-4 rounded-lg border border-red-200">
+            <p id="errorText" class="font-medium">เกิดข้อผิดพลาด</p>
+        </div>
+    </div>
+
+    <!-- Canvas ซ่อนไว้สำหรับประมวลผลรูปภาพ (ดึง Pixel) -->
+    <canvas id="processCanvas" class="hidden"></canvas>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const statusArea = document.getElementById('statusArea');
+        const errorArea = document.getElementById('errorArea');
+        const errorText = document.getElementById('errorText');
+        const previewImage = document.getElementById('previewImage');
+        const fileNameDisplay = document.getElementById('fileName');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const canvas = document.getElementById('processCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let currentDownloadUrl = null;
+        let currentDownloadName = null;
+
+        // --- Event Listeners สำหรับ UI ---
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-indigo-500'); });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-indigo-500'));
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-indigo-500');
+            if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) processFile(e.target.files[0]);
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            if (currentDownloadUrl && currentDownloadName) {
+                const a = document.createElement('a');
+                a.href = currentDownloadUrl;
+                a.download = currentDownloadName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        });
+
+        function showError(msg) {
+            statusArea.classList.add('hidden');
+            errorArea.classList.remove('hidden');
+            errorText.textContent = msg;
+        }
+
+        function showSuccess(imageUrl, outName) {
+            errorArea.classList.add('hidden');
+            statusArea.classList.remove('hidden');
+            previewImage.src = imageUrl;
+            fileNameDisplay.textContent = `ไฟล์บรัช: ${outName}`;
+        }
+
+        // --- ฟังก์ชันหลักในการประมวลผลไฟล์ ---
+        async function processFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            
+            try {
+                if (ext === 'png') {
+                    const imageUrl = URL.createObjectURL(file);
+                    await processImageToABR(imageUrl, baseName);
+                } else if (ext === 'brush') {
+                    await processProcreateBrush(file, baseName);
+                } else {
+                    showError("ไม่รองรับนามสกุลไฟล์นี้ กรุณาใช้ไฟล์ .brush หรือ .png");
+                }
+            } catch (err) {
+                console.error(err);
+                showError("เกิดข้อผิดพลาดในการประมวลผล: " + err.message);
+            }
+        }
+
+        // --- แกะไฟล์ .brush (ZIP) เพื่อหา Shape.png ---
+        async function processProcreateBrush(file, baseName) {
+            const zip = new JSZip();
+            const loadedZip = await zip.loadAsync(file);
+            
+            // หาไฟล์ที่มีคำว่า shape.png
+            const shapeFiles = Object.keys(loadedZip.files).filter(name => name.toLowerCase().includes('shape.png'));
+            
+            if (shapeFiles.length === 0) {
+                throw new Error("ไม่พบไฟล์พื้นผิว (Shape.png) ในบรัชนี้");
+            }
+
+            const shapeFile = loadedZip.files[shapeFiles[0]];
+            const blob = await shapeFile.async("blob");
+            const imageUrl = URL.createObjectURL(blob);
+            
+            await processImageToABR(imageUrl, baseName);
+        }
+
+        // --- วาดรูปลง Canvas, ดึง Pixel สีเทา และสร้าง .abr ---
+        function processImageToABR(imageUrl, baseName) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    // ตั้งค่า Canvas ให้เท่ากับขนาดภาพ
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    
+                    // วาดภาพลง Canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // ดึงข้อมูลพิกเซล (RGBA)
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    
+                    // แปลงเป็นระดับสีเทา (Grayscale) แบบ 8-bit สำหรับ ABR
+                    const grayscalePixels = new Uint8Array(canvas.width * canvas.height);
+                    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+                        const r = data[i];
+                        const g = data[i+1];
+                        const b = data[i+2];
+                        const a = data[i+3];
+                        
+                        // หาค่าความสว่าง (Luminance)
+                        let gray = (r * 0.299 + g * 0.587 + b * 0.114);
+                        
+                        // นำค่า Alpha มาคำนวณร่วมด้วย (พื้นใสให้เป็นดำ/โปร่งแสง)
+                        grayscalePixels[j] = Math.round(gray * (a / 255));
+                    }
+
+                    // สร้างไฟล์ ABR ไบนารี
+                    const abrBlob = createABRFile(grayscalePixels, canvas.width, canvas.height);
+                    
+                    // เตรียมให้ดาวน์โหลด
+                    if (currentDownloadUrl) URL.revokeObjectURL(currentDownloadUrl);
+                    currentDownloadUrl = URL.createObjectURL(abrBlob);
+                    currentDownloadName = `${baseName}_simplified.abr`;
+                    
+                    showSuccess(imageUrl, currentDownloadName);
+                    resolve();
+                };
+                img.onerror = () => reject(new Error("ไม่สามารถโหลดรูปภาพได้"));
+                img.src = imageUrl;
+            });
+        }
+
+        // --- สร้างโครงสร้างไฟล์ Photoshop ABR Version 1 ---
+        function createABRFile(pixelsArray, width, height) {
+            // คำนวณขนาด: Header ทั่วไป (4) + Sampled Brush Header (14) + Pixel Data
+            const bufferSize = 18 + pixelsArray.length;
+            const buffer = new ArrayBuffer(bufferSize + 4); 
+            const view = new DataView(buffer);
+            let offset = 0;
+
+            // ABR v1 Header
+            view.setInt16(offset, 1); offset += 2; // Version = 1
+            view.setInt16(offset, 1); offset += 2; // Brush Count = 1
+            
+            // Brush Block (Sampled Brush)
+            view.setInt16(offset, 2); offset += 2; // Type = 2 (Sampled Brush)
+            
+            const dataSize = 18 + pixelsArray.length;
+            view.setInt32(offset, dataSize); offset += 4; // Size of brush data
+            
+            // Brush Bounds (Top, Left, Bottom, Right)
+            view.setInt32(offset, 0); offset += 4;       // Top
+            view.setInt32(offset, 0); offset += 4;       // Left
+            view.setInt32(offset, height); offset += 4;  // Bottom
+            view.setInt32(offset, width); offset += 4;   // Right
+            
+            view.setInt16(offset, 8); offset += 2;       // Depth (8-bit)
+            
+            // นำข้อมูล Pixel ใส่เข้าไป
+            const pixelData = new Uint8Array(buffer, offset);
+            pixelData.set(pixelsArray);
+
+            return new Blob([buffer], { type: "application/octet-stream" });
+        }
+    </script>
+</body>
+</html>
+
+```
