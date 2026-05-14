@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Face Control WebGL Game</title>
+  <title>Face Photo Control WebGL Game</title>
 
   <style>
     * {
@@ -53,10 +53,10 @@
       top: max(14px, env(safe-area-inset-top));
       left: max(14px, env(safe-area-inset-left));
       z-index: 30;
-      min-width: 230px;
+      min-width: 245px;
       padding: 12px 14px;
       border-radius: 16px;
-      background: rgba(0,0,0,0.42);
+      background: rgba(0,0,0,0.46);
       backdrop-filter: blur(10px);
       box-shadow: 0 10px 30px rgba(0,0,0,0.28);
       line-height: 1.45;
@@ -72,9 +72,11 @@
       font-size: 13px;
     }
 
-    #soundToggle {
-      margin-left: 6px;
-      padding: 3px 9px;
+    #soundToggle,
+    #photoBtn,
+    #clearPhotoBtn {
+      margin: 4px 4px 0 0;
+      padding: 5px 9px;
       border: 1px solid rgba(255,255,255,0.25);
       border-radius: 999px;
       background: rgba(255,255,255,0.18);
@@ -82,6 +84,18 @@
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    #photoBtn {
+      background: rgba(56,189,248,0.28);
+    }
+
+    #clearPhotoBtn {
+      background: rgba(248,113,113,0.22);
+    }
+
+    #facePhotoInput {
+      display: none;
     }
 
     #errorBox {
@@ -115,7 +129,7 @@
     }
 
     #startCard {
-      width: min(520px, 94vw);
+      width: min(540px, 94vw);
       padding: 28px;
       border-radius: 28px;
       background: rgba(255,255,255,0.1);
@@ -204,7 +218,15 @@
 
       #hud {
         font-size: 13px;
-        min-width: 190px;
+        min-width: 210px;
+        max-width: calc(100vw - 132px);
+      }
+
+      #soundToggle,
+      #photoBtn,
+      #clearPhotoBtn {
+        font-size: 11px;
+        padding: 4px 7px;
       }
     }
   </style>
@@ -214,10 +236,14 @@
 
   <video id="cameraVideo" playsinline muted autoplay></video>
 
+  <input id="facePhotoInput" type="file" accept="image/*" capture="user" />
+
   <div id="hud">
-    <b>Face Control Game</b><br />
+    <b>Face Photo Game</b><br />
     Score: <span id="score">0</span><br />
     Sound: <button id="soundToggle" type="button">ON</button><br />
+    <button id="photoBtn" type="button">Take / Choose Face</button>
+    <button id="clearPhotoBtn" type="button">Clear</button><br />
     Face X: <span id="faceX">-</span><br />
     Mouth: <span id="mouthState">-</span><br />
     <span id="status">กด Start เพื่อเปิดกล้องหน้า</span>
@@ -233,9 +259,10 @@
 
   <div id="startScreen">
     <div id="startCard">
-      <h1>Face Control<br />WebGL Game</h1>
+      <h1>Face Photo<br />WebGL Game</h1>
       <p>เกมตัวอย่างสำหรับ GitHub Pages</p>
-      <p>ใช้ <b>กล้องหน้า</b> ตรวจจับใบหน้าเพื่อควบคุมตัวละคร</p>
+      <p>ใช้ <b>กล้องหน้า</b> จับใบหน้าเพื่อควบคุมตัวละคร</p>
+      <p>กด <b>Take / Choose Face</b> เพื่อถ่ายรูปหรือเลือกรูปจากอัลบั้ม แล้วแปะเป็นหน้าตัวละคร</p>
       <p>ขยับหน้าไปซ้าย/ขวา = ตัวละครขยับ<br />อ้าปาก = กระโดด</p>
       <button id="startBtn">Start Camera + Game</button>
       <p style="font-size:12px; opacity:0.7; margin-top:14px;">ควรเปิดผ่าน HTTPS เช่น GitHub Pages เท่านั้น</p>
@@ -254,6 +281,9 @@
     const faceXEl = document.getElementById('faceX');
     const mouthStateEl = document.getElementById('mouthState');
     const soundToggle = document.getElementById('soundToggle');
+    const photoBtn = document.getElementById('photoBtn');
+    const clearPhotoBtn = document.getElementById('clearPhotoBtn');
+    const facePhotoInput = document.getElementById('facePhotoInput');
     const errorBox = document.getElementById('errorBox');
 
     const leftBtn = document.getElementById('leftBtn');
@@ -273,6 +303,9 @@
     let audioCtx = null;
     let soundEnabled = true;
     let bgmTimer = null;
+
+    let photoTexture = null;
+    let photoFaceMesh = null;
 
     function showError(message) {
       errorBox.style.display = 'block';
@@ -375,6 +408,11 @@
       playTone(92, 0.22, 'sawtooth', 0.075, 0.05);
     }
 
+    function playPhotoSound() {
+      playTone(523.25, 0.06, 'triangle', 0.055, 0);
+      playTone(783.99, 0.08, 'triangle', 0.055, 0.06);
+    }
+
     function startBgm() {
       if (bgmTimer) return;
 
@@ -448,18 +486,40 @@
     playerGroup.add(body);
 
     const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.38, 32, 32),
+      new THREE.SphereGeometry(0.42, 32, 32),
       new THREE.MeshStandardMaterial({ color: 0xfcd7b6, roughness: 0.55 })
     );
-    head.position.y = 1.55;
+    head.position.y = 1.58;
     playerGroup.add(head);
+
+    const hair = new THREE.Mesh(
+      new THREE.SphereGeometry(0.43, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.45),
+      new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.65 })
+    );
+    hair.position.y = 1.73;
+    hair.rotation.x = -0.05;
+    playerGroup.add(hair);
 
     const eyeMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
     const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), eyeMat);
     const eyeR = eyeL.clone();
-    eyeL.position.set(-0.13, 1.62, 0.34);
-    eyeR.position.set(0.13, 1.62, 0.34);
+    eyeL.position.set(-0.13, 1.63, 0.36);
+    eyeR.position.set(0.13, 1.63, 0.36);
     playerGroup.add(eyeL, eyeR);
+
+    const smile = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.025, 0.018),
+      new THREE.MeshStandardMaterial({ color: 0x7f1d1d })
+    );
+    smile.position.set(0, 1.47, 0.39);
+    playerGroup.add(smile);
+
+    const faceFrame = new THREE.Mesh(
+      new THREE.CircleGeometry(0.35, 48),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, side: THREE.DoubleSide })
+    );
+    faceFrame.position.set(0, 1.56, 0.432);
+    playerGroup.add(faceFrame);
 
     playerGroup.position.set(0, 0, 3.4);
 
@@ -500,6 +560,137 @@
       playerVelocityY = 0.16;
       isGrounded = false;
       playJumpSound();
+    }
+
+    // -----------------------------
+    // Face Photo Upload / Camera Capture
+    // -----------------------------
+    photoBtn.addEventListener('click', async () => {
+      clearError();
+      await unlockAudio();
+      facePhotoInput.click();
+    });
+
+    clearPhotoBtn.addEventListener('click', () => {
+      removeFacePhoto();
+      statusEl.textContent = 'ลบรูปหน้าแล้ว';
+    });
+
+    facePhotoInput.addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      try {
+        await applyFacePhoto(file);
+        playPhotoSound();
+        statusEl.textContent = 'ใส่รูปหน้าให้ตัวละครแล้ว';
+      } catch (err) {
+        showError('Photo Error:\n' + (err.message || err));
+      }
+
+      facePhotoInput.value = '';
+    });
+
+    function removeFacePhoto() {
+      if (photoFaceMesh) {
+        playerGroup.remove(photoFaceMesh);
+        if (photoFaceMesh.material) photoFaceMesh.material.dispose();
+        if (photoFaceMesh.geometry) photoFaceMesh.geometry.dispose();
+        photoFaceMesh = null;
+      }
+
+      if (photoTexture) {
+        photoTexture.dispose();
+        photoTexture = null;
+      }
+
+      head.visible = true;
+      hair.visible = true;
+      eyeL.visible = true;
+      eyeR.visible = true;
+      smile.visible = true;
+    }
+
+    async function applyFacePhoto(file) {
+      if (!file.type.startsWith('image/')) {
+        throw new Error('ไฟล์ที่เลือกไม่ใช่รูปภาพ');
+      }
+
+      const dataUrl = await fileToDataURL(file);
+      const image = await loadImage(dataUrl);
+      const canvas = cropImageToCircleCanvas(image, 512);
+
+      removeFacePhoto();
+
+      photoTexture = new THREE.CanvasTexture(canvas);
+      photoTexture.colorSpace = THREE.SRGBColorSpace;
+      photoTexture.needsUpdate = true;
+
+      const material = new THREE.MeshBasicMaterial({
+        map: photoTexture,
+        transparent: true,
+        side: THREE.DoubleSide
+      });
+
+      photoFaceMesh = new THREE.Mesh(new THREE.CircleGeometry(0.43, 72), material);
+      photoFaceMesh.position.set(0, 1.57, 0.465);
+      photoFaceMesh.scale.set(1, 1, 1);
+      playerGroup.add(photoFaceMesh);
+
+      // ซ่อนตากับปากเดิม เพื่อให้รูปหน้าเด่นขึ้น
+      eyeL.visible = false;
+      eyeR.visible = false;
+      smile.visible = false;
+    }
+
+    function fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    function cropImageToCircleCanvas(img, size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      ctx.clearRect(0, 0, size, size);
+
+      const srcW = img.naturalWidth || img.width;
+      const srcH = img.naturalHeight || img.height;
+      const srcSize = Math.min(srcW, srcH);
+      const sx = (srcW - srcSize) / 2;
+      const sy = (srcH - srcSize) / 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.48, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
+      ctx.restore();
+
+      // ขอบสีขาวบาง ๆ
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.48, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 14;
+      ctx.stroke();
+
+      return canvas;
     }
 
     // -----------------------------
@@ -654,6 +845,10 @@
 
       body.rotation.y += 0.025;
       head.rotation.y = Math.sin(performance.now() * 0.004) * 0.08;
+      hair.rotation.y = head.rotation.y;
+      if (photoFaceMesh) {
+        photoFaceMesh.rotation.y = Math.sin(performance.now() * 0.004) * 0.02;
+      }
 
       for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
