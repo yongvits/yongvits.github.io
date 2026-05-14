@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Face Photo Control WebGL Game</title>
+  <title>Avatar Setup Face Control WebGL Game</title>
 
   <style>
     * {
@@ -73,8 +73,7 @@
     }
 
     #soundToggle,
-    #photoBtn,
-    #clearPhotoBtn {
+    #openAvatarBtn {
       margin: 4px 4px 0 0;
       padding: 5px 9px;
       border: 1px solid rgba(255,255,255,0.25);
@@ -86,12 +85,8 @@
       cursor: pointer;
     }
 
-    #photoBtn {
+    #openAvatarBtn {
       background: rgba(56,189,248,0.28);
-    }
-
-    #clearPhotoBtn {
-      background: rgba(248,113,113,0.22);
     }
 
     #facePhotoInput {
@@ -117,58 +112,186 @@
       white-space: pre-wrap;
     }
 
-    #startScreen {
+    #avatarScreen {
       position: fixed;
       inset: 0;
       z-index: 100;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      padding: 16px;
       background: radial-gradient(circle at top, #1e3a8a 0%, #050816 54%, #020617 100%);
     }
 
-    #startCard {
-      width: min(540px, 94vw);
-      padding: 28px;
+    #avatarCard {
+      width: min(980px, 96vw);
+      max-height: 94vh;
+      overflow: auto;
+      padding: 20px;
       border-radius: 28px;
       background: rgba(255,255,255,0.1);
       border: 1px solid rgba(255,255,255,0.2);
       box-shadow: 0 24px 90px rgba(0,0,0,0.5);
       backdrop-filter: blur(16px);
+    }
+
+    #avatarCard h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.15;
       text-align: center;
     }
 
-    #startCard h1 {
-      margin: 0 0 10px;
-      font-size: 28px;
-      line-height: 1.15;
-    }
-
-    #startCard p {
-      margin: 8px 0;
+    #avatarCard p {
+      margin: 6px 0;
       color: rgba(255,255,255,0.82);
-      line-height: 1.55;
-      font-size: 15px;
+      line-height: 1.45;
+      font-size: 14px;
+      text-align: center;
     }
 
-    #startBtn {
-      margin-top: 20px;
+    .setupGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .panel {
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .row label {
+      color: rgba(255,255,255,0.82);
+    }
+
+    .row input[type="color"] {
       width: 100%;
-      height: 56px;
+      height: 40px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .row select {
+      width: 100%;
+      height: 38px;
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.12);
+      color: white;
+      padding: 0 10px;
+      outline: none;
+    }
+
+    .row select option {
+      color: #111827;
+    }
+
+    .chipGrid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 8px 0 12px;
+    }
+
+    .chip {
+      min-height: 36px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      color: white;
+      background: rgba(255,255,255,0.12);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chip.active {
+      outline: 2px solid #38bdf8;
+      background: rgba(56,189,248,0.28);
+    }
+
+    .setupBtn {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 8px;
+      border: 0;
+      border-radius: 16px;
+      color: white;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    #choosePhotoBtn {
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    }
+
+    #removePhotoBtn {
+      background: rgba(248,113,113,0.28);
+    }
+
+    #startGameBtn {
+      margin-top: 18px;
+      width: 100%;
+      height: 58px;
       border: 0;
       border-radius: 18px;
-      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      background: linear-gradient(135deg, #22c55e, #38bdf8);
       color: white;
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 19px;
+      font-weight: 900;
       cursor: pointer;
-      box-shadow: 0 16px 40px rgba(56,189,248,0.35);
+      box-shadow: 0 16px 40px rgba(34,197,94,0.28);
     }
 
-    #startBtn:disabled {
+    #startGameBtn:disabled {
       opacity: 0.55;
       cursor: not-allowed;
+    }
+
+    .previewBox {
+      min-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      background: rgba(0,0,0,0.18);
+      overflow: hidden;
+      position: relative;
+    }
+
+    #avatarPreviewCanvas {
+      width: 100%;
+      height: 340px;
+      display: block;
+    }
+
+    #previewNote {
+      margin-top: 10px;
+      font-size: 12px;
+      opacity: 0.75;
+      text-align: center;
     }
 
     #fallbackControls {
@@ -208,6 +331,25 @@
       display: none !important;
     }
 
+    @media (max-width: 760px) {
+      #avatarCard {
+        padding: 16px;
+      }
+
+      .setupGrid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      #avatarPreviewCanvas {
+        height: 250px;
+      }
+
+      .previewBox {
+        min-height: 250px;
+      }
+    }
+
     @media (max-width: 520px) {
       #cameraVideo {
         width: 112px;
@@ -223,10 +365,13 @@
       }
 
       #soundToggle,
-      #photoBtn,
-      #clearPhotoBtn {
+      #openAvatarBtn {
         font-size: 11px;
         padding: 4px 7px;
+      }
+
+      .chipGrid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
   </style>
@@ -239,14 +384,13 @@
   <input id="facePhotoInput" type="file" accept="image/*" capture="user" />
 
   <div id="hud">
-    <b>Face Photo Game</b><br />
+    <b>Avatar Face Game</b><br />
     Score: <span id="score">0</span><br />
-    Sound: <button id="soundToggle" type="button">ON</button><br />
-    <button id="photoBtn" type="button">Take / Choose Face</button>
-    <button id="clearPhotoBtn" type="button">Clear</button><br />
+    Sound: <button id="soundToggle" type="button">ON</button>
+    <button id="openAvatarBtn" type="button">Avatar</button><br />
     Face X: <span id="faceX">-</span><br />
     Mouth: <span id="mouthState">-</span><br />
-    <span id="status">กด Start เพื่อเปิดกล้องหน้า</span>
+    <span id="status">ตั้งค่า Avatar ก่อนเริ่มเกม</span>
   </div>
 
   <div id="errorBox"></div>
@@ -257,15 +401,63 @@
     <button class="ctrlBtn" id="rightBtn">▶</button>
   </div>
 
-  <div id="startScreen">
-    <div id="startCard">
-      <h1>Face Photo<br />WebGL Game</h1>
-      <p>เกมตัวอย่างสำหรับ GitHub Pages</p>
-      <p>ใช้ <b>กล้องหน้า</b> จับใบหน้าเพื่อควบคุมตัวละคร</p>
-      <p>กด <b>Take / Choose Face</b> เพื่อถ่ายรูปหรือเลือกรูปจากอัลบั้ม แล้วแปะเป็นหน้าตัวละคร</p>
-      <p>ขยับหน้าไปซ้าย/ขวา = ตัวละครขยับ<br />อ้าปาก = กระโดด</p>
-      <button id="startBtn">Start Camera + Game</button>
-      <p style="font-size:12px; opacity:0.7; margin-top:14px;">ควรเปิดผ่าน HTTPS เช่น GitHub Pages เท่านั้น</p>
+  <div id="avatarScreen">
+    <div id="avatarCard">
+      <h1>Avatar Setup</h1>
+      <p>เลือกรูปหน้า / สีผิว / สีผม / สีชุด ก่อนเริ่มเกม</p>
+      <p>รูปจะถูกใช้ในเครื่องเท่านั้น ไม่อัปโหลดขึ้น server</p>
+
+      <div class="setupGrid">
+        <div class="panel">
+          <h2>1) เลือกรูปหน้า</h2>
+          <button class="setupBtn" id="choosePhotoBtn" type="button">Take / Choose Face Photo</button>
+          <button class="setupBtn" id="removePhotoBtn" type="button">Remove Face Photo</button>
+
+          <h2 style="margin-top:18px;">2) เลือก Style</h2>
+          <div class="chipGrid">
+            <button class="chip active" data-style="hero">Hero</button>
+            <button class="chip" data-style="runner">Runner</button>
+            <button class="chip" data-style="robot">Robot</button>
+            <button class="chip" data-style="cute">Cute</button>
+          </div>
+
+          <div class="row">
+            <label for="skinColorInput">สีผิว</label>
+            <input id="skinColorInput" type="color" value="#fcd7b6" />
+          </div>
+
+          <div class="row">
+            <label for="hairColorInput">สีผม</label>
+            <input id="hairColorInput" type="color" value="#111827" />
+          </div>
+
+          <div class="row">
+            <label for="shirtColorInput">สีเสื้อ</label>
+            <input id="shirtColorInput" type="color" value="#38bdf8" />
+          </div>
+
+          <div class="row">
+            <label for="pantsColorInput">สีกางเกง</label>
+            <input id="pantsColorInput" type="color" value="#1e40af" />
+          </div>
+
+          <div class="row">
+            <label for="shoeColorInput">สีรองเท้า</label>
+            <input id="shoeColorInput" type="color" value="#f97316" />
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Preview</h2>
+          <div class="previewBox">
+            <canvas id="avatarPreviewCanvas"></canvas>
+          </div>
+          <div id="previewNote">กดเลือกรูปเพื่อเอาหน้าจากกล้องหรืออัลบั้มมาแปะบนตัวละคร</div>
+        </div>
+      </div>
+
+      <button id="startGameBtn" type="button">Start Camera + Game</button>
+      <p style="font-size:12px; opacity:0.7; margin-top:10px;">ควรเปิดผ่าน HTTPS เช่น GitHub Pages เท่านั้น</p>
     </div>
   </div>
 
@@ -274,17 +466,24 @@
 
     const gameWrap = document.getElementById('gameWrap');
     const video = document.getElementById('cameraVideo');
-    const startScreen = document.getElementById('startScreen');
-    const startBtn = document.getElementById('startBtn');
+    const avatarScreen = document.getElementById('avatarScreen');
+    const startGameBtn = document.getElementById('startGameBtn');
     const scoreEl = document.getElementById('score');
     const statusEl = document.getElementById('status');
     const faceXEl = document.getElementById('faceX');
     const mouthStateEl = document.getElementById('mouthState');
     const soundToggle = document.getElementById('soundToggle');
-    const photoBtn = document.getElementById('photoBtn');
-    const clearPhotoBtn = document.getElementById('clearPhotoBtn');
+    const openAvatarBtn = document.getElementById('openAvatarBtn');
+    const choosePhotoBtn = document.getElementById('choosePhotoBtn');
+    const removePhotoBtn = document.getElementById('removePhotoBtn');
     const facePhotoInput = document.getElementById('facePhotoInput');
     const errorBox = document.getElementById('errorBox');
+
+    const skinColorInput = document.getElementById('skinColorInput');
+    const hairColorInput = document.getElementById('hairColorInput');
+    const shirtColorInput = document.getElementById('shirtColorInput');
+    const pantsColorInput = document.getElementById('pantsColorInput');
+    const shoeColorInput = document.getElementById('shoeColorInput');
 
     const leftBtn = document.getElementById('leftBtn');
     const rightBtn = document.getElementById('rightBtn');
@@ -294,6 +493,7 @@
     let cameraReady = false;
     let faceControlReady = false;
     let lastVideoTime = -1;
+    let gameStarted = false;
 
     let score = 0;
     let targetX = 0;
@@ -304,8 +504,16 @@
     let soundEnabled = true;
     let bgmTimer = null;
 
-    let photoTexture = null;
-    let photoFaceMesh = null;
+    let photoDataURL = null;
+    let avatarStyle = 'hero';
+
+    let gamePhotoTexture = null;
+    let gamePhotoFaceMesh = null;
+    let previewPhotoTexture = null;
+    let previewPhotoFaceMesh = null;
+
+    let body, head, hair, eyeL, eyeR, smile, pants, shoeL, shoeR;
+    let previewBody, previewHead, previewHair, previewEyeL, previewEyeR, previewSmile, previewPants, previewShoeL, previewShoeR;
 
     function showError(message) {
       errorBox.style.display = 'block';
@@ -417,7 +625,7 @@
       if (bgmTimer) return;
 
       bgmTimer = setInterval(() => {
-        if (!soundEnabled || !audioCtx || document.hidden) return;
+        if (!soundEnabled || !audioCtx || document.hidden || !gameStarted) return;
         playTone(196, 0.08, 'sine', 0.012, 0);
         playTone(246.94, 0.08, 'sine', 0.011, 0.18);
         playTone(293.66, 0.08, 'sine', 0.011, 0.36);
@@ -435,13 +643,19 @@
       if (soundEnabled) playStartSound();
     });
 
+    openAvatarBtn.addEventListener('click', () => {
+      avatarScreen.classList.remove('hide');
+      gameStarted = false;
+      statusEl.textContent = 'กลับไปปรับ Avatar';
+    });
+
     const input = {
       left: false,
       right: false
     };
 
     // -----------------------------
-    // Three.js Game Setup
+    // Game Scene
     // -----------------------------
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050816);
@@ -478,48 +692,75 @@
     const playerGroup = new THREE.Group();
     scene.add(playerGroup);
 
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(0.9, 1.15, 0.65),
-      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.45 })
-    );
-    body.position.y = 0.75;
-    playerGroup.add(body);
+    function createAvatarParts(parent, prefix = 'game') {
+      const pBody = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 1.15, 0.65),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(shirtColorInput.value), roughness: 0.45 })
+      );
+      pBody.position.y = 0.75;
+      parent.add(pBody);
 
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.42, 32, 32),
-      new THREE.MeshStandardMaterial({ color: 0xfcd7b6, roughness: 0.55 })
-    );
-    head.position.y = 1.58;
-    playerGroup.add(head);
+      const pPants = new THREE.Mesh(
+        new THREE.BoxGeometry(0.72, 0.45, 0.58),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(pantsColorInput.value), roughness: 0.55 })
+      );
+      pPants.position.y = 0.18;
+      parent.add(pPants);
 
-    const hair = new THREE.Mesh(
-      new THREE.SphereGeometry(0.43, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.45),
-      new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.65 })
-    );
-    hair.position.y = 1.73;
-    hair.rotation.x = -0.05;
-    playerGroup.add(hair);
+      const pShoeL = new THREE.Mesh(
+        new THREE.BoxGeometry(0.34, 0.16, 0.7),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(shoeColorInput.value), roughness: 0.5 })
+      );
+      pShoeL.position.set(-0.23, -0.02, 0.08);
+      parent.add(pShoeL);
 
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
-    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), eyeMat);
-    const eyeR = eyeL.clone();
-    eyeL.position.set(-0.13, 1.63, 0.36);
-    eyeR.position.set(0.13, 1.63, 0.36);
-    playerGroup.add(eyeL, eyeR);
+      const pShoeR = pShoeL.clone();
+      pShoeR.material = pShoeL.material.clone();
+      pShoeR.position.x = 0.23;
+      parent.add(pShoeR);
 
-    const smile = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.025, 0.018),
-      new THREE.MeshStandardMaterial({ color: 0x7f1d1d })
-    );
-    smile.position.set(0, 1.47, 0.39);
-    playerGroup.add(smile);
+      const pHead = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 32, 32),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(skinColorInput.value), roughness: 0.55 })
+      );
+      pHead.position.y = 1.58;
+      parent.add(pHead);
 
-    const faceFrame = new THREE.Mesh(
-      new THREE.CircleGeometry(0.35, 48),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, side: THREE.DoubleSide })
-    );
-    faceFrame.position.set(0, 1.56, 0.432);
-    playerGroup.add(faceFrame);
+      const pHair = new THREE.Mesh(
+        new THREE.SphereGeometry(0.43, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.45),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(hairColorInput.value), roughness: 0.65 })
+      );
+      pHair.position.y = 1.73;
+      pHair.rotation.x = -0.05;
+      parent.add(pHair);
+
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
+      const pEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), eyeMat);
+      const pEyeR = pEyeL.clone();
+      pEyeL.position.set(-0.13, 1.63, 0.36);
+      pEyeR.position.set(0.13, 1.63, 0.36);
+      parent.add(pEyeL, pEyeR);
+
+      const pSmile = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 0.025, 0.018),
+        new THREE.MeshStandardMaterial({ color: 0x7f1d1d })
+      );
+      pSmile.position.set(0, 1.47, 0.39);
+      parent.add(pSmile);
+
+      return { pBody, pPants, pShoeL, pShoeR, pHead, pHair, pEyeL, pEyeR, pSmile };
+    }
+
+    const gameParts = createAvatarParts(playerGroup, 'game');
+    body = gameParts.pBody;
+    pants = gameParts.pPants;
+    shoeL = gameParts.pShoeL;
+    shoeR = gameParts.pShoeR;
+    head = gameParts.pHead;
+    hair = gameParts.pHair;
+    eyeL = gameParts.pEyeL;
+    eyeR = gameParts.pEyeR;
+    smile = gameParts.pSmile;
 
     playerGroup.position.set(0, 0, 3.4);
 
@@ -535,6 +776,7 @@
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
 
     function spawnCoin() {
+      if (!gameStarted) return;
       const coin = new THREE.Mesh(coinGeometry, coinMaterial);
       coin.position.x = (Math.random() - 0.5) * 7;
       coin.position.y = 0.45;
@@ -544,6 +786,7 @@
     }
 
     function spawnObstacle() {
+      if (!gameStarted) return;
       const obs = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
       obs.position.x = (Math.random() - 0.5) * 7;
       obs.position.y = 0.3;
@@ -556,23 +799,155 @@
     setInterval(spawnObstacle, 2200);
 
     function jump() {
-      if (!isGrounded) return;
+      if (!isGrounded || !gameStarted) return;
       playerVelocityY = 0.16;
       isGrounded = false;
       playJumpSound();
     }
 
     // -----------------------------
+    // Preview Scene
+    // -----------------------------
+    const previewCanvas = document.getElementById('avatarPreviewCanvas');
+    const previewScene = new THREE.Scene();
+    previewScene.background = new THREE.Color(0x0f172a);
+
+    const previewCamera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    previewCamera.position.set(0, 2.0, 5.6);
+    previewCamera.lookAt(0, 1.0, 0);
+
+    const previewRenderer = new THREE.WebGLRenderer({ canvas: previewCanvas, antialias: true, alpha: false });
+    previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    previewScene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    const previewLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    previewLight.position.set(3, 5, 4);
+    previewScene.add(previewLight);
+
+    const previewGroup = new THREE.Group();
+    previewScene.add(previewGroup);
+    const previewParts = createAvatarParts(previewGroup, 'preview');
+    previewBody = previewParts.pBody;
+    previewPants = previewParts.pPants;
+    previewShoeL = previewParts.pShoeL;
+    previewShoeR = previewParts.pShoeR;
+    previewHead = previewParts.pHead;
+    previewHair = previewParts.pHair;
+    previewEyeL = previewParts.pEyeL;
+    previewEyeR = previewParts.pEyeR;
+    previewSmile = previewParts.pSmile;
+
+    previewGroup.position.set(0, -0.35, 0);
+    previewGroup.scale.set(1.4, 1.4, 1.4);
+
+    // -----------------------------
+    // Avatar Customization
+    // -----------------------------
+    function updateAvatarColors() {
+      body.material.color.set(shirtColorInput.value);
+      previewBody.material.color.set(shirtColorInput.value);
+
+      pants.material.color.set(pantsColorInput.value);
+      previewPants.material.color.set(pantsColorInput.value);
+
+      shoeL.material.color.set(shoeColorInput.value);
+      shoeR.material.color.set(shoeColorInput.value);
+      previewShoeL.material.color.set(shoeColorInput.value);
+      previewShoeR.material.color.set(shoeColorInput.value);
+
+      head.material.color.set(skinColorInput.value);
+      previewHead.material.color.set(skinColorInput.value);
+
+      hair.material.color.set(hairColorInput.value);
+      previewHair.material.color.set(hairColorInput.value);
+
+      applyAvatarStyle();
+    }
+
+    function applyAvatarStyle() {
+      const styles = {
+        hero: { bodyScale: [1, 1, 1], headScale: [1, 1, 1], hairY: 1.73, bodyY: 0.75 },
+        runner: { bodyScale: [0.86, 1.12, 0.86], headScale: [0.95, 0.95, 0.95], hairY: 1.76, bodyY: 0.78 },
+        robot: { bodyScale: [1.08, 0.92, 1.0], headScale: [1.03, 0.9, 1.03], hairY: 1.68, bodyY: 0.70 },
+        cute: { bodyScale: [0.82, 0.9, 0.82], headScale: [1.18, 1.18, 1.18], hairY: 1.82, bodyY: 0.68 }
+      };
+
+      const s = styles[avatarStyle] || styles.hero;
+
+      for (const pair of [
+        [body, previewBody],
+      ]) {
+        pair[0].scale.set(...s.bodyScale);
+        pair[1].scale.set(...s.bodyScale);
+        pair[0].position.y = s.bodyY;
+        pair[1].position.y = s.bodyY;
+      }
+
+      head.scale.set(...s.headScale);
+      previewHead.scale.set(...s.headScale);
+      hair.position.y = s.hairY;
+      previewHair.position.y = s.hairY;
+
+      if (avatarStyle === 'robot') {
+        head.geometry.dispose();
+        previewHead.geometry.dispose();
+        head.geometry = new THREE.BoxGeometry(0.74, 0.58, 0.68);
+        previewHead.geometry = new THREE.BoxGeometry(0.74, 0.58, 0.68);
+      } else {
+        head.geometry.dispose();
+        previewHead.geometry.dispose();
+        head.geometry = new THREE.SphereGeometry(0.42, 32, 32);
+        previewHead.geometry = new THREE.SphereGeometry(0.42, 32, 32);
+      }
+
+      updatePhotoMeshPositions();
+    }
+
+    function updatePhotoMeshPositions() {
+      const cuteBoost = avatarStyle === 'cute' ? 0.08 : 0;
+      const robotY = avatarStyle === 'robot' ? -0.04 : 0;
+      const radius = avatarStyle === 'cute' ? 0.49 : avatarStyle === 'runner' ? 0.40 : 0.43;
+
+      if (gamePhotoFaceMesh) {
+        gamePhotoFaceMesh.position.set(0, 1.57 + cuteBoost + robotY, 0.465);
+        gamePhotoFaceMesh.geometry.dispose();
+        gamePhotoFaceMesh.geometry = new THREE.CircleGeometry(radius, 72);
+      }
+
+      if (previewPhotoFaceMesh) {
+        previewPhotoFaceMesh.position.set(0, 1.57 + cuteBoost + robotY, 0.465);
+        previewPhotoFaceMesh.geometry.dispose();
+        previewPhotoFaceMesh.geometry = new THREE.CircleGeometry(radius, 72);
+      }
+    }
+
+    for (const inputEl of [skinColorInput, hairColorInput, shirtColorInput, pantsColorInput, shoeColorInput]) {
+      inputEl.addEventListener('input', updateAvatarColors);
+    }
+
+    document.querySelectorAll('.chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        avatarStyle = chip.dataset.style;
+        updateAvatarColors();
+        playPhotoSound();
+      });
+    });
+
+    // -----------------------------
     // Face Photo Upload / Camera Capture
     // -----------------------------
-    photoBtn.addEventListener('click', async () => {
+    choosePhotoBtn.addEventListener('click', async () => {
       clearError();
       await unlockAudio();
       facePhotoInput.click();
     });
 
-    clearPhotoBtn.addEventListener('click', () => {
-      removeFacePhoto();
+    removePhotoBtn.addEventListener('click', () => {
+      photoDataURL = null;
+      removeFacePhoto('game');
+      removeFacePhoto('preview');
       statusEl.textContent = 'ลบรูปหน้าแล้ว';
     });
 
@@ -581,7 +956,9 @@
       if (!file) return;
 
       try {
-        await applyFacePhoto(file);
+        photoDataURL = await fileToDataURL(file);
+        await applyFacePhoto(photoDataURL, 'game');
+        await applyFacePhoto(photoDataURL, 'preview');
         playPhotoSound();
         statusEl.textContent = 'ใส่รูปหน้าให้ตัวละครแล้ว';
       } catch (err) {
@@ -591,60 +968,85 @@
       facePhotoInput.value = '';
     });
 
-    function removeFacePhoto() {
-      if (photoFaceMesh) {
-        playerGroup.remove(photoFaceMesh);
-        if (photoFaceMesh.material) photoFaceMesh.material.dispose();
-        if (photoFaceMesh.geometry) photoFaceMesh.geometry.dispose();
-        photoFaceMesh = null;
+    function removeFacePhoto(target) {
+      if (target === 'game') {
+        if (gamePhotoFaceMesh) {
+          playerGroup.remove(gamePhotoFaceMesh);
+          if (gamePhotoFaceMesh.material) gamePhotoFaceMesh.material.dispose();
+          if (gamePhotoFaceMesh.geometry) gamePhotoFaceMesh.geometry.dispose();
+          gamePhotoFaceMesh = null;
+        }
+        if (gamePhotoTexture) {
+          gamePhotoTexture.dispose();
+          gamePhotoTexture = null;
+        }
+        eyeL.visible = true;
+        eyeR.visible = true;
+        smile.visible = true;
       }
 
-      if (photoTexture) {
-        photoTexture.dispose();
-        photoTexture = null;
+      if (target === 'preview') {
+        if (previewPhotoFaceMesh) {
+          previewGroup.remove(previewPhotoFaceMesh);
+          if (previewPhotoFaceMesh.material) previewPhotoFaceMesh.material.dispose();
+          if (previewPhotoFaceMesh.geometry) previewPhotoFaceMesh.geometry.dispose();
+          previewPhotoFaceMesh = null;
+        }
+        if (previewPhotoTexture) {
+          previewPhotoTexture.dispose();
+          previewPhotoTexture = null;
+        }
+        previewEyeL.visible = true;
+        previewEyeR.visible = true;
+        previewSmile.visible = true;
       }
-
-      head.visible = true;
-      hair.visible = true;
-      eyeL.visible = true;
-      eyeR.visible = true;
-      smile.visible = true;
     }
 
-    async function applyFacePhoto(file) {
-      if (!file.type.startsWith('image/')) {
-        throw new Error('ไฟล์ที่เลือกไม่ใช่รูปภาพ');
-      }
-
-      const dataUrl = await fileToDataURL(file);
+    async function applyFacePhoto(dataUrl, target) {
       const image = await loadImage(dataUrl);
       const canvas = cropImageToCircleCanvas(image, 512);
 
-      removeFacePhoto();
+      removeFacePhoto(target);
 
-      photoTexture = new THREE.CanvasTexture(canvas);
-      photoTexture.colorSpace = THREE.SRGBColorSpace;
-      photoTexture.needsUpdate = true;
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
 
       const material = new THREE.MeshBasicMaterial({
-        map: photoTexture,
+        map: texture,
         transparent: true,
         side: THREE.DoubleSide
       });
 
-      photoFaceMesh = new THREE.Mesh(new THREE.CircleGeometry(0.43, 72), material);
-      photoFaceMesh.position.set(0, 1.57, 0.465);
-      photoFaceMesh.scale.set(1, 1, 1);
-      playerGroup.add(photoFaceMesh);
+      const radius = avatarStyle === 'cute' ? 0.49 : avatarStyle === 'runner' ? 0.40 : 0.43;
+      const mesh = new THREE.Mesh(new THREE.CircleGeometry(radius, 72), material);
+      mesh.position.set(0, 1.57, 0.465);
 
-      // ซ่อนตากับปากเดิม เพื่อให้รูปหน้าเด่นขึ้น
-      eyeL.visible = false;
-      eyeR.visible = false;
-      smile.visible = false;
+      if (target === 'game') {
+        gamePhotoTexture = texture;
+        gamePhotoFaceMesh = mesh;
+        playerGroup.add(gamePhotoFaceMesh);
+        eyeL.visible = false;
+        eyeR.visible = false;
+        smile.visible = false;
+      } else {
+        previewPhotoTexture = texture;
+        previewPhotoFaceMesh = mesh;
+        previewGroup.add(previewPhotoFaceMesh);
+        previewEyeL.visible = false;
+        previewEyeR.visible = false;
+        previewSmile.visible = false;
+      }
+
+      updatePhotoMeshPositions();
     }
 
     function fileToDataURL(file) {
       return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+          reject(new Error('ไฟล์ที่เลือกไม่ใช่รูปภาพ'));
+          return;
+        }
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
@@ -683,7 +1085,6 @@
       ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
       ctx.restore();
 
-      // ขอบสีขาวบาง ๆ
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size * 0.48, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(255,255,255,0.9)';
@@ -697,6 +1098,7 @@
     // Camera + Face Tracking Setup
     // -----------------------------
     async function setupCamera() {
+      if (cameraReady) return;
       statusEl.textContent = 'กำลังขอสิทธิ์เปิดกล้องหน้า...';
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -719,6 +1121,7 @@
     }
 
     async function setupFaceLandmarker() {
+      if (faceLandmarker) return;
       statusEl.textContent = 'กำลังโหลดระบบจับใบหน้า...';
 
       const visionModule = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs');
@@ -754,7 +1157,7 @@
     }
 
     function updateFaceControl() {
-      if (!cameraReady || !faceControlReady || !faceLandmarker) return;
+      if (!gameStarted || !cameraReady || !faceControlReady || !faceLandmarker) return;
       if (video.currentTime === lastVideoTime) return;
 
       lastVideoTime = video.currentTime;
@@ -828,79 +1231,97 @@
 
       updateFaceControl();
 
-      if (input.left) targetX -= 0.11;
-      if (input.right) targetX += 0.11;
-      targetX = THREE.MathUtils.clamp(targetX, -3.5, 3.5);
+      if (gameStarted) {
+        if (input.left) targetX -= 0.11;
+        if (input.right) targetX += 0.11;
+        targetX = THREE.MathUtils.clamp(targetX, -3.5, 3.5);
 
-      playerGroup.position.x = THREE.MathUtils.lerp(playerGroup.position.x, targetX, 0.12);
+        playerGroup.position.x = THREE.MathUtils.lerp(playerGroup.position.x, targetX, 0.12);
 
-      playerGroup.position.y += playerVelocityY;
-      playerVelocityY -= 0.008;
+        playerGroup.position.y += playerVelocityY;
+        playerVelocityY -= 0.008;
 
-      if (playerGroup.position.y <= playerGroundY) {
-        playerGroup.position.y = playerGroundY;
-        playerVelocityY = 0;
-        isGrounded = true;
-      }
-
-      body.rotation.y += 0.025;
-      head.rotation.y = Math.sin(performance.now() * 0.004) * 0.08;
-      hair.rotation.y = head.rotation.y;
-      if (photoFaceMesh) {
-        photoFaceMesh.rotation.y = Math.sin(performance.now() * 0.004) * 0.02;
-      }
-
-      for (let i = coins.length - 1; i >= 0; i--) {
-        const coin = coins[i];
-        coin.position.z += 0.065;
-        coin.rotation.y += 0.09;
-
-        const dx = coin.position.x - playerGroup.position.x;
-        const dy = coin.position.y - (playerGroup.position.y + 0.8);
-        const dz = coin.position.z - playerGroup.position.z;
-        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-        if (distance < 0.85) {
-          scene.remove(coin);
-          coins.splice(i, 1);
-          score += 1;
-          scoreEl.textContent = score;
-          playCoinSound();
-        } else if (coin.position.z > 5.7) {
-          scene.remove(coin);
-          coins.splice(i, 1);
+        if (playerGroup.position.y <= playerGroundY) {
+          playerGroup.position.y = playerGroundY;
+          playerVelocityY = 0;
+          isGrounded = true;
         }
-      }
 
-      for (let i = obstacles.length - 1; i >= 0; i--) {
-        const obs = obstacles[i];
-        obs.position.z += 0.075;
-        obs.rotation.x += 0.035;
-        obs.rotation.y += 0.025;
+        body.rotation.y += 0.025;
+        head.rotation.y = Math.sin(performance.now() * 0.004) * 0.08;
+        hair.rotation.y = head.rotation.y;
+        if (gamePhotoFaceMesh) {
+          gamePhotoFaceMesh.rotation.y = Math.sin(performance.now() * 0.004) * 0.02;
+        }
 
-        const dx = obs.position.x - playerGroup.position.x;
-        const dz = obs.position.z - playerGroup.position.z;
-        const closeX = Math.abs(dx) < 0.65;
-        const closeZ = Math.abs(dz) < 0.65;
-        const playerLow = playerGroup.position.y < 0.55;
+        for (let i = coins.length - 1; i >= 0; i--) {
+          const coin = coins[i];
+          coin.position.z += 0.065;
+          coin.rotation.y += 0.09;
 
-        if (closeX && closeZ && playerLow) {
-          scene.remove(obs);
-          obstacles.splice(i, 1);
-          score = Math.max(0, score - 2);
-          scoreEl.textContent = score;
-          playHitSound();
-          statusEl.textContent = 'ชนสิ่งกีดขวาง! อ้าปากเพื่อกระโดด';
-        } else if (obs.position.z > 5.7) {
-          scene.remove(obs);
-          obstacles.splice(i, 1);
+          const dx = coin.position.x - playerGroup.position.x;
+          const dy = coin.position.y - (playerGroup.position.y + 0.8);
+          const dz = coin.position.z - playerGroup.position.z;
+          const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          if (distance < 0.85) {
+            scene.remove(coin);
+            coins.splice(i, 1);
+            score += 1;
+            scoreEl.textContent = score;
+            playCoinSound();
+          } else if (coin.position.z > 5.7) {
+            scene.remove(coin);
+            coins.splice(i, 1);
+          }
+        }
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const obs = obstacles[i];
+          obs.position.z += 0.075;
+          obs.rotation.x += 0.035;
+          obs.rotation.y += 0.025;
+
+          const dx = obs.position.x - playerGroup.position.x;
+          const dz = obs.position.z - playerGroup.position.z;
+          const closeX = Math.abs(dx) < 0.65;
+          const closeZ = Math.abs(dz) < 0.65;
+          const playerLow = playerGroup.position.y < 0.55;
+
+          if (closeX && closeZ && playerLow) {
+            scene.remove(obs);
+            obstacles.splice(i, 1);
+            score = Math.max(0, score - 2);
+            scoreEl.textContent = score;
+            playHitSound();
+            statusEl.textContent = 'ชนสิ่งกีดขวาง! อ้าปากเพื่อกระโดด';
+          } else if (obs.position.z > 5.7) {
+            scene.remove(obs);
+            obstacles.splice(i, 1);
+          }
         }
       }
 
       camera.position.x = THREE.MathUtils.lerp(camera.position.x, playerGroup.position.x * 0.18, 0.035);
       camera.lookAt(playerGroup.position.x * 0.12, 0.6, 0);
-
       renderer.render(scene, camera);
+
+      renderPreview();
+    }
+
+    function renderPreview() {
+      const rect = previewCanvas.getBoundingClientRect();
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+
+      if (previewCanvas.width !== width || previewCanvas.height !== height) {
+        previewRenderer.setSize(width, height, false);
+        previewCamera.aspect = width / height;
+        previewCamera.updateProjectionMatrix();
+      }
+
+      previewGroup.rotation.y = Math.sin(performance.now() * 0.0012) * 0.35;
+      previewRenderer.render(previewScene, previewCamera);
     }
 
     animate();
@@ -913,14 +1334,15 @@
     });
 
     // -----------------------------
-    // Start Button
+    // Start Game Button
     // -----------------------------
-    startBtn.addEventListener('click', async () => {
+    startGameBtn.addEventListener('click', async () => {
       clearError();
-      startBtn.disabled = true;
-      startBtn.textContent = 'Loading...';
+      startGameBtn.disabled = true;
+      startGameBtn.textContent = 'Loading...';
 
       await unlockAudio();
+      updateAvatarColors();
 
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -937,15 +1359,25 @@
           showError('Face Tracking Error:\n' + (faceErr.message || faceErr));
         }
 
-        startScreen.classList.add('hide');
+        score = 0;
+        scoreEl.textContent = score;
+        targetX = 0;
+        playerGroup.position.set(0, 0, 3.4);
+        gameStarted = true;
+        avatarScreen.classList.add('hide');
+        startGameBtn.disabled = false;
+        startGameBtn.textContent = 'Start Camera + Game';
+        statusEl.textContent = 'เริ่มเกมแล้ว: ขยับหน้าเพื่อเล่น';
       } catch (err) {
         console.error(err);
         statusEl.textContent = 'เปิดกล้องไม่ได้: ' + err.message;
         showError('Camera Error:\n' + (err.message || err));
-        startBtn.disabled = false;
-        startBtn.textContent = 'Try Again';
+        startGameBtn.disabled = false;
+        startGameBtn.textContent = 'Try Again';
       }
     });
+
+    updateAvatarColors();
   </script>
 </body>
 </html>
