@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Face Control WebGL Game</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050816;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #gameWrap {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      background: #050816;
+    }
+
+    #cameraVideo {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      width: 150px;
+      height: 200px;
+      object-fit: cover;
+      transform: scaleX(-1);
+      border-radius: 18px;
+      border: 2px solid rgba(255,255,255,0.55);
+      z-index: 20;
+      background: #111;
+      opacity: 0.82;
+    }
+
+    #hud {
+      position: fixed;
+      top: max(14px, env(safe-area-inset-top));
+      left: max(14px, env(safe-area-inset-left));
+      z-index: 30;
+      min-width: 220px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(0,0,0,0.42);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    #hud b {
+      font-size: 16px;
+    }
+
+    #status {
+      color: #93c5fd;
+      font-size: 13px;
+    }
+
+    #startScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: radial-gradient(circle at top, #1e3a8a 0%, #050816 54%, #020617 100%);
+    }
+
+    #startCard {
+      width: min(520px, 94vw);
+      padding: 28px;
+      border-radius: 28px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 0 24px 90px rgba(0,0,0,0.5);
+      backdrop-filter: blur(16px);
+      text-align: center;
+    }
+
+    #startCard h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+
+    #startCard p {
+      margin: 8px 0;
+      color: rgba(255,255,255,0.82);
+      line-height: 1.55;
+      font-size: 15px;
+    }
+
+    #startBtn {
+      margin-top: 20px;
+      width: 100%;
+      height: 56px;
+      border: 0;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      color: white;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 16px 40px rgba(56,189,248,0.35);
+    }
+
+    #startBtn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    #fallbackControls {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 25;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 22px;
+      pointer-events: none;
+    }
+
+    .ctrlBtn {
+      pointer-events: auto;
+      width: 74px;
+      height: 74px;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.16);
+      color: white;
+      font-size: 28px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+      user-select: none;
+    }
+
+    #jumpBtn {
+      width: 92px;
+      border-radius: 24px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .hide {
+      display: none !important;
+    }
+
+    @media (max-width: 520px) {
+      #cameraVideo {
+        width: 112px;
+        height: 150px;
+        right: 10px;
+        bottom: 98px;
+      }
+
+      #hud {
+        font-size: 13px;
+        min-width: 185px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameWrap"></div>
+
+  <video id="cameraVideo" playsinline muted autoplay></video>
+
+  <div id="hud">
+    <b>Face Control Game</b><br />
+    Score: <span id="score">0</span><br />
+    Face X: <span id="faceX">-</span><br />
+    Mouth: <span id="mouthState">-</span><br />
+    <span id="status">กด Start เพื่อเปิดกล้องหน้า</span>
+  </div>
+
+  <div id="fallbackControls">
+    <button class="ctrlBtn" id="leftBtn">◀</button>
+    <button class="ctrlBtn" id="jumpBtn">JUMP</button>
+    <button class="ctrlBtn" id="rightBtn">▶</button>
+  </div>
+
+  <div id="startScreen">
+    <div id="startCard">
+      <h1>Face Control<br />WebGL Game</h1>
+      <p>เกมตัวอย่างสำหรับ GitHub Pages</p>
+      <p>ใช้ <b>กล้องหน้า</b> ตรวจจับใบหน้าเพื่อควบคุมตัวละคร</p>
+      <p>ขยับหน้าไปซ้าย/ขวา = ตัวละครขยับ<br />อ้าปาก = กระโดด</p>
+      <button id="startBtn">Start Camera + Game</button>
+      <p style="font-size:12px; opacity:0.7; margin-top:14px;">ควรเปิดผ่าน HTTPS เช่น GitHub Pages เท่านั้น</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs';
+
+    const gameWrap = document.getElementById('gameWrap');
+    const video = document.getElementById('cameraVideo');
+    const startScreen = document.getElementById('startScreen');
+    const startBtn = document.getElementById('startBtn');
+    const scoreEl = document.getElementById('score');
+    const statusEl = document.getElementById('status');
+    const faceXEl = document.getElementById('faceX');
+    const mouthStateEl = document.getElementById('mouthState');
+
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    const jumpBtn = document.getElementById('jumpBtn');
+
+    let faceLandmarker = null;
+    let cameraReady = false;
+    let faceControlReady = false;
+    let lastVideoTime = -1;
+
+    let score = 0;
+    let targetX = 0;
+    let mouthOpen = false;
+    let lastMouthJumpTime = 0;
+
+    const input = {
+      left: false,
+      right: false,
+      jump: false
+    };
+
+    // -----------------------------
+    // Three.js Game Setup
+    // -----------------------------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050816);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 5.5, 8.5);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    gameWrap.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    keyLight.position.set(4, 8, 6);
+    scene.add(keyLight);
+
+    const floor = new THREE.Mesh(
+      new THREE.BoxGeometry(8.5, 0.25, 13),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 })
+    );
+    floor.position.set(0, -0.18, 0);
+    scene.add(floor);
+
+    const laneLines = [];
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+    for (let x of [-2.8, 0, 2.8]) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 12.5), lineMat);
+      line.position.set(x, -0.03, 0);
+      scene.add(line);
+      laneLines.push(line);
+    }
+
+    const playerGroup = new THREE.Group();
+    scene.add(playerGroup);
+
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.9, 1.15, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.45 })
+    );
+    body.position.y = 0.75;
+    playerGroup.add(body);
+
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.38, 32, 32),
+      new THREE.MeshStandardMaterial({ color: 0xfcd7b6, roughness: 0.55 })
+    );
+    head.position.y = 1.55;
+    playerGroup.add(head);
+
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x020617 });
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), eyeMat);
+    const eyeR = eyeL.clone();
+    eyeL.position.set(-0.13, 1.62, 0.34);
+    eyeR.position.set(0.13, 1.62, 0.34);
+    playerGroup.add(eyeL, eyeR);
+
+    playerGroup.position.set(0, 0, 3.4);
+
+    let playerVelocityY = 0;
+    let playerGroundY = 0;
+    let isGrounded = true;
+
+    const coins = [];
+    const obstacles = [];
+    const coinGeometry = new THREE.SphereGeometry(0.28, 24, 24);
+    const coinMaterial = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.25, roughness: 0.35 });
+    const obstacleGeometry = new THREE.BoxGeometry(0.75, 0.75, 0.75);
+    const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
+
+    function spawnCoin() {
+      const coin = new THREE.Mesh(coinGeometry, coinMaterial);
+      coin.position.x = (Math.random() - 0.5) * 7;
+      coin.position.y = 0.45;
+      coin.position.z = -5.8;
+      scene.add(coin);
+      coins.push(coin);
+    }
+
+    function spawnObstacle() {
+      const obs = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+      obs.position.x = (Math.random() - 0.5) * 7;
+      obs.position.y = 0.3;
+      obs.position.z = -6.2;
+      scene.add(obs);
+      obstacles.push(obs);
+    }
+
+    setInterval(spawnCoin, 850);
+    setInterval(spawnObstacle, 2200);
+
+    function jump() {
+      if (!isGrounded) return;
+      playerVelocityY = 0.16;
+      isGrounded = false;
+    }
+
+    // -----------------------------
+    // Camera + Face Tracking Setup
+    // -----------------------------
+    async function setupCamera() {
+      statusEl.textContent = 'กำลังขอสิทธิ์เปิดกล้องหน้า...';
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+
+      video.srcObject = stream;
+
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => resolve();
+      });
+
+      await video.play();
+      cameraReady = true;
+    }
+
+    async function setupFaceLandmarker() {
+      statusEl.textContent = 'กำลังโหลดระบบจับใบหน้า...';
+
+      const vision = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm'
+      );
+
+      faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
+          delegate: 'GPU'
+        },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: false
+      });
+
+      faceControlReady = true;
+      statusEl.textContent = 'พร้อมใช้งาน: ขยับหน้าเพื่อควบคุมตัวละคร';
+    }
+
+    function updateFaceControl() {
+      if (!cameraReady || !faceControlReady || !faceLandmarker) return;
+      if (video.currentTime === lastVideoTime) return;
+
+      lastVideoTime = video.currentTime;
+      const result = faceLandmarker.detectForVideo(video, performance.now());
+
+      if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
+        statusEl.textContent = 'ไม่เจอใบหน้า: ขยับหน้าให้อยู่ในกรอบกล้อง';
+        faceXEl.textContent = '-';
+        mouthStateEl.textContent = '-';
+        return;
+      }
+
+      statusEl.textContent = 'จับใบหน้าได้แล้ว';
+
+      const lm = result.faceLandmarks[0];
+
+      // ตำแหน่งจมูก ใช้คุมซ้าย-ขวา
+      // MediaPipe coordinate x: 0 = ซ้ายของภาพ, 1 = ขวาของภาพ
+      // กล้องหน้าเรา mirror video แล้ว จึงกลับทิศให้ควบคุมเป็นธรรมชาติ
+      const nose = lm[1];
+      const mirroredX = 1 - nose.x;
+      targetX = THREE.MathUtils.clamp((mirroredX - 0.5) * 9.0, -3.5, 3.5);
+      faceXEl.textContent = targetX.toFixed(2);
+
+      // ตรวจอ้าปากแบบง่ายจากระยะริมฝีปากบน/ล่าง
+      // จุด 13 และ 14 คือริมฝีปากบน/ล่างโดยประมาณใน FaceMesh
+      const upperLip = lm[13];
+      const lowerLip = lm[14];
+      const mouthDistance = Math.abs(lowerLip.y - upperLip.y);
+
+      mouthOpen = mouthDistance > 0.035;
+      mouthStateEl.textContent = mouthOpen ? 'OPEN' : 'close';
+
+      const now = performance.now();
+      if (mouthOpen && now - lastMouthJumpTime > 800) {
+        jump();
+        lastMouthJumpTime = now;
+      }
+    }
+
+    // -----------------------------
+    // Input Fallback
+    // -----------------------------
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') input.left = true;
+      if (e.key === 'ArrowRight') input.right = true;
+      if (e.key === ' ' || e.key === 'ArrowUp') jump();
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft') input.left = false;
+      if (e.key === 'ArrowRight') input.right = false;
+    });
+
+    function bindHoldButton(btn, key) {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        input[key] = true;
+      });
+      btn.addEventListener('pointerup', () => input[key] = false);
+      btn.addEventListener('pointercancel', () => input[key] = false);
+      btn.addEventListener('pointerleave', () => input[key] = false);
+    }
+
+    bindHoldButton(leftBtn, 'left');
+    bindHoldButton(rightBtn, 'right');
+    jumpBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      jump();
+    });
+
+    // -----------------------------
+    // Game Loop
+    // -----------------------------
+    function animate() {
+      requestAnimationFrame(animate);
+
+      updateFaceControl();
+
+      if (input.left) targetX -= 0.11;
+      if (input.right) targetX += 0.11;
+      targetX = THREE.MathUtils.clamp(targetX, -3.5, 3.5);
+
+      playerGroup.position.x = THREE.MathUtils.lerp(playerGroup.position.x, targetX, 0.12);
+
+      // Jump physics
+      playerGroup.position.y += playerVelocityY;
+      playerVelocityY -= 0.008;
+
+      if (playerGroup.position.y <= playerGroundY) {
+        playerGroup.position.y = playerGroundY;
+        playerVelocityY = 0;
+        isGrounded = true;
+      }
+
+      body.rotation.y += 0.025;
+      head.rotation.y = Math.sin(performance.now() * 0.004) * 0.08;
+
+      // Move coins
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const coin = coins[i];
+        coin.position.z += 0.065;
+        coin.rotation.y += 0.09;
+
+        const dx = coin.position.x - playerGroup.position.x;
+        const dy = coin.position.y - (playerGroup.position.y + 0.8);
+        const dz = coin.position.z - playerGroup.position.z;
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        if (distance < 0.85) {
+          scene.remove(coin);
+          coins.splice(i, 1);
+          score += 1;
+          scoreEl.textContent = score;
+        } else if (coin.position.z > 5.7) {
+          scene.remove(coin);
+          coins.splice(i, 1);
+        }
+      }
+
+      // Move obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.position.z += 0.075;
+        obs.rotation.x += 0.035;
+        obs.rotation.y += 0.025;
+
+        const dx = obs.position.x - playerGroup.position.x;
+        const dz = obs.position.z - playerGroup.position.z;
+        const closeX = Math.abs(dx) < 0.65;
+        const closeZ = Math.abs(dz) < 0.65;
+        const playerLow = playerGroup.position.y < 0.55;
+
+        if (closeX && closeZ && playerLow) {
+          scene.remove(obs);
+          obstacles.splice(i, 1);
+          score = Math.max(0, score - 2);
+          scoreEl.textContent = score;
+          statusEl.textContent = 'ชนสิ่งกีดขวาง! อ้าปากเพื่อกระโดด';
+        } else if (obs.position.z > 5.7) {
+          scene.remove(obs);
+          obstacles.splice(i, 1);
+        }
+      }
+
+      // Camera slight follow
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, playerGroup.position.x * 0.18, 0.035);
+      camera.lookAt(playerGroup.position.x * 0.12, 0.6, 0);
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
+
+    // -----------------------------
+    // Start Button
+    // -----------------------------
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Loading...';
+
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Browser นี้ไม่รองรับ getUserMedia');
+        }
+
+        await setupCamera();
+        await setupFaceLandmarker();
+
+        startScreen.classList.add('hide');
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'เปิดกล้องไม่ได้: ' + err.message;
+        startBtn.disabled = false;
+        startBtn.textContent = 'Try Again';
+        alert('เปิดกล้องไม่ได้\n\nให้เช็กว่าเปิดผ่าน HTTPS เช่น GitHub Pages และอนุญาต Camera แล้ว');
+      }
+    });
+  </script>
+</body>
+</html>
