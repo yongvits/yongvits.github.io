@@ -53,7 +53,7 @@
       top: max(14px, env(safe-area-inset-top));
       left: max(14px, env(safe-area-inset-left));
       z-index: 30;
-      min-width: 220px;
+      min-width: 230px;
       padding: 12px 14px;
       border-radius: 16px;
       background: rgba(0,0,0,0.42);
@@ -82,6 +82,25 @@
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    #errorBox {
+      display: none;
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 108px;
+      z-index: 80;
+      max-height: 35vh;
+      overflow: auto;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(127, 29, 29, 0.86);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
     }
 
     #startScreen {
@@ -185,7 +204,7 @@
 
       #hud {
         font-size: 13px;
-        min-width: 185px;
+        min-width: 190px;
       }
     }
   </style>
@@ -203,6 +222,8 @@
     Mouth: <span id="mouthState">-</span><br />
     <span id="status">กด Start เพื่อเปิดกล้องหน้า</span>
   </div>
+
+  <div id="errorBox"></div>
 
   <div id="fallbackControls">
     <button class="ctrlBtn" id="leftBtn">◀</button>
@@ -223,7 +244,6 @@
 
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-    import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs';
 
     const gameWrap = document.getElementById('gameWrap');
     const video = document.getElementById('cameraVideo');
@@ -234,6 +254,7 @@
     const faceXEl = document.getElementById('faceX');
     const mouthStateEl = document.getElementById('mouthState');
     const soundToggle = document.getElementById('soundToggle');
+    const errorBox = document.getElementById('errorBox');
 
     const leftBtn = document.getElementById('leftBtn');
     const rightBtn = document.getElementById('rightBtn');
@@ -253,39 +274,84 @@
     let soundEnabled = true;
     let bgmTimer = null;
 
+    function showError(message) {
+      errorBox.style.display = 'block';
+      errorBox.textContent = String(message);
+      console.warn(message);
+    }
+
+    function clearError() {
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+    }
+
+    window.addEventListener('error', (event) => {
+      showError('JavaScript Error:\n' + event.message);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason && event.reason.message ? event.reason.message : event.reason;
+      showError('Promise Error:\n' + reason);
+    });
+
     function initAudio() {
-      if (audioCtx) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      startBgm();
+      if (audioCtx) return true;
+
+      const AudioClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioClass) {
+        soundEnabled = false;
+        soundToggle.textContent = 'OFF';
+        return false;
+      }
+
+      try {
+        audioCtx = new AudioClass();
+        startBgm();
+        return true;
+      } catch (err) {
+        soundEnabled = false;
+        soundToggle.textContent = 'OFF';
+        console.warn('Audio init failed', err);
+        return false;
+      }
     }
 
     async function unlockAudio() {
-      initAudio();
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
+      if (!initAudio()) return;
+
+      try {
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        playStartSound();
+      } catch (err) {
+        console.warn('Audio unlock failed', err);
       }
-      playStartSound();
     }
 
     function playTone(freq, duration = 0.12, type = 'sine', volume = 0.07, delay = 0) {
       if (!soundEnabled || !audioCtx) return;
 
-      const now = audioCtx.currentTime + delay;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+      try {
+        const now = audioCtx.currentTime + delay;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
 
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, now);
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
 
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(volume, now + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(volume, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
 
-      osc.start(now);
-      osc.stop(now + duration + 0.03);
+        osc.start(now);
+        osc.stop(now + duration + 0.03);
+      } catch (err) {
+        console.warn('playTone failed', err);
+      }
     }
 
     function playStartSound() {
@@ -323,7 +389,9 @@
 
     soundToggle.addEventListener('click', async () => {
       initAudio();
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        try { await audioCtx.resume(); } catch (err) { console.warn(err); }
+      }
       soundEnabled = !soundEnabled;
       soundToggle.textContent = soundEnabled ? 'ON' : 'OFF';
       if (soundEnabled) playStartSound();
@@ -331,8 +399,7 @@
 
     const input = {
       left: false,
-      right: false,
-      jump: false
+      right: false
     };
 
     // -----------------------------
@@ -363,13 +430,11 @@
     floor.position.set(0, -0.18, 0);
     scene.add(floor);
 
-    const laneLines = [];
     const lineMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
-    for (let x of [-2.8, 0, 2.8]) {
+    for (const x of [-2.8, 0, 2.8]) {
       const line = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 12.5), lineMat);
       line.position.set(x, -0.03, 0);
       scene.add(line);
-      laneLines.push(line);
     }
 
     const playerGroup = new THREE.Group();
@@ -399,7 +464,7 @@
     playerGroup.position.set(0, 0, 3.4);
 
     let playerVelocityY = 0;
-    let playerGroundY = 0;
+    const playerGroundY = 0;
     let isGrounded = true;
 
     const coins = [];
@@ -465,23 +530,36 @@
     async function setupFaceLandmarker() {
       statusEl.textContent = 'กำลังโหลดระบบจับใบหน้า...';
 
+      const visionModule = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs');
+      const { FaceLandmarker, FilesetResolver } = visionModule;
+
       const vision = await FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm'
       );
 
-      faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
-          delegate: 'GPU'
-        },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        outputFaceBlendshapes: false,
-        outputFacialTransformationMatrixes: false
-      });
+      async function createLandmarker(delegate) {
+        return FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
+            delegate
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          outputFaceBlendshapes: false,
+          outputFacialTransformationMatrixes: false
+        });
+      }
+
+      try {
+        faceLandmarker = await createLandmarker('GPU');
+        statusEl.textContent = 'พร้อมใช้งาน: Face Tracking GPU';
+      } catch (gpuErr) {
+        console.warn('GPU FaceLandmarker failed, fallback to CPU', gpuErr);
+        faceLandmarker = await createLandmarker('CPU');
+        statusEl.textContent = 'พร้อมใช้งาน: Face Tracking CPU';
+      }
 
       faceControlReady = true;
-      statusEl.textContent = 'พร้อมใช้งาน: ขยับหน้าเพื่อควบคุมตัวละคร';
     }
 
     function updateFaceControl() {
@@ -501,17 +579,11 @@
       statusEl.textContent = 'จับใบหน้าได้แล้ว';
 
       const lm = result.faceLandmarks[0];
-
-      // ตำแหน่งจมูก ใช้คุมซ้าย-ขวา
-      // MediaPipe coordinate x: 0 = ซ้ายของภาพ, 1 = ขวาของภาพ
-      // กล้องหน้าเรา mirror video แล้ว จึงกลับทิศให้ควบคุมเป็นธรรมชาติ
       const nose = lm[1];
       const mirroredX = 1 - nose.x;
       targetX = THREE.MathUtils.clamp((mirroredX - 0.5) * 9.0, -3.5, 3.5);
       faceXEl.textContent = targetX.toFixed(2);
 
-      // ตรวจอ้าปากแบบง่ายจากระยะริมฝีปากบน/ล่าง
-      // จุด 13 และ 14 คือริมฝีปากบน/ล่างโดยประมาณใน FaceMesh
       const upperLip = lm[13];
       const lowerLip = lm[14];
       const mouthDistance = Math.abs(lowerLip.y - upperLip.y);
@@ -571,7 +643,6 @@
 
       playerGroup.position.x = THREE.MathUtils.lerp(playerGroup.position.x, targetX, 0.12);
 
-      // Jump physics
       playerGroup.position.y += playerVelocityY;
       playerVelocityY -= 0.008;
 
@@ -584,7 +655,6 @@
       body.rotation.y += 0.025;
       head.rotation.y = Math.sin(performance.now() * 0.004) * 0.08;
 
-      // Move coins
       for (let i = coins.length - 1; i >= 0; i--) {
         const coin = coins[i];
         coin.position.z += 0.065;
@@ -607,7 +677,6 @@
         }
       }
 
-      // Move obstacles
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.position.z += 0.075;
@@ -633,7 +702,6 @@
         }
       }
 
-      // Camera slight follow
       camera.position.x = THREE.MathUtils.lerp(camera.position.x, playerGroup.position.x * 0.18, 0.035);
       camera.lookAt(playerGroup.position.x * 0.12, 0.6, 0);
 
@@ -653,26 +721,34 @@
     // Start Button
     // -----------------------------
     startBtn.addEventListener('click', async () => {
+      clearError();
       startBtn.disabled = true;
       startBtn.textContent = 'Loading...';
 
-      try {
-        await unlockAudio();
+      await unlockAudio();
 
+      try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error('Browser นี้ไม่รองรับ getUserMedia');
         }
 
         await setupCamera();
-        await setupFaceLandmarker();
+
+        try {
+          await setupFaceLandmarker();
+        } catch (faceErr) {
+          faceControlReady = false;
+          statusEl.textContent = 'เปิดเกมได้ แต่ Face Tracking ไม่ทำงาน ใช้ปุ่มบนจอแทน';
+          showError('Face Tracking Error:\n' + (faceErr.message || faceErr));
+        }
 
         startScreen.classList.add('hide');
       } catch (err) {
         console.error(err);
         statusEl.textContent = 'เปิดกล้องไม่ได้: ' + err.message;
+        showError('Camera Error:\n' + (err.message || err));
         startBtn.disabled = false;
         startBtn.textContent = 'Try Again';
-        alert('เปิดกล้องไม่ได้\n\nให้เช็กว่าเปิดผ่าน HTTPS เช่น GitHub Pages และอนุญาต Camera แล้ว');
       }
     });
   </script>
