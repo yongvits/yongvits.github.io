@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Sound Shape Wind Particles WebGL</title>
+  <title>Sound Rhythm Shape Particles WebGL</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -26,6 +26,20 @@
       display: block;
       background: radial-gradient(circle at center, #111827 0%, #05070d 55%, #000 100%);
     }
+    .hide-ui-btn {
+      position: fixed;
+      top: max(14px, env(safe-area-inset-top));
+      right: max(14px, env(safe-area-inset-right));
+      z-index: 20;
+      min-width: 90px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(8, 13, 27, .62);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.18);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
     .ui {
       position: fixed;
       inset: auto 0 0 0;
@@ -35,7 +49,7 @@
       pointer-events: none;
     }
     .panel {
-      width: min(760px, 100%);
+      width: min(860px, 100%);
       margin: 0 auto;
       padding: 12px;
       border: 1px solid rgba(255,255,255,.16);
@@ -53,6 +67,7 @@
       margin-bottom: 8px;
       font-size: 13px;
       opacity: .92;
+      flex-wrap: wrap;
     }
     .title strong { font-size: 15px; }
     .meters {
@@ -89,7 +104,7 @@
     }
     .controls {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
       gap: 8px;
     }
     button, select {
@@ -114,17 +129,18 @@
     .hint {
       margin-top: 8px;
       font-size: 11px;
-      line-height: 1.35;
-      opacity: .72;
+      line-height: 1.4;
+      opacity: .78;
     }
     .top-hint {
       position: fixed;
       top: max(14px, env(safe-area-inset-top));
       left: 14px;
-      right: 14px;
+      right: 110px;
       display: flex;
       justify-content: center;
       pointer-events: none;
+      z-index: 10;
     }
     .pill {
       padding: 8px 12px;
@@ -135,25 +151,43 @@
       font-size: 12px;
       opacity: .92;
       text-align: center;
-      max-width: 760px;
+      max-width: 860px;
+    }
+    body.ui-hidden .ui,
+    body.ui-hidden .top-hint {
+      opacity: 0;
+      transform: translateY(18px);
+      pointer-events: none;
+      transition: opacity .22s ease, transform .22s ease;
+    }
+    body:not(.ui-hidden) .ui,
+    body:not(.ui-hidden) .top-hint {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity .22s ease, transform .22s ease;
+    }
+    @media (max-width: 680px) {
+      .meters { grid-template-columns: repeat(2, 1fr); }
+      .controls { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 520px) {
-      .meters { grid-template-columns: repeat(2, 1fr); }
       .controls { grid-template-columns: 1fr; }
+      .top-hint { right: 14px; top: 56px; }
     }
   </style>
 </head>
 <body>
   <canvas id="gl"></canvas>
+  <button class="hide-ui-btn" id="hideUiBtn" type="button">Hide UI</button>
 
   <div class="top-hint">
-    <div class="pill" id="status">กด Start Sound เพื่อใช้ไมค์ หรือกด Demo เมื่อ Browser ไม่อนุญาต</div>
+    <div class="pill" id="status">กด Start Sound เพื่อใช้ไมค์ หรือกด Demo เมื่อต้องการลองระบบแบบไม่ใช้ไมค์</div>
   </div>
 
   <div class="ui">
     <div class="panel">
       <div class="title">
-        <strong>Sound → Direction + Shape Particles</strong>
+        <strong>Sound → Direction + Rhythm Color + Shape</strong>
         <span id="countLabel">0 particles</span>
       </div>
 
@@ -167,11 +201,11 @@
           <div class="bar"><div class="fill" id="midFill"></div></div>
         </div>
         <div class="meter" style="color:#fbbf24">
-          <div class="label">TREBLE / แสง</div>
+          <div class="label">TREBLE / สีสูง</div>
           <div class="bar"><div class="fill" id="trebleFill"></div></div>
         </div>
         <div class="meter" style="color:#fb7185">
-          <div class="label">VOLUME / Shape</div>
+          <div class="label">BEAT / สีจังหวะ</div>
           <div class="bar"><div class="fill" id="volFill"></div></div>
         </div>
       </div>
@@ -179,6 +213,7 @@
       <div class="controls">
         <button id="startBtn">Start Sound</button>
         <button class="secondary" id="demoBtn">Demo</button>
+
         <select id="shapeSelect" aria-label="particle shape">
           <option value="auto">Auto Shape</option>
           <option value="wind">Wind</option>
@@ -187,13 +222,25 @@
           <option value="star">Star</option>
           <option value="spiral">Spiral</option>
           <option value="wave">Wave</option>
+          <option value="polygon">Polygon</option>
+          <option value="spider">Spider</option>
+        </select>
+
+        <select id="colorSelect" aria-label="color mode">
+          <option value="auto">Auto Color</option>
+          <option value="rainbow">Rainbow</option>
+          <option value="neon">Neon</option>
+          <option value="sunset">Sunset</option>
+          <option value="aurora">Aurora</option>
+          <option value="candy">Candy</option>
         </select>
       </div>
 
       <div class="hint">
-        ถ้าเจอ NotAllowedError แปลว่า Browser/ระบบไม่ให้ใช้ไมค์ ให้เปิดผ่าน HTTPS เช่น GitHub Pages, อนุญาต Microphone ใน Site Settings หรือใช้ปุ่ม Demo เพื่อทดสอบ visual ก่อน<br>
-        Auto Shape: Bass มาก = Circle / Mid มาก = Wave / Treble มาก = Star / Volume พุ่ง = Heart + Burst<br>
-        ทิศทางจะมาจากโทนเสียง + การเอียงมือถือ + การลากนิ้ว เพราะ Web Browser ไม่สามารถอ่านทิศทางลำโพงจริงของมือถือได้โดยตรง
+        ถ้าเจอ NotAllowedError แปลว่า Browser/ระบบไม่ให้ใช้ไมค์ ให้เปิดผ่าน HTTPS เช่น GitHub Pages, อนุญาต Microphone ใน Site Settings หรือใช้ปุ่ม Demo ก่อน<br>
+        Shape ใหม่: <b>Wave / Polygon / Spider</b><br>
+        สีจะเปลี่ยนตามจังหวะเสียง และ Color Mode ที่เลือก โดย Beat จะทำให้เกิด palette shift, flash และ burst<br>
+        ทิศทางจะผสมจากโทนเสียง + การเอียงมือถือ + การลากนิ้ว เพราะ Web Browser ไม่สามารถอ่านทิศทางลำโพงจริงของมือถือได้โดยตรง
       </div>
     </div>
   </div>
@@ -219,7 +266,9 @@
       vol: document.getElementById('volFill'),
       start: document.getElementById('startBtn'),
       demo: document.getElementById('demoBtn'),
-      shape: document.getElementById('shapeSelect')
+      shape: document.getElementById('shapeSelect'),
+      color: document.getElementById('colorSelect'),
+      hideUi: document.getElementById('hideUiBtn')
     };
 
     if (!gl) {
@@ -227,8 +276,8 @@
       throw new Error('WebGL not supported');
     }
 
-    const MAX_PARTICLES = 16000;
-    const START_PARTICLES = 2600;
+    const MAX_PARTICLES = 18000;
+    const START_PARTICLES = 3000;
     const TAU = Math.PI * 2;
 
     const vert = `
@@ -293,9 +342,17 @@
     let height = 1;
     let dpr = 1;
     let aspect = 1;
+
     let selectedShape = 'auto';
     let currentShape = 'wind';
     let shapeBlend = 0;
+
+    let selectedColorMode = 'auto';
+    let currentColorMode = 'rainbow';
+
+    let beatHue = 0.62;
+    let beatFlash = 0;
+    let previousVolume = 0;
 
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -350,17 +407,25 @@
     }
 
     function chooseAutoShape(a) {
-      if (a.volume > 0.55) return 'heart';
-      if (a.treble > a.bass && a.treble > a.mid && a.treble > 0.18) return 'star';
-      if (a.mid > a.bass && a.mid > 0.16) return 'wave';
-      if (a.bass > 0.18) return 'circle';
-      if (a.volume > 0.22) return 'spiral';
+      if (a.volume > 0.58) return 'spider';
+      if (a.treble > 0.42 && a.treble > a.mid) return 'star';
+      if (a.mid > 0.34 && a.mid > a.bass) return 'wave';
+      if (a.bass > 0.38) return 'polygon';
+      if (a.volume > 0.30) return 'circle';
       return 'wind';
+    }
+
+    function chooseAutoColorMode(a) {
+      if (a.treble > 0.45) return 'neon';
+      if (a.bass > 0.42) return 'sunset';
+      if (a.mid > 0.38) return 'aurora';
+      if (a.volume > 0.35) return 'candy';
+      return 'rainbow';
     }
 
     function shapePoint(shape, index, total, t, a) {
       const id = index / Math.max(1, total - 1);
-      const angle = id * TAU * (shape === 'spiral' ? 3.6 : 1.0) + t * (0.25 + a.treble * 1.6);
+      const angle = id * TAU + t * (0.25 + a.treble * 1.6);
       const pulse = 1 + a.bass * 0.35 + Math.sin(t * 3 + id * TAU) * a.volume * 0.12;
 
       if (shape === 'circle') {
@@ -377,22 +442,47 @@
       }
 
       if (shape === 'star') {
-        const points = 5;
         const th = id * TAU;
-        const step = Math.floor(id * points * 2);
-        const r = (step % 2 === 0 ? 0.62 : 0.26) + a.treble * 0.22;
+        const spikes = 5;
+        const sector = Math.floor(id * spikes * 2);
+        const r = (sector % 2 === 0 ? 0.62 : 0.26) + a.treble * 0.22;
         return { x: Math.cos(th + t * 0.5) * r / aspect, y: Math.sin(th + t * 0.5) * r };
       }
 
       if (shape === 'spiral') {
+        const spiralAngle = id * TAU * (3.2 + a.treble * 1.5) + t * 0.8;
         const r = 0.08 + id * (0.72 + a.bass * 0.2);
-        return { x: Math.cos(angle) * r / aspect, y: Math.sin(angle) * r };
+        return { x: Math.cos(spiralAngle) * r / aspect, y: Math.sin(spiralAngle) * r };
       }
 
       if (shape === 'wave') {
         const x = lerp(-0.9, 0.9, id) / aspect;
-        const y = Math.sin(id * TAU * (2.2 + a.mid * 3.0) + t * (2.2 + a.treble * 4.0)) * (0.22 + a.mid * 0.36);
+        const y = Math.sin(id * TAU * (2.2 + a.mid * 3.2) + t * (2.2 + a.treble * 4.0)) * (0.22 + a.mid * 0.36);
         return { x, y };
+      }
+
+      if (shape === 'polygon') {
+        const sides = 3 + Math.floor(a.bass * 5); // 3-8 sides
+        const th = id * TAU;
+        const local = ((th % (TAU / sides)) / (TAU / sides));
+        const edgeLerp = Math.abs(local - 0.5) * 2;
+        const r = (0.36 + a.bass * 0.32) / Math.max(0.35, Math.cos(Math.PI / sides) + edgeLerp * 0.02);
+        return { x: Math.cos(th + t * 0.25) * r / aspect, y: Math.sin(th + t * 0.25) * r };
+      }
+
+      if (shape === 'spider') {
+        const legs = 8;
+        const legIndex = Math.floor(id * legs);
+        const legT = (id * legs) % 1;
+        const legAngle = (legIndex / legs) * TAU + Math.sin(t * 2 + legIndex) * 0.08;
+        const inner = 0.12 + a.mid * 0.08;
+        const outer = 0.72 + a.bass * 0.18;
+        const r = lerp(inner, outer, legT);
+        const wobble = Math.sin(legT * TAU * 2 + t * 4) * (0.02 + a.treble * 0.05);
+        return {
+          x: Math.cos(legAngle) * (r + wobble) / aspect,
+          y: Math.sin(legAngle) * (r + wobble)
+        };
       }
 
       return { x: null, y: null };
@@ -400,10 +490,10 @@
 
     function soundDirection(a, t) {
       const angle = (
-        a.bass * 0.6 +
-        a.mid * 2.0 +
-        a.treble * 4.4 +
-        a.volume * 1.3 +
+        a.bass * 0.7 +
+        a.mid * 2.1 +
+        a.treble * 4.6 +
+        a.volume * 1.35 +
         t * (0.18 + a.volume * 0.8)
       ) * TAU;
       return normalize(Math.cos(angle), Math.sin(angle));
@@ -426,7 +516,7 @@
       p.vy = Math.sin(angle) * speed;
       p.life = rand(0.55, 1);
       p.decay = rand(0.002, 0.0075);
-      p.size = rand(1.2, 4.5);
+      p.size = rand(1.2, 4.8);
       p.seed = Math.random() * 1000;
       p.hue = rand(0, 1);
       p.shapeOffset = rand(-0.08, 0.08);
@@ -467,10 +557,10 @@
     function updateAudio(now) {
       if (audio.demo) {
         const t = now * 0.001;
-        audio.bass = clamp(0.18 + Math.sin(t * 1.8) * 0.16 + Math.sin(t * 5.1) * 0.05, 0, 1);
-        audio.mid = clamp(0.20 + Math.sin(t * 2.5 + 1.6) * 0.18, 0, 1);
-        audio.treble = clamp(0.16 + Math.sin(t * 4.1 + 2.4) * 0.20, 0, 1);
-        audio.volume = clamp((audio.bass + audio.mid + audio.treble) / 2.45, 0, 1);
+        audio.bass = clamp(0.20 + Math.sin(t * 1.8) * 0.18 + Math.sin(t * 5.1) * 0.05, 0, 1);
+        audio.mid = clamp(0.22 + Math.sin(t * 2.5 + 1.6) * 0.20, 0, 1);
+        audio.treble = clamp(0.18 + Math.sin(t * 4.1 + 2.4) * 0.22, 0, 1);
+        audio.volume = clamp((audio.bass + audio.mid + audio.treble) / 2.35, 0, 1);
         audio.smoothVolume = audio.smoothVolume * 0.86 + audio.volume * 0.14;
         return;
       }
@@ -524,6 +614,56 @@
         b = hue2rgb(p, q, h - 1 / 3);
       }
       return [r, g, b];
+    }
+
+    function getColorParams(mode, a, t, p, id, speed) {
+      const baseHue = (beatHue + t * 0.02 + id * 0.04) % 1;
+
+      if (mode === 'rainbow') {
+        return {
+          hue: (baseHue + p.hue * 0.35 + speed * 3.4 + Math.sin(t + p.seed) * 0.08) % 1,
+          sat: 0.82 + beatFlash * 0.12,
+          light: 0.48 + a.volume * 0.18 + beatFlash * 0.20
+        };
+      }
+
+      if (mode === 'neon') {
+        return {
+          hue: (0.80 + p.hue * 0.18 + a.treble * 0.12 + speed * 2.0) % 1,
+          sat: 0.92,
+          light: 0.52 + beatFlash * 0.22
+        };
+      }
+
+      if (mode === 'sunset') {
+        return {
+          hue: (0.02 + p.hue * 0.08 + a.bass * 0.08 + beatFlash * 0.04) % 1,
+          sat: 0.88,
+          light: 0.46 + a.bass * 0.14 + beatFlash * 0.18
+        };
+      }
+
+      if (mode === 'aurora') {
+        return {
+          hue: (0.34 + p.hue * 0.22 + Math.sin(t * 0.8 + id * 8) * 0.06) % 1,
+          sat: 0.78 + a.mid * 0.12,
+          light: 0.44 + a.mid * 0.14 + beatFlash * 0.15
+        };
+      }
+
+      if (mode === 'candy') {
+        return {
+          hue: (0.90 + p.hue * 0.16 + Math.sin(t * 1.6 + p.seed) * 0.08) % 1,
+          sat: 0.74 + beatFlash * 0.10,
+          light: 0.60 + beatFlash * 0.18
+        };
+      }
+
+      return {
+        hue: (baseHue + p.hue * (0.08 + beatFlash * 0.24) + speed * 4.2 + a.mid * 0.10) % 1,
+        sat: 0.74 + a.treble * 0.20 + beatFlash * 0.10,
+        light: 0.45 + a.volume * 0.18 + beatFlash * 0.22
+      };
     }
 
     async function requestMotionPermission() {
@@ -621,8 +761,9 @@
         audio.source.connect(audio.analyser);
         audio.enabled = true;
 
-        ui.status.textContent = 'Sound On: เปิดเพลง/พูด/ตบมือ แล้ว shape + ทิศทางจะตอบสนองตามเสียง';
+        ui.status.textContent = 'Sound On: เปิดเพลง/พูด/ตบมือ แล้วสี + shape + ทิศทางจะตอบสนองตามเสียง';
         ui.start.textContent = 'Sound On';
+        ui.demo.textContent = 'Demo';
       } catch (err) {
         console.warn('Microphone unavailable:', err && err.name ? err.name : err);
         const name = err && err.name ? err.name : 'MicrophoneError';
@@ -644,16 +785,28 @@
       ui.start.textContent = 'Start Sound';
       ui.demo.textContent = 'Demo On';
       if (!ui.status.textContent.includes('Demo')) {
-        ui.status.textContent = 'Demo On: ใช้เสียงจำลองเพื่อทดสอบ shape/direction ก่อน';
+        ui.status.textContent = 'Demo On: ใช้เสียงจำลองเพื่อทดสอบ shape/direction/color ก่อน';
       }
     }
 
     ui.start.addEventListener('click', startSound);
     ui.demo.addEventListener('click', startDemo);
+
     ui.shape.addEventListener('change', () => {
       selectedShape = ui.shape.value;
       currentShape = selectedShape === 'auto' ? currentShape : selectedShape;
       shapeBlend = 0;
+    });
+
+    ui.color.addEventListener('change', () => {
+      selectedColorMode = ui.color.value;
+      currentColorMode = selectedColorMode === 'auto' ? currentColorMode : selectedColorMode;
+    });
+
+    ui.hideUi.addEventListener('click', () => {
+      document.body.classList.toggle('ui-hidden');
+      const hidden = document.body.classList.contains('ui-hidden');
+      ui.hideUi.textContent = hidden ? 'Show UI' : 'Hide UI';
     });
 
     function burst(amount) {
@@ -681,6 +834,20 @@
       }
       shapeBlend = clamp(shapeBlend + 0.018 + a.volume * 0.025, 0, 1);
 
+      currentColorMode = selectedColorMode === 'auto' ? chooseAutoColorMode(a) : selectedColorMode;
+
+      beatFlash *= 0.92;
+      const volumeAttack = a.volume - previousVolume;
+      const isBeat = (a.volume > 0.36 || (a.volume > 0.22 && volumeAttack > 0.035)) && now - audio.lastBeat > 145;
+
+      if (isBeat) {
+        burst(Math.floor(110 + a.bass * 360 + a.volume * 320));
+        beatHue = (beatHue + 0.17 + a.treble * 0.22 + Math.random() * 0.18) % 1;
+        beatFlash = 1;
+        audio.lastBeat = now;
+      }
+      previousVolume = a.volume;
+
       const toneDirection = soundDirection(a, t);
       const mixTone = 0.22 + a.volume * 0.42;
       motion.tx = lerp(motion.tx, toneDirection.x, mixTone * 0.03);
@@ -689,16 +856,10 @@
       motion.y += (motion.ty - motion.y) * 0.05;
       const wind = normalize(motion.x, motion.y);
 
-      const targetCount = Math.floor(1800 + a.mid * 7900 + a.volume * 4600 + a.bass * 1900 + a.treble * 1000);
+      const targetCount = Math.floor(2000 + a.mid * 8500 + a.volume * 4800 + a.bass * 1800 + a.treble * 1200);
       activeCount += Math.round((clamp(targetCount, 900, MAX_PARTICLES) - activeCount) * 0.045);
       activeCount = clamp(activeCount, 900, MAX_PARTICLES);
 
-      if (a.volume > 0.36 && now - audio.lastBeat > 145) {
-        burst(Math.floor(110 + a.bass * 360 + a.volume * 320));
-        audio.lastBeat = now;
-      }
-
-      const baseHue = (0.62 - a.bass * 0.28 + a.treble * 0.45 + t * 0.035) % 1;
       const windForce = 0.0012 + a.bass * 0.013 + a.volume * 0.018;
       const swirl = 0.001 + a.treble * 0.0085;
       const shapeForce = currentShape === 'wind' ? 0 : (0.012 + a.mid * 0.014 + a.volume * 0.012);
@@ -726,11 +887,17 @@
         p.life -= p.decay * (0.48 + a.volume * 1.45);
 
         const speed = Math.hypot(p.vx, p.vy);
-        const hue = (baseHue + p.hue * 0.13 + speed * 5.0 + a.mid * 0.12 + id * 0.08) % 1;
-        const sat = 0.68 + a.treble * 0.3;
-        const light = 0.43 + a.volume * 0.25 + a.treble * 0.14;
-        const rgb = hslToRgb(hue, sat, light);
-        const size = p.size * (1.0 + a.bass * 2.5 + a.treble * 1.15 + (currentShape !== 'wind' ? 0.55 : 0)) * dpr;
+        const col = getColorParams(currentColorMode, a, t, p, id, speed);
+        const rgb = hslToRgb(col.hue, clamp(col.sat, 0, 1), clamp(col.light, 0, 1));
+
+        const size = p.size * (
+          1.0 +
+          a.bass * 2.5 +
+          a.treble * 1.15 +
+          beatFlash * 1.35 +
+          (currentShape !== 'wind' ? 0.55 : 0)
+        ) * dpr;
+
         const alpha = clamp(p.life * (0.40 + a.volume * 0.82 + a.treble * 0.28), 0, 1);
 
         const o = i * 7;
@@ -749,7 +916,14 @@
         }
       }
 
-      gl.clearColor(0.01 + a.bass * 0.03, 0.012 + a.mid * 0.025, 0.025 + a.treble * 0.04, 1);
+      const bgCol = getColorParams(currentColorMode, a, t, { hue: 0.5, seed: 0 }, 0, 0);
+      const bg = hslToRgb((bgCol.hue + 0.55) % 1, 0.35 + beatFlash * 0.15, 0.018 + beatFlash * 0.035);
+      gl.clearColor(
+        clamp(bg[0] + a.bass * 0.016, 0, 1),
+        clamp(bg[1] + a.mid * 0.016, 0, 1),
+        clamp(bg[2] + a.treble * 0.020, 0, 1),
+        1
+      );
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, activeCount * 7));
@@ -759,12 +933,11 @@
       ui.mid.style.width = `${Math.round(a.mid * 100)}%`;
       ui.treble.style.width = `${Math.round(a.treble * 100)}%`;
       ui.vol.style.width = `${Math.round(a.volume * 100)}%`;
-      ui.count.textContent = `${activeCount.toLocaleString()} particles / ${currentShape}`;
+      ui.count.textContent = `${activeCount.toLocaleString()} particles / ${currentShape} / ${currentColorMode}`;
 
       requestAnimationFrame(drawFrame);
     }
 
-    // Lightweight built-in tests. Open DevTools console to see results.
     function runTests() {
       const tests = [];
       function test(name, fn) { tests.push({ name, fn }); }
@@ -780,12 +953,12 @@
         assert(chooseAutoShape({ volume: 0.2, bass: 0.1, mid: 0.12, treble: 0.55 }) === 'star', 'treble should choose star');
       });
 
-      test('auto shape picks circle for strong bass', () => {
-        assert(chooseAutoShape({ volume: 0.2, bass: 0.55, mid: 0.1, treble: 0.1 }) === 'circle', 'bass should choose circle');
+      test('auto shape picks polygon for strong bass', () => {
+        assert(chooseAutoShape({ volume: 0.2, bass: 0.55, mid: 0.1, treble: 0.1 }) === 'polygon', 'bass should choose polygon');
       });
 
       test('shapePoint returns finite coordinates for all shapes', () => {
-        ['wind', 'circle', 'heart', 'star', 'spiral', 'wave'].forEach(shape => {
+        ['wind', 'circle', 'heart', 'star', 'spiral', 'wave', 'polygon', 'spider'].forEach(shape => {
           const p = shapePoint(shape, 12, 100, 1.23, { volume: 0.3, bass: 0.2, mid: 0.2, treble: 0.2 });
           if (shape === 'wind') {
             assert(p.x === null && p.y === null, 'wind should have null target');
@@ -801,12 +974,29 @@
         assert(Math.abs(len - 1) < 0.0001, 'direction is not normalized');
       });
 
+      test('hide UI button exists', () => {
+        assert(!!ui.hideUi, 'hide UI button missing');
+      });
+
+      test('color mode chooser returns known mode', () => {
+        const mode = chooseAutoColorMode({ volume: 0.2, bass: 0.4, mid: 0.1, treble: 0.1 });
+        assert(['rainbow', 'neon', 'sunset', 'aurora', 'candy'].includes(mode), 'unknown color mode');
+      });
+
+      test('getColorParams returns valid values', () => {
+        const c = getColorParams('rainbow', { volume: 0.4, bass: 0.2, mid: 0.3, treble: 0.5 }, 1.2, { hue: 0.5, seed: 10 }, 0.2, 0.4);
+        assert(Number.isFinite(c.hue), 'hue invalid');
+        assert(Number.isFinite(c.sat), 'sat invalid');
+        assert(Number.isFinite(c.light), 'light invalid');
+      });
+
       const passed = [];
       const failed = [];
       tests.forEach(({ name, fn }) => {
         try { fn(); passed.push(name); }
         catch (err) { failed.push({ name, err }); }
       });
+
       if (failed.length) console.error('Particle tests failed:', failed);
       else console.info(`Particle tests passed: ${passed.length}/${tests.length}`);
     }
