@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Sound Wind Particles WebGL</title>
+  <title>Sound Shape Wind Particles WebGL</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -35,12 +35,12 @@
       pointer-events: none;
     }
     .panel {
-      width: min(680px, 100%);
+      width: min(760px, 100%);
       margin: 0 auto;
       padding: 12px;
       border: 1px solid rgba(255,255,255,.16);
       border-radius: 18px;
-      background: rgba(8, 13, 27, .62);
+      background: rgba(8, 13, 27, .68);
       backdrop-filter: blur(14px);
       box-shadow: 0 18px 50px rgba(0,0,0,.35);
       pointer-events: auto;
@@ -71,6 +71,7 @@
       font-size: 10px;
       opacity: .72;
       margin-bottom: 5px;
+      white-space: nowrap;
     }
     .bar {
       height: 6px;
@@ -88,25 +89,28 @@
     }
     .controls {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 8px;
     }
-    button {
+    button, select {
       appearance: none;
       border: 0;
       border-radius: 14px;
       padding: 12px 14px;
       color: #fff;
-      background: linear-gradient(135deg, #7c3aed, #db2777, #f97316);
       font-weight: 800;
       font-size: 14px;
+    }
+    button {
+      background: linear-gradient(135deg, #7c3aed, #db2777, #f97316);
       box-shadow: 0 8px 24px rgba(219,39,119,.28);
     }
-    button.secondary {
+    button.secondary, select {
       background: rgba(255,255,255,.09);
       box-shadow: none;
       border: 1px solid rgba(255,255,255,.13);
     }
+    select { text-align: center; }
     .hint {
       margin-top: 8px;
       font-size: 11px;
@@ -125,12 +129,17 @@
     .pill {
       padding: 8px 12px;
       border-radius: 999px;
-      background: rgba(8, 13, 27, .54);
+      background: rgba(8, 13, 27, .58);
       border: 1px solid rgba(255,255,255,.14);
       backdrop-filter: blur(14px);
       font-size: 12px;
-      opacity: .9;
+      opacity: .92;
       text-align: center;
+      max-width: 760px;
+    }
+    @media (max-width: 520px) {
+      .meters { grid-template-columns: repeat(2, 1fr); }
+      .controls { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -138,13 +147,13 @@
   <canvas id="gl"></canvas>
 
   <div class="top-hint">
-    <div class="pill" id="status">แตะ Start Sound แล้วเปิดเพลงจากลำโพงมือถือ หรือให้เสียงเข้าทางไมค์</div>
+    <div class="pill" id="status">กด Start Sound เพื่อใช้ไมค์ หรือกด Demo เมื่อ Browser ไม่อนุญาต</div>
   </div>
 
   <div class="ui">
     <div class="panel">
       <div class="title">
-        <strong>Sound → Wind Particles</strong>
+        <strong>Sound → Direction + Shape Particles</strong>
         <span id="countLabel">0 particles</span>
       </div>
 
@@ -162,33 +171,65 @@
           <div class="bar"><div class="fill" id="trebleFill"></div></div>
         </div>
         <div class="meter" style="color:#fb7185">
-          <div class="label">VOLUME / ระเบิด</div>
+          <div class="label">VOLUME / Shape</div>
           <div class="bar"><div class="fill" id="volFill"></div></div>
         </div>
       </div>
 
       <div class="controls">
         <button id="startBtn">Start Sound</button>
-        <button class="secondary" id="resetBtn">Reset</button>
+        <button class="secondary" id="demoBtn">Demo</button>
+        <select id="shapeSelect" aria-label="particle shape">
+          <option value="auto">Auto Shape</option>
+          <option value="wind">Wind</option>
+          <option value="circle">Circle</option>
+          <option value="heart">Heart</option>
+          <option value="star">Star</option>
+          <option value="spiral">Spiral</option>
+          <option value="wave">Wave</option>
+        </select>
       </div>
 
       <div class="hint">
-        หมายเหตุ: Browser อ่าน “ตำแหน่งลำโพงจริง” ของมือถือไม่ได้โดยตรง จึงใช้เสียงที่ไมค์ได้ยินเป็นตัวคุมสี/จำนวน/แรง และใช้การเอียงมือถือเป็นทิศทางลมของ particle แทน ถ้าวางมือถือให้ลำโพงยิงเสียงไปทางไหน แล้วเอียงเครื่องตามทิศนั้น จะได้ฟีลเหมือนเสียงพัด particle ไปทางนั้น
+        ถ้าเจอ NotAllowedError แปลว่า Browser/ระบบไม่ให้ใช้ไมค์ ให้เปิดผ่าน HTTPS เช่น GitHub Pages, อนุญาต Microphone ใน Site Settings หรือใช้ปุ่ม Demo เพื่อทดสอบ visual ก่อน<br>
+        Auto Shape: Bass มาก = Circle / Mid มาก = Wave / Treble มาก = Star / Volume พุ่ง = Heart + Burst<br>
+        ทิศทางจะมาจากโทนเสียง + การเอียงมือถือ + การลากนิ้ว เพราะ Web Browser ไม่สามารถอ่านทิศทางลำโพงจริงของมือถือได้โดยตรง
       </div>
     </div>
   </div>
 
   <script>
+    'use strict';
+
     const canvas = document.getElementById('gl');
-    const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false, stencil: false });
+    const gl = canvas.getContext('webgl', {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: false
+    });
+
+    const ui = {
+      status: document.getElementById('status'),
+      count: document.getElementById('countLabel'),
+      bass: document.getElementById('bassFill'),
+      mid: document.getElementById('midFill'),
+      treble: document.getElementById('trebleFill'),
+      vol: document.getElementById('volFill'),
+      start: document.getElementById('startBtn'),
+      demo: document.getElementById('demoBtn'),
+      shape: document.getElementById('shapeSelect')
+    };
 
     if (!gl) {
-      document.getElementById('status').textContent = 'เครื่องนี้ไม่รองรับ WebGL';
+      ui.status.textContent = 'เครื่องนี้ไม่รองรับ WebGL';
       throw new Error('WebGL not supported');
     }
 
-    const MAX_PARTICLES = 14000;
-    const START_PARTICLES = 2200;
+    const MAX_PARTICLES = 16000;
+    const START_PARTICLES = 2600;
+    const TAU = Math.PI * 2;
 
     const vert = `
       attribute vec2 a_position;
@@ -214,27 +255,27 @@
         float d = length(uv);
         float glow = smoothstep(0.5, 0.0, d);
         float core = smoothstep(0.18, 0.0, d);
-        vec3 color = v_color * (0.55 + core * 1.8);
+        vec3 color = v_color * (0.58 + core * 1.9);
         gl_FragColor = vec4(color, glow * v_alpha);
       }
     `;
 
-    function shader(type, source) {
+    function makeShader(type, source) {
       const s = gl.createShader(type);
       gl.shaderSource(s, source);
       gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-        throw new Error(gl.getShaderInfoLog(s));
+        throw new Error(gl.getShaderInfoLog(s) || 'Shader compile error');
       }
       return s;
     }
 
     const program = gl.createProgram();
-    gl.attachShader(program, shader(gl.VERTEX_SHADER, vert));
-    gl.attachShader(program, shader(gl.FRAGMENT_SHADER, frag));
+    gl.attachShader(program, makeShader(gl.VERTEX_SHADER, vert));
+    gl.attachShader(program, makeShader(gl.FRAGMENT_SHADER, frag));
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(program));
+      throw new Error(gl.getProgramInfoLog(program) || 'Program link error');
     }
     gl.useProgram(program);
 
@@ -251,6 +292,10 @@
     let width = 1;
     let height = 1;
     let dpr = 1;
+    let aspect = 1;
+    let selectedShape = 'auto';
+    let currentShape = 'wind';
+    let shapeBlend = 0;
 
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -273,9 +318,12 @@
     const audio = {
       context: null,
       analyser: null,
+      source: null,
+      stream: null,
       freq: null,
       time: null,
       enabled: false,
+      demo: false,
       volume: 0,
       bass: 0,
       mid: 0,
@@ -289,45 +337,99 @@
       y: -0.15,
       tx: 0.8,
       ty: -0.15,
-      enabled: false
+      touchActive: false
     };
 
-    const ui = {
-      status: document.getElementById('status'),
-      count: document.getElementById('countLabel'),
-      bass: document.getElementById('bassFill'),
-      mid: document.getElementById('midFill'),
-      treble: document.getElementById('trebleFill'),
-      vol: document.getElementById('volFill'),
-      start: document.getElementById('startBtn'),
-      reset: document.getElementById('resetBtn')
-    };
-
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
     function rand(a, b) { return a + Math.random() * (b - a); }
 
-    function resetParticle(p, burst = false) {
-      const edge = Math.floor(Math.random() * 4);
-      if (burst) {
-        p.x = rand(-0.08, 0.08);
-        p.y = rand(-0.08, 0.08);
-      } else if (edge === 0) {
-        p.x = -1.12; p.y = rand(-1.1, 1.1);
-      } else if (edge === 1) {
-        p.x = 1.12; p.y = rand(-1.1, 1.1);
-      } else if (edge === 2) {
-        p.x = rand(-1.1, 1.1); p.y = -1.12;
-      } else {
-        p.x = rand(-1.1, 1.1); p.y = 1.12;
+    function normalize(x, y) {
+      const len = Math.hypot(x, y) || 1;
+      return { x: x / len, y: y / len };
+    }
+
+    function chooseAutoShape(a) {
+      if (a.volume > 0.55) return 'heart';
+      if (a.treble > a.bass && a.treble > a.mid && a.treble > 0.18) return 'star';
+      if (a.mid > a.bass && a.mid > 0.16) return 'wave';
+      if (a.bass > 0.18) return 'circle';
+      if (a.volume > 0.22) return 'spiral';
+      return 'wind';
+    }
+
+    function shapePoint(shape, index, total, t, a) {
+      const id = index / Math.max(1, total - 1);
+      const angle = id * TAU * (shape === 'spiral' ? 3.6 : 1.0) + t * (0.25 + a.treble * 1.6);
+      const pulse = 1 + a.bass * 0.35 + Math.sin(t * 3 + id * TAU) * a.volume * 0.12;
+
+      if (shape === 'circle') {
+        const r = (0.42 + a.bass * 0.26 + Math.sin(id * TAU * 6 + t * 2) * a.treble * 0.08) * pulse;
+        return { x: Math.cos(angle) * r / aspect, y: Math.sin(angle) * r };
       }
-      const speed = burst ? rand(0.006, 0.026) : rand(0.001, 0.008);
-      const angle = burst ? rand(0, Math.PI * 2) : Math.atan2(motion.y, motion.x) + rand(-1.3, 1.3);
+
+      if (shape === 'heart') {
+        const th = id * TAU;
+        const x = 16 * Math.pow(Math.sin(th), 3);
+        const y = 13 * Math.cos(th) - 5 * Math.cos(2 * th) - 2 * Math.cos(3 * th) - Math.cos(4 * th);
+        const s = 0.036 + a.volume * 0.012;
+        return { x: (x * s) / aspect, y: (y * s - 0.08) };
+      }
+
+      if (shape === 'star') {
+        const points = 5;
+        const th = id * TAU;
+        const step = Math.floor(id * points * 2);
+        const r = (step % 2 === 0 ? 0.62 : 0.26) + a.treble * 0.22;
+        return { x: Math.cos(th + t * 0.5) * r / aspect, y: Math.sin(th + t * 0.5) * r };
+      }
+
+      if (shape === 'spiral') {
+        const r = 0.08 + id * (0.72 + a.bass * 0.2);
+        return { x: Math.cos(angle) * r / aspect, y: Math.sin(angle) * r };
+      }
+
+      if (shape === 'wave') {
+        const x = lerp(-0.9, 0.9, id) / aspect;
+        const y = Math.sin(id * TAU * (2.2 + a.mid * 3.0) + t * (2.2 + a.treble * 4.0)) * (0.22 + a.mid * 0.36);
+        return { x, y };
+      }
+
+      return { x: null, y: null };
+    }
+
+    function soundDirection(a, t) {
+      const angle = (
+        a.bass * 0.6 +
+        a.mid * 2.0 +
+        a.treble * 4.4 +
+        a.volume * 1.3 +
+        t * (0.18 + a.volume * 0.8)
+      ) * TAU;
+      return normalize(Math.cos(angle), Math.sin(angle));
+    }
+
+    function resetParticle(p, burst = false) {
+      if (burst) {
+        p.x = rand(-0.06, 0.06);
+        p.y = rand(-0.06, 0.06);
+      } else {
+        const edge = Math.floor(Math.random() * 4);
+        if (edge === 0) { p.x = -1.18 * aspect; p.y = rand(-1.1, 1.1); }
+        else if (edge === 1) { p.x = 1.18 * aspect; p.y = rand(-1.1, 1.1); }
+        else if (edge === 2) { p.x = rand(-1.15 * aspect, 1.15 * aspect); p.y = -1.12; }
+        else { p.x = rand(-1.15 * aspect, 1.15 * aspect); p.y = 1.12; }
+      }
+      const speed = burst ? rand(0.008, 0.032) : rand(0.001, 0.008);
+      const angle = burst ? rand(0, TAU) : Math.atan2(motion.y, motion.x) + rand(-1.3, 1.3);
       p.vx = Math.cos(angle) * speed;
       p.vy = Math.sin(angle) * speed;
-      p.life = rand(0.45, 1);
-      p.decay = rand(0.0025, 0.009);
+      p.life = rand(0.55, 1);
+      p.decay = rand(0.002, 0.0075);
       p.size = rand(1.2, 4.5);
       p.seed = Math.random() * 1000;
       p.hue = rand(0, 1);
+      p.shapeOffset = rand(-0.08, 0.08);
     }
 
     function initParticles() {
@@ -343,6 +445,7 @@
       dpr = Math.min(2, window.devicePixelRatio || 1);
       width = Math.floor(innerWidth * dpr);
       height = Math.floor(innerHeight * dpr);
+      aspect = width / Math.max(1, height);
       canvas.width = width;
       canvas.height = height;
       gl.viewport(0, 0, width, height);
@@ -361,7 +464,17 @@
       return count ? sum / count / 255 : 0;
     }
 
-    function updateAudio() {
+    function updateAudio(now) {
+      if (audio.demo) {
+        const t = now * 0.001;
+        audio.bass = clamp(0.18 + Math.sin(t * 1.8) * 0.16 + Math.sin(t * 5.1) * 0.05, 0, 1);
+        audio.mid = clamp(0.20 + Math.sin(t * 2.5 + 1.6) * 0.18, 0, 1);
+        audio.treble = clamp(0.16 + Math.sin(t * 4.1 + 2.4) * 0.20, 0, 1);
+        audio.volume = clamp((audio.bass + audio.mid + audio.treble) / 2.45, 0, 1);
+        audio.smoothVolume = audio.smoothVolume * 0.86 + audio.volume * 0.14;
+        return;
+      }
+
       if (!audio.enabled || !audio.analyser) {
         audio.volume *= 0.94;
         audio.bass *= 0.94;
@@ -381,10 +494,10 @@
       rms = Math.sqrt(rms / audio.time.length);
 
       const bass = avgRange(audio.freq, 1, 10);
-      const mid = avgRange(audio.freq, 10, 70);
-      const treble = avgRange(audio.freq, 70, 180);
+      const mid = avgRange(audio.freq, 10, 72);
+      const treble = avgRange(audio.freq, 72, 190);
 
-      audio.volume = audio.volume * 0.72 + Math.min(1, rms * 5.2) * 0.28;
+      audio.volume = audio.volume * 0.72 + clamp(rms * 5.4, 0, 1) * 0.28;
       audio.bass = audio.bass * 0.78 + bass * 0.22;
       audio.mid = audio.mid * 0.78 + mid * 0.22;
       audio.treble = audio.treble * 0.78 + treble * 0.22;
@@ -413,143 +526,212 @@
       return [r, g, b];
     }
 
-    function requestMotionPermission() {
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission().then(state => {
-          motion.enabled = state === 'granted';
-        }).catch(() => {});
-      } else {
-        motion.enabled = true;
+    async function requestMotionPermission() {
+      try {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const state = await DeviceOrientationEvent.requestPermission();
+          return state === 'granted';
+        }
+        return true;
+      } catch (err) {
+        return false;
       }
     }
 
     window.addEventListener('deviceorientation', (e) => {
-      const gamma = e.gamma || 0; // left-right tilt
-      const beta = e.beta || 0;   // front-back tilt
-      const gx = Math.max(-1, Math.min(1, gamma / 35));
-      const gy = Math.max(-1, Math.min(1, beta / 55));
+      if (motion.touchActive) return;
+      const gamma = e.gamma || 0;
+      const beta = e.beta || 0;
+      const gx = clamp(gamma / 35, -1, 1);
+      const gy = clamp(beta / 55, -1, 1);
       if (Math.abs(gx) + Math.abs(gy) > 0.03) {
         motion.tx = gx;
         motion.ty = -gy;
       }
     }, { passive: true });
 
-    let pointerDown = false;
     window.addEventListener('pointerdown', (e) => {
-      pointerDown = true;
-      const x = (e.clientX / innerWidth) * 2 - 1;
-      const y = -((e.clientY / innerHeight) * 2 - 1);
-      const len = Math.hypot(x, y) || 1;
-      motion.tx = x / len;
-      motion.ty = y / len;
+      motion.touchActive = true;
+      setDirectionFromPointer(e.clientX, e.clientY);
     }, { passive: true });
+
     window.addEventListener('pointermove', (e) => {
-      if (!pointerDown) return;
-      const x = (e.clientX / innerWidth) * 2 - 1;
-      const y = -((e.clientY / innerHeight) * 2 - 1);
-      const len = Math.hypot(x, y) || 1;
-      motion.tx = x / len;
-      motion.ty = y / len;
+      if (!motion.touchActive) return;
+      setDirectionFromPointer(e.clientX, e.clientY);
     }, { passive: true });
-    window.addEventListener('pointerup', () => pointerDown = false, { passive: true });
+
+    window.addEventListener('pointerup', () => {
+      motion.touchActive = false;
+    }, { passive: true });
+
+    function setDirectionFromPointer(clientX, clientY) {
+      const x = (clientX / innerWidth) * 2 - 1;
+      const y = -((clientY / innerHeight) * 2 - 1);
+      const n = normalize(x, y);
+      motion.tx = n.x;
+      motion.ty = n.y;
+    }
+
+    function stopStream() {
+      if (audio.stream) {
+        audio.stream.getTracks().forEach(track => track.stop());
+      }
+      audio.stream = null;
+      audio.enabled = false;
+    }
 
     async function startSound() {
+      audio.demo = false;
+
+      if (!window.isSecureContext) {
+        ui.status.textContent = 'ไมค์ใช้ได้เฉพาะ HTTPS หรือ localhost: ตอนนี้เปิด Demo ให้แทน';
+        startDemo();
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        ui.status.textContent = 'Browser นี้ไม่มี mediaDevices.getUserMedia: เปิด Demo ให้แทน';
+        startDemo();
+        return;
+      }
+
       try {
-        requestMotionPermission();
+        await requestMotionPermission();
+        stopStream();
+
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: false,
             noiseSuppression: false,
             autoGainControl: false
-          }
+          },
+          video: false
         });
 
-        audio.context = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audio.context.createMediaStreamSource(stream);
+        audio.context = audio.context || new (window.AudioContext || window.webkitAudioContext)();
+        if (audio.context.state === 'suspended') await audio.context.resume();
+
+        audio.stream = stream;
+        audio.source = audio.context.createMediaStreamSource(stream);
         audio.analyser = audio.context.createAnalyser();
         audio.analyser.fftSize = 1024;
         audio.analyser.smoothingTimeConstant = 0.72;
         audio.freq = new Uint8Array(audio.analyser.frequencyBinCount);
         audio.time = new Uint8Array(audio.analyser.fftSize);
-        source.connect(audio.analyser);
+        audio.source.connect(audio.analyser);
         audio.enabled = true;
-        ui.status.textContent = 'กำลังฟังเสียงอยู่: เปิดเพลงจากลำโพงมือถือ หรือพูด/ตบมือใกล้ไมค์ได้เลย';
+
+        ui.status.textContent = 'Sound On: เปิดเพลง/พูด/ตบมือ แล้ว shape + ทิศทางจะตอบสนองตามเสียง';
         ui.start.textContent = 'Sound On';
       } catch (err) {
-        ui.status.textContent = 'เปิดไมค์ไม่ได้: ต้องอนุญาต Microphone และเปิดผ่าน HTTPS/GitHub Pages';
-        console.error(err);
+        console.warn('Microphone unavailable:', err && err.name ? err.name : err);
+        const name = err && err.name ? err.name : 'MicrophoneError';
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+          ui.status.textContent = 'ไมค์ถูกบล็อกหรือไม่ได้รับอนุญาต: เปิด Demo ให้แทน / ไปที่ Site Settings > Microphone > Allow';
+        } else if (name === 'NotFoundError') {
+          ui.status.textContent = 'ไม่พบไมค์บนอุปกรณ์นี้: เปิด Demo ให้แทน';
+        } else {
+          ui.status.textContent = 'เปิดไมค์ไม่ได้: เปิด Demo ให้แทน';
+        }
+        startDemo();
+      }
+    }
+
+    function startDemo() {
+      stopStream();
+      audio.demo = true;
+      audio.enabled = false;
+      ui.start.textContent = 'Start Sound';
+      ui.demo.textContent = 'Demo On';
+      if (!ui.status.textContent.includes('Demo')) {
+        ui.status.textContent = 'Demo On: ใช้เสียงจำลองเพื่อทดสอบ shape/direction ก่อน';
       }
     }
 
     ui.start.addEventListener('click', startSound);
-    ui.reset.addEventListener('click', () => {
-      activeCount = START_PARTICLES;
-      for (let i = 0; i < particles.length; i++) resetParticle(particles[i]);
+    ui.demo.addEventListener('click', startDemo);
+    ui.shape.addEventListener('change', () => {
+      selectedShape = ui.shape.value;
+      currentShape = selectedShape === 'auto' ? currentShape : selectedShape;
+      shapeBlend = 0;
     });
 
     function burst(amount) {
-      const n = Math.min(amount, MAX_PARTICLES);
+      const n = Math.min(amount, activeCount);
       for (let i = 0; i < n; i++) {
         resetParticle(particles[Math.floor(Math.random() * activeCount)], true);
       }
     }
 
-    let last = performance.now();
-    function frame(now) {
-      const dt = Math.min(2.2, (now - last) / 16.666);
-      last = now;
+    function drawFrame(now) {
+      updateAudio(now);
 
-      updateAudio();
+      const t = now * 0.001;
+      const a = {
+        volume: audio.volume,
+        bass: audio.bass,
+        mid: audio.mid,
+        treble: audio.treble
+      };
 
-      const vol = audio.volume;
-      const bass = audio.bass;
-      const mid = audio.mid;
-      const treble = audio.treble;
+      const wantedShape = selectedShape === 'auto' ? chooseAutoShape(a) : selectedShape;
+      if (wantedShape !== currentShape) {
+        currentShape = wantedShape;
+        shapeBlend = 0;
+      }
+      shapeBlend = clamp(shapeBlend + 0.018 + a.volume * 0.025, 0, 1);
 
-      const targetCount = Math.floor(1700 + mid * 7600 + vol * 4400 + bass * 1600);
-      activeCount += Math.round((Math.min(MAX_PARTICLES, targetCount) - activeCount) * 0.04);
-      activeCount = Math.max(800, Math.min(MAX_PARTICLES, activeCount));
+      const toneDirection = soundDirection(a, t);
+      const mixTone = 0.22 + a.volume * 0.42;
+      motion.tx = lerp(motion.tx, toneDirection.x, mixTone * 0.03);
+      motion.ty = lerp(motion.ty, toneDirection.y, mixTone * 0.03);
+      motion.x += (motion.tx - motion.x) * 0.05;
+      motion.y += (motion.ty - motion.y) * 0.05;
+      const wind = normalize(motion.x, motion.y);
 
-      if (vol > 0.34 && now - audio.lastBeat > 150) {
-        burst(Math.floor(90 + bass * 360 + vol * 260));
+      const targetCount = Math.floor(1800 + a.mid * 7900 + a.volume * 4600 + a.bass * 1900 + a.treble * 1000);
+      activeCount += Math.round((clamp(targetCount, 900, MAX_PARTICLES) - activeCount) * 0.045);
+      activeCount = clamp(activeCount, 900, MAX_PARTICLES);
+
+      if (a.volume > 0.36 && now - audio.lastBeat > 145) {
+        burst(Math.floor(110 + a.bass * 360 + a.volume * 320));
         audio.lastBeat = now;
       }
 
-      motion.x += (motion.tx - motion.x) * 0.045;
-      motion.y += (motion.ty - motion.y) * 0.045;
-      const ml = Math.hypot(motion.x, motion.y) || 1;
-      const wx = motion.x / ml;
-      const wy = motion.y / ml;
-
-      const t = now * 0.001;
-      const baseHue = (0.62 - bass * 0.28 + treble * 0.44 + t * 0.03) % 1;
-      const windForce = (0.0012 + bass * 0.012 + vol * 0.018) * dt;
-      const swirl = (0.001 + treble * 0.008) * dt;
-      const aspect = width / height;
+      const baseHue = (0.62 - a.bass * 0.28 + a.treble * 0.45 + t * 0.035) % 1;
+      const windForce = 0.0012 + a.bass * 0.013 + a.volume * 0.018;
+      const swirl = 0.001 + a.treble * 0.0085;
+      const shapeForce = currentShape === 'wind' ? 0 : (0.012 + a.mid * 0.014 + a.volume * 0.012);
 
       for (let i = 0; i < activeCount; i++) {
         const p = particles[i];
+        const id = i / Math.max(1, activeCount - 1);
+        const n1 = Math.sin(p.seed + t * (0.9 + a.treble * 4.0) + p.y * 6.0);
+        const n2 = Math.cos(p.seed * 1.3 + t * (0.7 + a.mid * 3.0) + p.x * 5.0);
 
-        const n1 = Math.sin(p.seed + t * (0.9 + treble * 4.0) + p.y * 6.0);
-        const n2 = Math.cos(p.seed * 1.3 + t * (0.7 + mid * 3.0) + p.x * 5.0);
-        p.vx += wx * windForce + n1 * swirl;
-        p.vy += wy * windForce + n2 * swirl;
+        p.vx += wind.x * windForce + n1 * swirl;
+        p.vy += wind.y * windForce + n2 * swirl;
 
-        const drag = 0.992 - vol * 0.025;
+        const target = shapePoint(currentShape, i, activeCount, t + p.shapeOffset, a);
+        if (target.x !== null && target.y !== null) {
+          p.vx += (target.x - p.x) * shapeForce * shapeBlend;
+          p.vy += (target.y - p.y) * shapeForce * shapeBlend;
+        }
+
+        const drag = 0.991 - a.volume * 0.022;
         p.vx *= drag;
         p.vy *= drag;
-
-        p.x += p.vx * dt * (height / width);
-        p.y += p.vy * dt;
-        p.life -= p.decay * dt * (0.55 + vol * 1.8);
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay * (0.48 + a.volume * 1.45);
 
         const speed = Math.hypot(p.vx, p.vy);
-        const hue = (baseHue + p.hue * 0.12 + speed * 5.0 + mid * 0.12) % 1;
-        const sat = 0.68 + treble * 0.3;
-        const light = 0.42 + vol * 0.26 + treble * 0.15;
+        const hue = (baseHue + p.hue * 0.13 + speed * 5.0 + a.mid * 0.12 + id * 0.08) % 1;
+        const sat = 0.68 + a.treble * 0.3;
+        const light = 0.43 + a.volume * 0.25 + a.treble * 0.14;
         const rgb = hslToRgb(hue, sat, light);
-        const size = p.size * (1.0 + bass * 2.6 + treble * 1.1) * dpr;
-        const alpha = Math.max(0, Math.min(1, p.life * (0.38 + vol * 0.8 + treble * 0.3)));
+        const size = p.size * (1.0 + a.bass * 2.5 + a.treble * 1.15 + (currentShape !== 'wind' ? 0.55 : 0)) * dpr;
+        const alpha = clamp(p.life * (0.40 + a.volume * 0.82 + a.treble * 0.28), 0, 1);
 
         const o = i * 7;
         data[o] = p.x;
@@ -560,28 +742,77 @@
         data[o + 5] = rgb[2];
         data[o + 6] = alpha;
 
-        if (p.life <= 0 || p.x < -1.25 * aspect || p.x > 1.25 * aspect || p.y < -1.25 || p.y > 1.25) {
+        if (p.life <= 0 || p.x < -1.35 * aspect || p.x > 1.35 * aspect || p.y < -1.35 || p.y > 1.35) {
           resetParticle(p);
-          p.x -= wx * 1.6 * Math.random() * (height / width);
-          p.y -= wy * 1.6 * Math.random();
+          p.x -= wind.x * 1.6 * Math.random() / Math.max(0.75, aspect);
+          p.y -= wind.y * 1.6 * Math.random();
         }
       }
 
-      gl.clearColor(0.01 + bass * 0.03, 0.012 + mid * 0.025, 0.025 + treble * 0.04, 1);
+      gl.clearColor(0.01 + a.bass * 0.03, 0.012 + a.mid * 0.025, 0.025 + a.treble * 0.04, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, activeCount * 7));
       gl.drawArrays(gl.POINTS, 0, activeCount);
 
-      ui.bass.style.width = `${Math.round(bass * 100)}%`;
-      ui.mid.style.width = `${Math.round(mid * 100)}%`;
-      ui.treble.style.width = `${Math.round(treble * 100)}%`;
-      ui.vol.style.width = `${Math.round(vol * 100)}%`;
-      ui.count.textContent = `${activeCount.toLocaleString()} particles`;
+      ui.bass.style.width = `${Math.round(a.bass * 100)}%`;
+      ui.mid.style.width = `${Math.round(a.mid * 100)}%`;
+      ui.treble.style.width = `${Math.round(a.treble * 100)}%`;
+      ui.vol.style.width = `${Math.round(a.volume * 100)}%`;
+      ui.count.textContent = `${activeCount.toLocaleString()} particles / ${currentShape}`;
 
-      requestAnimationFrame(frame);
+      requestAnimationFrame(drawFrame);
     }
-    requestAnimationFrame(frame);
+
+    // Lightweight built-in tests. Open DevTools console to see results.
+    function runTests() {
+      const tests = [];
+      function test(name, fn) { tests.push({ name, fn }); }
+      function assert(condition, message) { if (!condition) throw new Error(message || 'assertion failed'); }
+
+      test('clamp keeps values inside range', () => {
+        assert(clamp(5, 0, 3) === 3, 'upper clamp failed');
+        assert(clamp(-2, 0, 3) === 0, 'lower clamp failed');
+        assert(clamp(2, 0, 3) === 2, 'middle clamp failed');
+      });
+
+      test('auto shape picks star for strong treble', () => {
+        assert(chooseAutoShape({ volume: 0.2, bass: 0.1, mid: 0.12, treble: 0.55 }) === 'star', 'treble should choose star');
+      });
+
+      test('auto shape picks circle for strong bass', () => {
+        assert(chooseAutoShape({ volume: 0.2, bass: 0.55, mid: 0.1, treble: 0.1 }) === 'circle', 'bass should choose circle');
+      });
+
+      test('shapePoint returns finite coordinates for all shapes', () => {
+        ['wind', 'circle', 'heart', 'star', 'spiral', 'wave'].forEach(shape => {
+          const p = shapePoint(shape, 12, 100, 1.23, { volume: 0.3, bass: 0.2, mid: 0.2, treble: 0.2 });
+          if (shape === 'wind') {
+            assert(p.x === null && p.y === null, 'wind should have null target');
+          } else {
+            assert(Number.isFinite(p.x) && Number.isFinite(p.y), `${shape} returned invalid coordinates`);
+          }
+        });
+      });
+
+      test('soundDirection returns normalized vector', () => {
+        const d = soundDirection({ volume: 0.3, bass: 0.2, mid: 0.1, treble: 0.4 }, 2.5);
+        const len = Math.hypot(d.x, d.y);
+        assert(Math.abs(len - 1) < 0.0001, 'direction is not normalized');
+      });
+
+      const passed = [];
+      const failed = [];
+      tests.forEach(({ name, fn }) => {
+        try { fn(); passed.push(name); }
+        catch (err) { failed.push({ name, err }); }
+      });
+      if (failed.length) console.error('Particle tests failed:', failed);
+      else console.info(`Particle tests passed: ${passed.length}/${tests.length}`);
+    }
+
+    runTests();
+    requestAnimationFrame(drawFrame);
   </script>
 </body>
 </html>
