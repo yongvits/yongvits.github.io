@@ -1,22 +1,23 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Sound Polygon Vertex Particles WebGL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Stereo Sound Particles WebGL</title>
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
       margin: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #05070d;
+      background: #000;
       color: white;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      touch-action: none;
-      -webkit-user-select: none;
+      font-family: system-ui, -apple-system, sans-serif;
+      touch-action: none; /* ป้องกันการเลื่อนหน้าจอบนมือถือ */
       user-select: none;
+      -webkit-user-select: none;
     }
     canvas {
       position: fixed;
@@ -24,220 +25,196 @@
       width: 100vw;
       height: 100vh;
       display: block;
-      background: radial-gradient(circle at center, #111827 0%, #05070d 58%, #000 100%);
+      background: radial-gradient(circle at center, #0f172a 0%, #020617 60%, #000 100%);
     }
     button, select {
       appearance: none;
       border: 0;
-      border-radius: 14px;
-      padding: 12px 14px;
+      border-radius: 12px;
+      padding: 14px 12px;
       color: #fff;
-      font-weight: 800;
+      font-weight: 700;
       font-size: 14px;
+      cursor: pointer;
     }
     button {
-      background: linear-gradient(135deg, #7c3aed, #db2777, #f97316);
-      box-shadow: 0 8px 24px rgba(219,39,119,.28);
+      background: linear-gradient(135deg, #6366f1, #ec4899);
+      box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
+      transition: transform 0.1s;
     }
+    button:active { transform: scale(0.95); }
     button.secondary, select {
-      background: rgba(255,255,255,.09);
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
       box-shadow: none;
-      border: 1px solid rgba(255,255,255,.13);
     }
     .hide-ui-btn {
       position: fixed;
       top: max(14px, env(safe-area-inset-top));
       right: max(14px, env(safe-area-inset-right));
       z-index: 20;
-      min-width: 90px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      background: rgba(8, 13, 27, .62);
-      border: 1px solid rgba(255,255,255,.18);
-      backdrop-filter: blur(14px);
-      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      min-width: 80px;
+      padding: 10px 14px;
+      border-radius: 99px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
     }
     .top-hint {
       position: fixed;
       top: max(14px, env(safe-area-inset-top));
       left: 14px;
-      right: 112px;
+      right: 110px;
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
       pointer-events: none;
       z-index: 10;
     }
     .pill {
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(8, 13, 27, .58);
-      border: 1px solid rgba(255,255,255,.14);
-      backdrop-filter: blur(14px);
+      padding: 8px 14px;
+      border-radius: 99px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
       font-size: 12px;
-      opacity: .92;
-      text-align: center;
-      max-width: 900px;
+      line-height: 1.4;
     }
     .ui {
       position: fixed;
       inset: auto 0 0 0;
-      padding: 14px max(14px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
-      display: grid;
-      gap: 10px;
+      padding: 14px max(14px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
       pointer-events: none;
+      z-index: 10;
     }
     .panel {
-      width: min(900px, 100%);
+      width: min(100%, 600px);
       margin: 0 auto;
-      padding: 12px;
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 18px;
-      background: rgba(8, 13, 27, .68);
-      backdrop-filter: blur(14px);
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(10, 15, 30, 0.75);
+      border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(16px);
       pointer-events: auto;
     }
     .title {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-      font-size: 13px;
-      opacity: .92;
-      flex-wrap: wrap;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
     }
-    .title strong { font-size: 15px; }
+    .title strong { font-size: 16px; color: #fff; }
+    
     .meters {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 8px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     .meter {
+      background: rgba(0,0,0,0.3);
       padding: 8px;
-      border-radius: 12px;
-      background: rgba(255,255,255,.07);
-      overflow: hidden;
+      border-radius: 10px;
     }
     .label {
       font-size: 10px;
-      opacity: .72;
-      margin-bottom: 5px;
-      white-space: nowrap;
+      opacity: 0.8;
+      margin-bottom: 6px;
+      text-align: center;
     }
     .bar {
       height: 6px;
-      border-radius: 99px;
-      background: rgba(255,255,255,.12);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.1);
       overflow: hidden;
     }
     .fill {
       width: 0%;
       height: 100%;
-      border-radius: 99px;
+      border-radius: 10px;
       background: currentColor;
-      box-shadow: 0 0 14px currentColor;
-      transition: width .08s linear;
+      box-shadow: 0 0 10px currentColor;
+      transition: width 0.05s linear;
     }
+    
     .controls {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
-    select { text-align: center; }
-    .hint {
-      margin-top: 8px;
-      font-size: 11px;
-      line-height: 1.42;
-      opacity: .78;
+    .controls > button { grid-column: span 1; }
+    .controls > select { grid-column: span 1; text-align: center; }
+
+    body.ui-hidden .ui, body.ui-hidden .top-hint {
+      opacity: 0; transform: translateY(20px); transition: 0.3s ease; pointer-events: none;
     }
-    body.ui-hidden .ui,
-    body.ui-hidden .top-hint {
-      opacity: 0;
-      transform: translateY(18px);
-      pointer-events: none;
-      transition: opacity .22s ease, transform .22s ease;
+    body:not(.ui-hidden) .ui, body:not(.ui-hidden) .top-hint {
+      opacity: 1; transform: translateY(0); transition: 0.3s ease;
     }
-    body:not(.ui-hidden) .ui,
-    body:not(.ui-hidden) .top-hint {
-      opacity: 1;
-      transform: translateY(0);
-      transition: opacity .22s ease, transform .22s ease;
-    }
-    @media (max-width: 720px) {
-      .meters { grid-template-columns: repeat(2, 1fr); }
-      .controls { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 520px) {
+
+    @media (max-width: 400px) {
       .controls { grid-template-columns: 1fr; }
-      .top-hint { right: 14px; top: 56px; }
+      .controls > button, .controls > select { grid-column: span 1; }
     }
   </style>
 </head>
 <body>
   <canvas id="gl"></canvas>
-  <button class="hide-ui-btn" id="hideUiBtn" type="button">Hide UI</button>
+  <button class="hide-ui-btn" id="hideUiBtn">ซ่อน UI</button>
 
   <div class="top-hint">
-    <div class="pill" id="status">Start Sound = ใช้ไมค์ / Demo = ทดสอบแบบไม่ใช้ไมค์</div>
+    <div class="pill" id="status">แตะหน้าจอเพื่อปัดอนุภาค<br>ซ้าย/ขวา ตอบสนองเสียง Stereo 분리</div>
   </div>
 
   <div class="ui">
     <div class="panel">
       <div class="title">
-        <strong>Sound → Polygon Vertex Particles</strong>
-        <span id="countLabel">0 particles</span>
+        <strong>Stereo Particles</strong>
+        <span id="countLabel">0 pt</span>
       </div>
 
       <div class="meters">
         <div class="meter" style="color:#60a5fa">
-          <div class="label">BASS / Vertex Count</div>
-          <div class="bar"><div class="fill" id="bassFill"></div></div>
+          <div class="label">L-VOL</div>
+          <div class="bar"><div class="fill" id="volLFill"></div></div>
+        </div>
+        <div class="meter" style="color:#f472b6">
+          <div class="label">R-VOL</div>
+          <div class="bar"><div class="fill" id="volRFill"></div></div>
         </div>
         <div class="meter" style="color:#34d399">
-          <div class="label">MID / Edge Wave</div>
-          <div class="bar"><div class="fill" id="midFill"></div></div>
+          <div class="label">BASS</div>
+          <div class="bar"><div class="fill" id="bassFill"></div></div>
         </div>
         <div class="meter" style="color:#fbbf24">
-          <div class="label">TREBLE / Spike</div>
+          <div class="label">TREBLE</div>
           <div class="bar"><div class="fill" id="trebleFill"></div></div>
-        </div>
-        <div class="meter" style="color:#fb7185">
-          <div class="label">BEAT / Pulse</div>
-          <div class="bar"><div class="fill" id="volFill"></div></div>
         </div>
       </div>
 
       <div class="controls">
-        <button id="startBtn">Start Sound</button>
-        <button class="secondary" id="demoBtn">Demo</button>
+        <button id="startBtn">เริ่มฟังเสียง (Mic)</button>
+        <button class="secondary" id="demoBtn">โหมดทดสอบ (Demo)</button>
 
-        <select id="shapeSelect" aria-label="particle shape">
-          <option value="auto">Auto Shape</option>
+        <select id="shapeSelect">
           <option value="polygonVertex" selected>Polygon Vertex</option>
-          <option value="spider">Spider Polygon</option>
-          <option value="wave">Wave Edge</option>
-          <option value="wind">Wind</option>
+          <option value="infinity">Infinity (ใหม่)</option>
+          <option value="spider">Spider</option>
+          <option value="wave">Wave</option>
           <option value="circle">Circle</option>
           <option value="heart">Heart</option>
-          <option value="star">Star</option>
-          <option value="spiral">Spiral</option>
+          <option value="wind">Wind</option>
         </select>
 
-        <select id="colorSelect" aria-label="color mode">
-          <option value="auto">Auto Color</option>
-          <option value="rainbow" selected>Rainbow</option>
+        <select id="colorSelect">
+          <option value="cyberpunk" selected>Cyberpunk (ใหม่)</option>
+          <option value="rainbow">Rainbow</option>
           <option value="neon">Neon</option>
           <option value="sunset">Sunset</option>
           <option value="aurora">Aurora</option>
-          <option value="candy">Candy</option>
         </select>
-      </div>
-
-      <div class="hint">
-        Polygon Vertex Mode: <b>Bass</b> เปลี่ยนจำนวนมุม 3–12, <b>Mid</b> ทำให้ขอบเป็นคลื่น, <b>Treble</b> ทำให้ vertex แหลม/แตก, <b>Beat</b> ทำให้ polygon pulse และเปลี่ยนสีตามจังหวะ<br>
-        ถ้าไมค์โดนบล็อก ให้เปิดผ่าน HTTPS เช่น GitHub Pages และอนุญาต Microphone หรือกด Demo เพื่อทดสอบก่อน
       </div>
     </div>
   </div>
@@ -246,21 +223,15 @@
     'use strict';
 
     const canvas = document.getElementById('gl');
-    const gl = canvas.getContext('webgl', {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      preserveDrawingBuffer: false
-    });
+    const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false });
 
     const ui = {
       status: document.getElementById('status'),
       count: document.getElementById('countLabel'),
+      volL: document.getElementById('volLFill'),
+      volR: document.getElementById('volRFill'),
       bass: document.getElementById('bassFill'),
-      mid: document.getElementById('midFill'),
       treble: document.getElementById('trebleFill'),
-      vol: document.getElementById('volFill'),
       start: document.getElementById('startBtn'),
       demo: document.getElementById('demoBtn'),
       shape: document.getElementById('shapeSelect'),
@@ -268,13 +239,9 @@
       hideUi: document.getElementById('hideUiBtn')
     };
 
-    if (!gl) {
-      ui.status.textContent = 'เครื่องนี้ไม่รองรับ WebGL';
-      throw new Error('WebGL not supported');
-    }
-
-    const MAX_PARTICLES = 20000;
-    const START_PARTICLES = 3600;
+    // ปรับลดจำนวนสูงสุดลงเพื่อมือถือ แต่เพิ่มขนาดใน Shader แทน
+    const MAX_PARTICLES = 12000;
+    const START_PARTICLES = 4000;
     const TAU = Math.PI * 2;
 
     const vert = `
@@ -299,10 +266,11 @@
       void main() {
         vec2 uv = gl_PointCoord.xy - 0.5;
         float d = length(uv);
-        float glow = smoothstep(0.5, 0.0, d);
-        float core = smoothstep(0.16, 0.0, d);
-        vec3 color = v_color * (0.54 + core * 2.1);
-        gl_FragColor = vec4(color, glow * v_alpha);
+        // สร้างขอบวงแหวนเรืองแสง (Glowing Ring) แทนจุดทึบ
+        float ring = smoothstep(0.5, 0.2, d) - smoothstep(0.3, 0.0, d) * 0.6;
+        float core = smoothstep(0.15, 0.0, d);
+        vec3 color = v_color * (1.2 + core * 2.0);
+        gl_FragColor = vec4(color, max(ring, core) * v_alpha);
       }
     `;
 
@@ -310,9 +278,6 @@
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
       gl.compileShader(shader);
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        throw new Error(gl.getShaderInfoLog(shader) || 'Shader compile error');
-      }
       return shader;
     }
 
@@ -320,9 +285,6 @@
     gl.attachShader(program, makeShader(gl.VERTEX_SHADER, vert));
     gl.attachShader(program, makeShader(gl.FRAGMENT_SHADER, frag));
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(program) || 'Program link error');
-    }
     gl.useProgram(program);
 
     const loc = {
@@ -335,21 +297,11 @@
     const data = new Float32Array(MAX_PARTICLES * 7);
     const particles = [];
     let activeCount = START_PARTICLES;
-    let width = 1;
-    let height = 1;
-    let dpr = 1;
-    let aspect = 1;
+    let aspect = 1, dpr = 1;
 
-    let selectedShape = 'polygonVertex';
     let currentShape = 'polygonVertex';
-    let shapeBlend = 0;
-    let selectedColorMode = 'rainbow';
-    let currentColorMode = 'rainbow';
-
-    let beatHue = 0.62;
-    let beatFlash = 0;
-    let previousVolume = 0;
-    let lockedVertexCount = 6;
+    let currentColorMode = 'cyberpunk';
+    let beatFlash = 0, previousVolume = 0;
     let displayedVertexCount = 6;
 
     const buffer = gl.createBuffer();
@@ -357,605 +309,328 @@
     gl.bufferData(gl.ARRAY_BUFFER, data.byteLength, gl.DYNAMIC_DRAW);
 
     const stride = 7 * 4;
-    gl.enableVertexAttribArray(loc.position);
-    gl.vertexAttribPointer(loc.position, 2, gl.FLOAT, false, stride, 0);
-    gl.enableVertexAttribArray(loc.size);
-    gl.vertexAttribPointer(loc.size, 1, gl.FLOAT, false, stride, 2 * 4);
-    gl.enableVertexAttribArray(loc.color);
-    gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, stride, 3 * 4);
-    gl.enableVertexAttribArray(loc.alpha);
-    gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, stride, 6 * 4);
+    gl.enableVertexAttribArray(loc.position); gl.vertexAttribPointer(loc.position, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(loc.size);     gl.vertexAttribPointer(loc.size, 1, gl.FLOAT, false, stride, 8);
+    gl.enableVertexAttribArray(loc.color);    gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(loc.alpha);    gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, stride, 24);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-    gl.disable(gl.DEPTH_TEST);
 
+    // Audio State แยกซ้ายขวา
     const audio = {
-      context: null,
-      analyser: null,
-      source: null,
-      stream: null,
-      freq: null,
-      time: null,
-      enabled: false,
-      demo: false,
-      volume: 0,
-      bass: 0,
-      mid: 0,
-      treble: 0,
-      smoothVolume: 0,
-      lastBeat: 0
+      context: null, splitter: null,
+      analyserL: null, analyserR: null,
+      freqL: null, freqR: null,
+      enabled: false, demo: false,
+      volL: 0, volR: 0,
+      bass: 0, mid: 0, treble: 0,
+      volume: 0, lastBeat: 0
     };
 
-    const motion = {
-      x: 0.8,
-      y: -0.15,
-      tx: 0.8,
-      ty: -0.15,
-      touchActive: false
-    };
+    const motion = { x: 0, y: 0, tx: 0, ty: 0, touchActive: false };
 
     function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
     function lerp(a, b, t) { return a + (b - a) * t; }
     function rand(a, b) { return a + Math.random() * (b - a); }
-    function smoothstep(edge0, edge1, x) {
-      const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
-      return t * t * (3 - 2 * t);
-    }
-    function normalize(x, y) {
-      const len = Math.hypot(x, y) || 1;
-      return { x: x / len, y: y / len };
-    }
-
-    function getVertexCountFromSound(a) {
-      // Bass controls the number of polygon vertices. Beat can kick it upward for a moment.
-      const bassCount = 3 + Math.round(clamp(a.bass, 0, 1) * 9); // 3..12
-      const beatKick = beatFlash > 0.45 ? Math.round(a.treble * 3) : 0;
-      return clamp(bassCount + beatKick, 3, 15);
-    }
-
-    function chooseAutoShape(a) {
-      if (a.volume > 0.56) return 'spider';
-      if (a.bass > 0.26 || a.mid > 0.22) return 'polygonVertex';
-      if (a.treble > 0.36) return 'star';
-      return 'wind';
-    }
-
-    function chooseAutoColorMode(a) {
-      if (a.treble > 0.44) return 'neon';
-      if (a.bass > 0.42) return 'sunset';
-      if (a.mid > 0.36) return 'aurora';
-      if (a.volume > 0.35) return 'candy';
-      return 'rainbow';
-    }
-
-    function polygonVertexPoint(index, total, t, a) {
-      const id = index / Math.max(1, total - 1);
-      const sides = displayedVertexCount;
-      const segment = Math.floor(id * sides);
-      const local = (id * sides) % 1;
-
-      const rotation = t * (0.12 + a.treble * 0.22);
-      const a0 = (segment / sides) * TAU + rotation;
-      const a1 = ((segment + 1) / sides) * TAU + rotation;
-
-      const pulse = 1 + a.volume * 0.32 + beatFlash * 0.22;
-      const radiusBase = (0.48 + a.bass * 0.22) * pulse;
-      const spike0 = 1 + Math.sin(segment * 12.989 + beatHue * 7.3) * a.treble * 0.18;
-      const spike1 = 1 + Math.sin((segment + 1) * 12.989 + beatHue * 7.3) * a.treble * 0.18;
-
-      const v0 = {
-        x: Math.cos(a0) * radiusBase * spike0 / aspect,
-        y: Math.sin(a0) * radiusBase * spike0
-      };
-      const v1 = {
-        x: Math.cos(a1) * radiusBase * spike1 / aspect,
-        y: Math.sin(a1) * radiusBase * spike1
-      };
-
-      // Particles sit on polygon edges, but Mid frequency bends each edge like a wave.
-      const edgeX = lerp(v0.x, v1.x, local);
-      const edgeY = lerp(v0.y, v1.y, local);
-      const edgeAngle = Math.atan2(v1.y - v0.y, v1.x - v0.x);
-      const normalX = -Math.sin(edgeAngle);
-      const normalY = Math.cos(edgeAngle);
-      const wave = Math.sin(local * Math.PI * (2 + a.mid * 6) + t * (2.5 + a.treble * 4) + segment);
-      const waveAmount = a.mid * 0.12 + beatFlash * 0.035;
-
-      // More density near vertices when treble is high.
-      const vertexPull = Math.pow(Math.abs(local - 0.5) * 2, 3) * a.treble * 0.055;
-      const radial = normalize(edgeX, edgeY);
-
-      return {
-        x: edgeX + normalX * wave * waveAmount / aspect + radial.x * vertexPull,
-        y: edgeY + normalY * wave * waveAmount + radial.y * vertexPull
-      };
-    }
-
-    function shapePoint(shape, index, total, t, a) {
-      const id = index / Math.max(1, total - 1);
-      const angle = id * TAU + t * (0.25 + a.treble * 1.6);
-
-      if (shape === 'polygonVertex') return polygonVertexPoint(index, total, t, a);
-
-      if (shape === 'spider') {
-        const legs = displayedVertexCount;
-        const legIndex = Math.floor(id * legs);
-        const legT = (id * legs) % 1;
-        const legAngle = (legIndex / legs) * TAU + Math.sin(t * 2 + legIndex) * (0.06 + a.treble * 0.10);
-        const inner = 0.10 + a.mid * 0.08;
-        const outer = 0.76 + a.bass * 0.18 + beatFlash * 0.14;
-        const r = lerp(inner, outer, legT);
-        const wobble = Math.sin(legT * TAU * 2 + t * 4) * (0.02 + a.treble * 0.05);
-        return { x: Math.cos(legAngle) * (r + wobble) / aspect, y: Math.sin(legAngle) * (r + wobble) };
-      }
-
-      if (shape === 'wave') {
-        const x = lerp(-0.9, 0.9, id) / aspect;
-        const y = Math.sin(id * TAU * (2.2 + a.mid * 3.2) + t * (2.2 + a.treble * 4.0)) * (0.22 + a.mid * 0.36);
-        return { x, y };
-      }
-
-      if (shape === 'circle') {
-        const r = 0.44 + a.bass * 0.28 + Math.sin(id * TAU * 6 + t * 2) * a.treble * 0.08;
-        return { x: Math.cos(angle) * r / aspect, y: Math.sin(angle) * r };
-      }
-
-      if (shape === 'heart') {
-        const th = id * TAU;
-        const x = 16 * Math.pow(Math.sin(th), 3);
-        const y = 13 * Math.cos(th) - 5 * Math.cos(2 * th) - 2 * Math.cos(3 * th) - Math.cos(4 * th);
-        const s = 0.036 + a.volume * 0.012;
-        return { x: x * s / aspect, y: y * s - 0.08 };
-      }
-
-      if (shape === 'star') {
-        const spikes = 5 + Math.round(a.treble * 3);
-        const sector = Math.floor(id * spikes * 2);
-        const r = (sector % 2 === 0 ? 0.62 : 0.25) + a.treble * 0.20;
-        return { x: Math.cos(angle) * r / aspect, y: Math.sin(angle) * r };
-      }
-
-      if (shape === 'spiral') {
-        const spiralAngle = id * TAU * (3.2 + a.treble * 1.5) + t * 0.8;
-        const r = 0.08 + id * (0.72 + a.bass * 0.2);
-        return { x: Math.cos(spiralAngle) * r / aspect, y: Math.sin(spiralAngle) * r };
-      }
-
-      return { x: null, y: null };
-    }
-
-    function soundDirection(a, t) {
-      const angle = (a.bass * 0.7 + a.mid * 2.1 + a.treble * 4.6 + a.volume * 1.35 + t * (0.18 + a.volume * 0.8)) * TAU;
-      return normalize(Math.cos(angle), Math.sin(angle));
-    }
 
     function hslToRgb(h, s, l) {
       let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
+      if (s === 0) r = g = b = l;
+      else {
         const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p + (q - p) * 6 * t;
-          if (t < 1 / 2) return q;
-          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          if(t < 0) t += 1; if(t > 1) t -= 1;
+          if(t < 1/6) return p + (q - p) * 6 * t;
+          if(t < 1/2) return q;
+          if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
           return p;
         };
         const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
         const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
+        r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
       }
       return [r, g, b];
     }
 
-    function getColorParams(mode, a, t, p, id, speed) {
-      const vertexBand = currentShape === 'polygonVertex' ? Math.floor(id * displayedVertexCount) / displayedVertexCount : id;
-      const baseHue = (beatHue + t * 0.018 + vertexBand * 0.28) % 1;
+    // Shapes
+    function shapePoint(shape, index, total, t, a) {
+      const id = index / Math.max(1, total - 1);
+      const angle = id * TAU + t * (0.2 + a.treble);
 
-      if (mode === 'rainbow') {
-        return { hue: (baseHue + p.hue * 0.25 + speed * 3.4) % 1, sat: 0.84 + beatFlash * 0.10, light: 0.48 + a.volume * 0.18 + beatFlash * 0.20 };
+      if (shape === 'infinity') {
+        const t2 = id * TAU + t * 0.5;
+        const scale = 0.6 + a.bass * 0.4;
+        const x = (scale * Math.cos(t2)) / (1 + Math.sin(t2) * Math.sin(t2));
+        const y = (scale * Math.cos(t2) * Math.sin(t2)) / (1 + Math.sin(t2) * Math.sin(t2));
+        const jitter = a.treble * 0.08 * Math.sin(id * 100 + t * 15);
+        return { x: (x + jitter) / aspect, y: y + jitter };
       }
-      if (mode === 'neon') {
-        return { hue: (0.78 + p.hue * 0.20 + vertexBand * 0.20 + a.treble * 0.12) % 1, sat: 0.94, light: 0.52 + beatFlash * 0.22 };
+      
+      if (shape === 'polygonVertex') {
+        const sides = displayedVertexCount;
+        const segment = Math.floor(id * sides);
+        const local = (id * sides) % 1;
+        const rot = t * 0.15;
+        const a0 = (segment / sides) * TAU + rot;
+        const a1 = ((segment + 1) / sides) * TAU + rot;
+        const r = 0.5 + a.bass * 0.3 + beatFlash * 0.1;
+        const v0 = { x: Math.cos(a0)*r/aspect, y: Math.sin(a0)*r };
+        const v1 = { x: Math.cos(a1)*r/aspect, y: Math.sin(a1)*r };
+        const ex = lerp(v0.x, v1.x, local);
+        const ey = lerp(v0.y, v1.y, local);
+        const wave = Math.sin(local * Math.PI * 3 + t * 4) * a.mid * 0.15;
+        return { x: ex + wave, y: ey + wave };
       }
-      if (mode === 'sunset') {
-        return { hue: (0.02 + p.hue * 0.10 + vertexBand * 0.06 + a.bass * 0.08) % 1, sat: 0.90, light: 0.46 + a.bass * 0.14 + beatFlash * 0.18 };
+      
+      if (shape === 'circle') {
+        const r = 0.5 + a.bass * 0.3;
+        return { x: Math.cos(angle)*r/aspect, y: Math.sin(angle)*r };
       }
-      if (mode === 'aurora') {
-        return { hue: (0.34 + p.hue * 0.22 + Math.sin(t * 0.8 + id * 8) * 0.06) % 1, sat: 0.78 + a.mid * 0.12, light: 0.44 + a.mid * 0.14 + beatFlash * 0.15 };
+      
+      if (shape === 'heart') {
+        const th = id * TAU;
+        const x = 16 * Math.pow(Math.sin(th), 3);
+        const y = 13 * Math.cos(th) - 5 * Math.cos(2 * th) - 2 * Math.cos(3 * th) - Math.cos(4 * th);
+        const s = 0.03 + a.volume * 0.015;
+        return { x: (x * s) / aspect, y: y * s - 0.1 };
       }
-      if (mode === 'candy') {
-        return { hue: (0.90 + p.hue * 0.18 + vertexBand * 0.12 + Math.sin(t * 1.6 + p.seed) * 0.08) % 1, sat: 0.76 + beatFlash * 0.10, light: 0.60 + beatFlash * 0.18 };
+
+      return { x: null, y: null }; // Wind fallback
+    }
+
+    function getColorParams(mode, a, t, id, pX) {
+      // Stereo Color Shift: ซ้ายจะสีนึง ขวาจะสีนึงนิดหน่อย
+      const stereoShift = (pX / aspect) * 0.1; 
+      
+      if (mode === 'cyberpunk') {
+        const isCyan = (id * 100) % 2 > 1; 
+        const hue = isCyan ? 0.5 + a.treble*0.1 + stereoShift : 0.85 - a.bass*0.1 - stereoShift;
+        return { hue: hue%1, sat: 1.0, light: 0.5 + beatFlash * 0.3 + a.volume*0.2 };
       }
-      return { hue: (baseHue + p.hue * (0.08 + beatFlash * 0.24) + speed * 4.2 + a.mid * 0.10) % 1, sat: 0.74 + a.treble * 0.20 + beatFlash * 0.10, light: 0.45 + a.volume * 0.18 + beatFlash * 0.22 };
+      if (mode === 'neon') return { hue: (0.78 + id*0.2 + a.treble*0.1 + stereoShift)%1, sat: 0.9, light: 0.5+beatFlash*0.2 };
+      if (mode === 'sunset') return { hue: (0.02 + id*0.1 + a.bass*0.1 + stereoShift)%1, sat: 0.9, light: 0.5+beatFlash*0.2 };
+      
+      // Rainbow
+      return { hue: (t*0.05 + id + stereoShift)%1, sat: 0.8, light: 0.5 + a.volume*0.2 };
     }
 
     function resetParticle(p, burst = false) {
-      if (burst) {
-        p.x = rand(-0.06, 0.06);
-        p.y = rand(-0.06, 0.06);
-      } else {
-        const edge = Math.floor(Math.random() * 4);
-        if (edge === 0) { p.x = -1.18 * aspect; p.y = rand(-1.1, 1.1); }
-        else if (edge === 1) { p.x = 1.18 * aspect; p.y = rand(-1.1, 1.1); }
-        else if (edge === 2) { p.x = rand(-1.15 * aspect, 1.15 * aspect); p.y = -1.12; }
-        else { p.x = rand(-1.15 * aspect, 1.15 * aspect); p.y = 1.12; }
-      }
-      const speed = burst ? rand(0.008, 0.035) : rand(0.001, 0.008);
-      const angle = burst ? rand(0, TAU) : Math.atan2(motion.y, motion.x) + rand(-1.3, 1.3);
+      p.x = burst ? rand(-0.1, 0.1) : rand(-1.2*aspect, 1.2*aspect);
+      p.y = burst ? rand(-0.1, 0.1) : (Math.random()>0.5 ? -1.2 : 1.2);
+      const speed = burst ? rand(0.01, 0.04) : rand(0.002, 0.006);
+      const angle = rand(0, TAU);
       p.vx = Math.cos(angle) * speed;
       p.vy = Math.sin(angle) * speed;
-      p.life = rand(0.58, 1);
-      p.decay = rand(0.0018, 0.0072);
-      p.size = rand(1.2, 5.0);
-      p.seed = Math.random() * 1000;
-      p.hue = rand(0, 1);
-      p.shapeOffset = rand(-0.08, 0.08);
+      p.life = rand(0.6, 1);
+      p.decay = rand(0.002, 0.006); // หางยาวขึ้น
+      p.size = rand(2.0, 7.0); // อนุภาคใหญ่ขึ้น
     }
 
     function initParticles() {
-      particles.length = 0;
       for (let i = 0; i < MAX_PARTICLES; i++) {
-        const p = {};
-        resetParticle(p);
-        particles.push(p);
+        const p = {}; resetParticle(p); particles.push(p);
       }
     }
 
     function resize() {
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      width = Math.floor(innerWidth * dpr);
-      height = Math.floor(innerHeight * dpr);
-      aspect = width / Math.max(1, height);
-      canvas.width = width;
-      canvas.height = height;
-      gl.viewport(0, 0, width, height);
+      dpr = Math.min(2, window.devicePixelRatio || 1); // ล็อคความละเอียดสูงสุดเพื่อมือถือ
+      const w = innerWidth, h = innerHeight;
+      aspect = w / Math.max(1, h);
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      gl.viewport(0, 0, canvas.width, canvas.height);
     }
-    window.addEventListener('resize', resize, { passive: true });
-    resize();
-    initParticles();
+    window.addEventListener('resize', resize);
+    resize(); initParticles();
 
-    function avgRange(array, from, to) {
-      let sum = 0;
-      let count = 0;
-      for (let i = from; i < to && i < array.length; i++) {
-        sum += array[i];
-        count++;
-      }
-      return count ? sum / count / 255 : 0;
+    function avgRange(arr, from, to) {
+      let sum = 0, count = 0;
+      for (let i = from; i < to && i < arr.length; i++) { sum += arr[i]; count++; }
+      return count ? (sum / count) / 255 : 0;
     }
 
     function updateAudio(now) {
+      const t = now * 0.001;
       if (audio.demo) {
-        const t = now * 0.001;
-        audio.bass = clamp(0.22 + Math.sin(t * 1.6) * 0.25 + Math.sin(t * 5.2) * 0.08, 0, 1);
-        audio.mid = clamp(0.22 + Math.sin(t * 2.4 + 1.6) * 0.22, 0, 1);
-        audio.treble = clamp(0.18 + Math.sin(t * 4.3 + 2.4) * 0.25, 0, 1);
-        audio.volume = clamp((audio.bass + audio.mid + audio.treble) / 2.25, 0, 1);
-        audio.smoothVolume = audio.smoothVolume * 0.86 + audio.volume * 0.14;
+        // สร้างเสียงจำลองแยกซ้ายขวา
+        audio.volL = clamp(0.1 + Math.sin(t * 3.2) * 0.4, 0, 1);
+        audio.volR = clamp(0.1 + Math.cos(t * 2.8) * 0.4, 0, 1);
+        audio.bass = clamp(0.2 + Math.sin(t * 1.5) * 0.3, 0, 1);
+        audio.treble = clamp(0.1 + Math.sin(t * 4.5) * 0.3, 0, 1);
+        audio.mid = (audio.volL + audio.volR) / 2;
+        audio.volume = (audio.volL + audio.volR) / 2;
         return;
       }
 
-      if (!audio.enabled || !audio.analyser) {
-        audio.volume *= 0.94;
-        audio.bass *= 0.94;
-        audio.mid *= 0.94;
-        audio.treble *= 0.94;
+      if (!audio.enabled || !audio.analyserL) {
+        audio.volL *= 0.9; audio.volR *= 0.9; audio.bass *= 0.9;
         return;
       }
 
-      audio.analyser.getByteFrequencyData(audio.freq);
-      audio.analyser.getByteTimeDomainData(audio.time);
+      audio.analyserL.getByteFrequencyData(audio.freqL);
+      audio.analyserR.getByteFrequencyData(audio.freqR);
 
-      let rms = 0;
-      for (let i = 0; i < audio.time.length; i++) {
-        const v = (audio.time[i] - 128) / 128;
-        rms += v * v;
-      }
-      rms = Math.sqrt(rms / audio.time.length);
+      const bassL = avgRange(audio.freqL, 1, 8), bassR = avgRange(audio.freqR, 1, 8);
+      const midL = avgRange(audio.freqL, 8, 50), midR = avgRange(audio.freqR, 8, 50);
+      const trebL = avgRange(audio.freqL, 50, 150), trebR = avgRange(audio.freqR, 50, 150);
 
-      const bass = avgRange(audio.freq, 1, 10);
-      const mid = avgRange(audio.freq, 10, 72);
-      const treble = avgRange(audio.freq, 72, 190);
+      const vL = avgRange(audio.freqL, 1, 150);
+      const vR = avgRange(audio.freqR, 1, 150);
 
-      audio.volume = audio.volume * 0.72 + clamp(rms * 5.4, 0, 1) * 0.28;
-      audio.bass = audio.bass * 0.78 + bass * 0.22;
-      audio.mid = audio.mid * 0.78 + mid * 0.22;
-      audio.treble = audio.treble * 0.78 + treble * 0.22;
-      audio.smoothVolume = audio.smoothVolume * 0.86 + audio.volume * 0.14;
+      audio.volL = audio.volL * 0.7 + vL * 0.3 * 2.5;
+      audio.volR = audio.volR * 0.7 + vR * 0.3 * 2.5;
+      audio.bass = audio.bass * 0.8 + ((bassL + bassR)/2) * 0.2;
+      audio.mid = audio.mid * 0.8 + ((midL + midR)/2) * 0.2;
+      audio.treble = audio.treble * 0.8 + ((trebL + trebR)/2) * 0.2;
+      audio.volume = clamp((audio.volL + audio.volR) / 2, 0, 1);
     }
 
-    async function requestMotionPermission() {
-      try {
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const state = await DeviceOrientationEvent.requestPermission();
-          return state === 'granted';
-        }
-        return true;
-      } catch (err) {
-        return false;
-      }
-    }
-
-    window.addEventListener('deviceorientation', (e) => {
-      if (motion.touchActive) return;
-      const gamma = e.gamma || 0;
-      const beta = e.beta || 0;
-      const gx = clamp(gamma / 35, -1, 1);
-      const gy = clamp(beta / 55, -1, 1);
-      if (Math.abs(gx) + Math.abs(gy) > 0.03) {
-        motion.tx = gx;
-        motion.ty = -gy;
-      }
-    }, { passive: true });
-
-    window.addEventListener('pointerdown', (e) => {
-      motion.touchActive = true;
-      setDirectionFromPointer(e.clientX, e.clientY);
-    }, { passive: true });
-    window.addEventListener('pointermove', (e) => {
-      if (!motion.touchActive) return;
-      setDirectionFromPointer(e.clientX, e.clientY);
-    }, { passive: true });
-    window.addEventListener('pointerup', () => { motion.touchActive = false; }, { passive: true });
-
-    function setDirectionFromPointer(clientX, clientY) {
-      const x = (clientX / innerWidth) * 2 - 1;
-      const y = -((clientY / innerHeight) * 2 - 1);
-      const n = normalize(x, y);
-      motion.tx = n.x;
-      motion.ty = n.y;
-    }
-
-    function stopStream() {
-      if (audio.stream) audio.stream.getTracks().forEach(track => track.stop());
-      audio.stream = null;
-      audio.enabled = false;
+    // Touch Handling (ปัด/ผลักอนุภาค)
+    window.addEventListener('pointerdown', e => { motion.touchActive = true; updateTouch(e); });
+    window.addEventListener('pointermove', e => { if (motion.touchActive) updateTouch(e); });
+    window.addEventListener('pointerup', () => { motion.touchActive = false; });
+    
+    function updateTouch(e) {
+      motion.tx = (e.clientX / innerWidth) * 2 - 1;
+      motion.ty = -((e.clientY / innerHeight) * 2 - 1);
     }
 
     async function startSound() {
       audio.demo = false;
-      if (!window.isSecureContext) {
-        ui.status.textContent = 'ไมค์ใช้ได้เฉพาะ HTTPS หรือ localhost: ตอนนี้เปิด Demo ให้แทน';
-        startDemo();
-        return;
-      }
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        ui.status.textContent = 'Browser นี้ไม่มี getUserMedia: เปิด Demo ให้แทน';
-        startDemo();
-        return;
-      }
-
       try {
-        await requestMotionPermission();
-        stopStream();
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-          video: false
-        });
-        audio.context = audio.context || new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audio.context = new (window.AudioContext || window.webkitAudioContext)();
         if (audio.context.state === 'suspended') await audio.context.resume();
-        audio.stream = stream;
+        
         audio.source = audio.context.createMediaStreamSource(stream);
-        audio.analyser = audio.context.createAnalyser();
-        audio.analyser.fftSize = 1024;
-        audio.analyser.smoothingTimeConstant = 0.72;
-        audio.freq = new Uint8Array(audio.analyser.frequencyBinCount);
-        audio.time = new Uint8Array(audio.analyser.fftSize);
-        audio.source.connect(audio.analyser);
+        audio.splitter = audio.context.createChannelSplitter(2); // แยกซ้าย/ขวา
+        audio.analyserL = audio.context.createAnalyser();
+        audio.analyserR = audio.context.createAnalyser();
+        
+        audio.source.connect(audio.splitter);
+        audio.splitter.connect(audio.analyserL, 0, 0); // Channel 0 -> L
+        audio.splitter.connect(audio.analyserR, 1, 0); // Channel 1 -> R
+
+        audio.freqL = new Uint8Array(audio.analyserL.frequencyBinCount);
+        audio.freqR = new Uint8Array(audio.analyserR.frequencyBinCount);
+        
         audio.enabled = true;
-        ui.status.textContent = 'Sound On: Bass คุมจำนวน vertex, Mid คุมคลื่น, Treble คุมความแหลม';
-        ui.start.textContent = 'Sound On';
+        ui.status.innerHTML = 'Mic Active: ระบบ Stereo ทำงาน (ลำโพงซ้าย-ขวา)';
+        ui.start.textContent = 'กำลังฟัง...';
         ui.demo.textContent = 'Demo';
       } catch (err) {
-        console.warn('Microphone unavailable:', err && err.name ? err.name : err);
-        const name = err && err.name ? err.name : 'MicrophoneError';
-        if (name === 'NotAllowedError' || name === 'SecurityError') {
-          ui.status.textContent = 'ไมค์ถูกบล็อก: เปิด Demo ให้แทน / ไปที่ Site Settings > Microphone > Allow';
-        } else if (name === 'NotFoundError') {
-          ui.status.textContent = 'ไม่พบไมค์: เปิด Demo ให้แทน';
-        } else {
-          ui.status.textContent = 'เปิดไมค์ไม่ได้: เปิด Demo ให้แทน';
-        }
+        ui.status.innerHTML = 'ไม่สามารถเปิดไมค์ได้ เล่น Demo แทน';
         startDemo();
       }
     }
 
     function startDemo() {
-      stopStream();
+      if(audio.context) { audio.enabled = false; }
       audio.demo = true;
-      audio.enabled = false;
-      ui.start.textContent = 'Start Sound';
-      ui.demo.textContent = 'Demo On';
-      if (!ui.status.textContent.includes('Demo')) {
-        ui.status.textContent = 'Demo On: ทดสอบ Polygon Vertex ตามเสียงจำลอง';
-      }
+      ui.start.textContent = 'เริ่มฟังเสียง (Mic)';
+      ui.demo.textContent = 'กำลังเล่น Demo...';
+      ui.status.innerHTML = 'Demo Mode: จำลองคลื่นเสียง Stereo ซ้าย/ขวา';
     }
 
     ui.start.addEventListener('click', startSound);
     ui.demo.addEventListener('click', startDemo);
-    ui.shape.addEventListener('change', () => {
-      selectedShape = ui.shape.value;
-      currentShape = selectedShape === 'auto' ? currentShape : selectedShape;
-      shapeBlend = 0;
-    });
-    ui.color.addEventListener('change', () => {
-      selectedColorMode = ui.color.value;
-      currentColorMode = selectedColorMode === 'auto' ? currentColorMode : selectedColorMode;
-    });
+    ui.shape.addEventListener('change', () => currentShape = ui.shape.value);
+    ui.color.addEventListener('change', () => currentColorMode = ui.color.value);
     ui.hideUi.addEventListener('click', () => {
       document.body.classList.toggle('ui-hidden');
-      ui.hideUi.textContent = document.body.classList.contains('ui-hidden') ? 'Show UI' : 'Hide UI';
+      ui.hideUi.textContent = document.body.classList.contains('ui-hidden') ? 'แสดง UI' : 'ซ่อน UI';
     });
-
-    function burst(amount) {
-      const n = Math.min(amount, activeCount);
-      for (let i = 0; i < n; i++) resetParticle(particles[Math.floor(Math.random() * activeCount)], true);
-    }
 
     function drawFrame(now) {
       updateAudio(now);
       const t = now * 0.001;
-      const a = { volume: audio.volume, bass: audio.bass, mid: audio.mid, treble: audio.treble };
+      const a = audio;
 
-      beatFlash *= 0.92;
-      const volumeAttack = a.volume - previousVolume;
-      const isBeat = (a.volume > 0.36 || (a.volume > 0.22 && volumeAttack > 0.035)) && now - audio.lastBeat > 145;
+      const isBeat = (a.volume > 0.4 || (a.volume > 0.25 && a.volume - previousVolume > 0.05)) && now - a.lastBeat > 200;
       if (isBeat) {
-        burst(Math.floor(140 + a.bass * 420 + a.volume * 360));
-        beatHue = (beatHue + 0.17 + a.treble * 0.22 + Math.random() * 0.18) % 1;
+        const burstCount = Math.min(activeCount, Math.floor(100 + a.bass * 300));
+        for(let i=0; i<burstCount; i++) resetParticle(particles[Math.floor(Math.random() * activeCount)], true);
         beatFlash = 1;
-        audio.lastBeat = now;
+        a.lastBeat = now;
       }
+      beatFlash *= 0.9;
       previousVolume = a.volume;
 
-      lockedVertexCount = getVertexCountFromSound(a);
-      displayedVertexCount += (lockedVertexCount - displayedVertexCount) * 0.14;
-      displayedVertexCount = Math.max(3, displayedVertexCount);
+      displayedVertexCount += (Math.max(3, 3 + Math.floor(a.bass * 8)) - displayedVertexCount) * 0.1;
 
-      const wantedShape = selectedShape === 'auto' ? chooseAutoShape(a) : selectedShape;
-      if (wantedShape !== currentShape) {
-        currentShape = wantedShape;
-        shapeBlend = 0;
-      }
-      shapeBlend = clamp(shapeBlend + 0.018 + a.volume * 0.025, 0, 1);
-      currentColorMode = selectedColorMode === 'auto' ? chooseAutoColorMode(a) : selectedColorMode;
-
-      const toneDirection = soundDirection(a, t);
-      const mixTone = 0.22 + a.volume * 0.42;
-      motion.tx = lerp(motion.tx, toneDirection.x, mixTone * 0.03);
-      motion.ty = lerp(motion.ty, toneDirection.y, mixTone * 0.03);
-      motion.x += (motion.tx - motion.x) * 0.05;
-      motion.y += (motion.ty - motion.y) * 0.05;
-      const wind = normalize(motion.x, motion.y);
-
-      const targetCount = Math.floor(2300 + a.mid * 9200 + a.volume * 5200 + a.bass * 2100 + a.treble * 1400);
-      activeCount += Math.round((clamp(targetCount, 900, MAX_PARTICLES) - activeCount) * 0.045);
-      activeCount = clamp(activeCount, 900, MAX_PARTICLES);
-
-      const windForce = 0.0012 + a.bass * 0.013 + a.volume * 0.018;
-      const swirl = 0.001 + a.treble * 0.0085;
-      const shapeForce = currentShape === 'wind' ? 0 : (0.013 + a.mid * 0.015 + a.volume * 0.012 + beatFlash * 0.004);
+      // จัดการจำนวนอนุภาคแบบลื่นไหล
+      const targetCount = Math.floor(1500 + a.volume * 8000 + a.bass * 2500);
+      activeCount += Math.round((clamp(targetCount, 1000, MAX_PARTICLES) - activeCount) * 0.05);
 
       for (let i = 0; i < activeCount; i++) {
         const p = particles[i];
         const id = i / Math.max(1, activeCount - 1);
-        const n1 = Math.sin(p.seed + t * (0.9 + a.treble * 4.0) + p.y * 6.0);
-        const n2 = Math.cos(p.seed * 1.3 + t * (0.7 + a.mid * 3.0) + p.x * 5.0);
 
-        p.vx += wind.x * windForce + n1 * swirl;
-        p.vy += wind.y * windForce + n2 * swirl;
+        // STEREO PHYSICS: ฝั่งซ้ายรับแรงจาก volL, ขวารับแรงจาก volR
+        const pan = clamp(p.x / aspect, -1, 1); // -1 (ซ้ายสุด) ถึง 1 (ขวาสุด)
+        const localVol = lerp(a.volL, a.volR, (pan + 1) / 2); 
+        
+        p.vx += Math.sin(p.y * 5 + t) * 0.001 * (1 + localVol);
+        p.vy += Math.cos(p.x * 5 + t) * 0.001 * (1 + localVol);
 
-        const target = shapePoint(currentShape, i, activeCount, t + p.shapeOffset, a);
-        if (target.x !== null && target.y !== null) {
-          p.vx += (target.x - p.x) * shapeForce * shapeBlend;
-          p.vy += (target.y - p.y) * shapeForce * shapeBlend;
+        const target = shapePoint(currentShape, i, activeCount, t, a);
+        if (target.x !== null) {
+          const force = 0.01 + localVol * 0.02;
+          p.vx += (target.x - p.x) * force;
+          p.vy += (target.y - p.y) * force;
         }
 
-        const drag = 0.991 - a.volume * 0.022;
-        p.vx *= drag;
-        p.vy *= drag;
+        // TOUCH REPEL (ผลักอนุภาคเมื่อแตะจอ)
+        if (motion.touchActive) {
+          const dx = p.x - motion.tx * aspect;
+          const dy = p.y - motion.ty;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 0.6) { // รัศมีที่นิ้วมีผล
+            const repel = (0.6 - dist) * 0.05;
+            p.vx += (dx / dist) * repel;
+            p.vy += (dy / dist) * repel;
+          }
+        }
+
+        p.vx *= 0.98 - localVol * 0.02;
+        p.vy *= 0.98 - localVol * 0.02;
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= p.decay * (0.48 + a.volume * 1.45);
+        p.life -= p.decay * (0.5 + localVol);
 
-        const speed = Math.hypot(p.vx, p.vy);
-        const col = getColorParams(currentColorMode, a, t, p, id, speed);
-        const rgb = hslToRgb(col.hue, clamp(col.sat, 0, 1), clamp(col.light, 0, 1));
-        const size = p.size * (1.0 + a.bass * 2.4 + a.treble * 1.2 + beatFlash * 1.45 + (currentShape !== 'wind' ? 0.55 : 0)) * dpr;
-        const alpha = clamp(p.life * (0.40 + a.volume * 0.82 + a.treble * 0.28), 0, 1);
+        const col = getColorParams(currentColorMode, a, t, id, p.x);
+        const rgb = hslToRgb(col.hue, col.sat, col.light);
+        // ขนาดใหญ่ขึ้นตามลำโพงฝั่งตัวเอง
+        const size = p.size * (1.0 + localVol * 3.0 + beatFlash * 1.5) * dpr;
+        const alpha = clamp(p.life * (0.5 + localVol), 0, 1);
 
         const o = i * 7;
-        data[o] = p.x;
-        data[o + 1] = p.y;
-        data[o + 2] = size;
-        data[o + 3] = rgb[0];
-        data[o + 4] = rgb[1];
-        data[o + 5] = rgb[2];
-        data[o + 6] = alpha;
+        data[o]   = p.x;   data[o+1] = p.y;   data[o+2] = size;
+        data[o+3] = rgb[0]; data[o+4] = rgb[1]; data[o+5] = rgb[2];
+        data[o+6] = alpha;
 
-        if (p.life <= 0 || p.x < -1.35 * aspect || p.x > 1.35 * aspect || p.y < -1.35 || p.y > 1.35) {
-          resetParticle(p);
-          p.x -= wind.x * 1.6 * Math.random() / Math.max(0.75, aspect);
-          p.y -= wind.y * 1.6 * Math.random();
-        }
+        if (p.life <= 0 || Math.abs(p.x) > 1.5 * aspect || Math.abs(p.y) > 1.5) resetParticle(p);
       }
 
-      const bgCol = getColorParams(currentColorMode, a, t, { hue: 0.5, seed: 0 }, 0, 0);
-      const bg = hslToRgb((bgCol.hue + 0.55) % 1, 0.35 + beatFlash * 0.15, 0.018 + beatFlash * 0.035);
-      gl.clearColor(clamp(bg[0] + a.bass * 0.016, 0, 1), clamp(bg[1] + a.mid * 0.016, 0, 1), clamp(bg[2] + a.treble * 0.020, 0, 1), 1);
+      gl.clearColor(0, 0, 0, 1); // สีดำสนิทให้สี Cyberpunk เด้งขึ้นมา
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, activeCount * 7));
       gl.drawArrays(gl.POINTS, 0, activeCount);
 
+      // อัปเดต UI Meters
+      ui.volL.style.width = `${Math.round(a.volL * 100)}%`;
+      ui.volR.style.width = `${Math.round(a.volR * 100)}%`;
       ui.bass.style.width = `${Math.round(a.bass * 100)}%`;
-      ui.mid.style.width = `${Math.round(a.mid * 100)}%`;
       ui.treble.style.width = `${Math.round(a.treble * 100)}%`;
-      ui.vol.style.width = `${Math.round(a.volume * 100)}%`;
-      ui.count.textContent = `${activeCount.toLocaleString()} particles / ${currentShape} / ${currentColorMode} / ${Math.round(displayedVertexCount)} vertices`;
+      ui.count.textContent = `${activeCount.toLocaleString()} pt`;
 
       requestAnimationFrame(drawFrame);
     }
 
-    function runTests() {
-      const tests = [];
-      function test(name, fn) { tests.push({ name, fn }); }
-      function assert(condition, message) { if (!condition) throw new Error(message || 'assertion failed'); }
-
-      test('clamp keeps values inside range', () => {
-        assert(clamp(5, 0, 3) === 3, 'upper clamp failed');
-        assert(clamp(-2, 0, 3) === 0, 'lower clamp failed');
-        assert(clamp(2, 0, 3) === 2, 'middle clamp failed');
-      });
-
-      test('vertex count from sound is 3..15', () => {
-        for (let b = 0; b <= 1; b += 0.1) {
-          const count = getVertexCountFromSound({ bass: b, mid: 0.2, treble: 0.2, volume: 0.2 });
-          assert(count >= 3 && count <= 15, 'vertex count out of range');
-        }
-      });
-
-      test('polygonVertexPoint returns finite coordinates', () => {
-        displayedVertexCount = 7;
-        const p = polygonVertexPoint(12, 100, 1.23, { volume: 0.3, bass: 0.5, mid: 0.4, treble: 0.3 });
-        assert(Number.isFinite(p.x) && Number.isFinite(p.y), 'polygon vertex point invalid');
-      });
-
-      test('shapePoint returns finite coordinates for all non-wind shapes', () => {
-        ['polygonVertex', 'spider', 'wave', 'circle', 'heart', 'star', 'spiral'].forEach(shape => {
-          const p = shapePoint(shape, 12, 100, 1.23, { volume: 0.3, bass: 0.2, mid: 0.2, treble: 0.2 });
-          assert(Number.isFinite(p.x) && Number.isFinite(p.y), `${shape} returned invalid coordinates`);
-        });
-        const wind = shapePoint('wind', 12, 100, 1.23, { volume: 0.3, bass: 0.2, mid: 0.2, treble: 0.2 });
-        assert(wind.x === null && wind.y === null, 'wind should be null target');
-      });
-
-      test('soundDirection returns normalized vector', () => {
-        const d = soundDirection({ volume: 0.3, bass: 0.2, mid: 0.1, treble: 0.4 }, 2.5);
-        const len = Math.hypot(d.x, d.y);
-        assert(Math.abs(len - 1) < 0.0001, 'direction is not normalized');
-      });
-
-      test('hide UI button exists', () => {
-        assert(!!ui.hideUi, 'hide UI button missing');
-      });
-
-      const failed = [];
-      tests.forEach(({ name, fn }) => {
-        try { fn(); }
-        catch (err) { failed.push({ name, err }); }
-      });
-      if (failed.length) console.error('Particle tests failed:', failed);
-      else console.info(`Particle tests passed: ${tests.length}/${tests.length}`);
-    }
-
-    runTests();
     requestAnimationFrame(drawFrame);
   </script>
 </body>
 </html>
+
+```
