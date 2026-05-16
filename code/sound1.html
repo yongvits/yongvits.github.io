@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Sound Wind Particles WebGL</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #05070d;
+      color: white;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: radial-gradient(circle at center, #111827 0%, #05070d 55%, #000 100%);
+    }
+    .ui {
+      position: fixed;
+      inset: auto 0 0 0;
+      padding: 14px max(14px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+      display: grid;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .panel {
+      width: min(680px, 100%);
+      margin: 0 auto;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 18px;
+      background: rgba(8, 13, 27, .62);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      pointer-events: auto;
+    }
+    .title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      opacity: .92;
+    }
+    .title strong { font-size: 15px; }
+    .meters {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .meter {
+      padding: 8px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.07);
+      overflow: hidden;
+    }
+    .label {
+      font-size: 10px;
+      opacity: .72;
+      margin-bottom: 5px;
+    }
+    .bar {
+      height: 6px;
+      border-radius: 99px;
+      background: rgba(255,255,255,.12);
+      overflow: hidden;
+    }
+    .fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 99px;
+      background: currentColor;
+      box-shadow: 0 0 14px currentColor;
+      transition: width .08s linear;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: #fff;
+      background: linear-gradient(135deg, #7c3aed, #db2777, #f97316);
+      font-weight: 800;
+      font-size: 14px;
+      box-shadow: 0 8px 24px rgba(219,39,119,.28);
+    }
+    button.secondary {
+      background: rgba(255,255,255,.09);
+      box-shadow: none;
+      border: 1px solid rgba(255,255,255,.13);
+    }
+    .hint {
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.35;
+      opacity: .72;
+    }
+    .top-hint {
+      position: fixed;
+      top: max(14px, env(safe-area-inset-top));
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(8, 13, 27, .54);
+      border: 1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(14px);
+      font-size: 12px;
+      opacity: .9;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+
+  <div class="top-hint">
+    <div class="pill" id="status">แตะ Start Sound แล้วเปิดเพลงจากลำโพงมือถือ หรือให้เสียงเข้าทางไมค์</div>
+  </div>
+
+  <div class="ui">
+    <div class="panel">
+      <div class="title">
+        <strong>Sound → Wind Particles</strong>
+        <span id="countLabel">0 particles</span>
+      </div>
+
+      <div class="meters">
+        <div class="meter" style="color:#60a5fa">
+          <div class="label">BASS / แรงลม</div>
+          <div class="bar"><div class="fill" id="bassFill"></div></div>
+        </div>
+        <div class="meter" style="color:#34d399">
+          <div class="label">MID / จำนวน</div>
+          <div class="bar"><div class="fill" id="midFill"></div></div>
+        </div>
+        <div class="meter" style="color:#fbbf24">
+          <div class="label">TREBLE / แสง</div>
+          <div class="bar"><div class="fill" id="trebleFill"></div></div>
+        </div>
+        <div class="meter" style="color:#fb7185">
+          <div class="label">VOLUME / ระเบิด</div>
+          <div class="bar"><div class="fill" id="volFill"></div></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn">Start Sound</button>
+        <button class="secondary" id="resetBtn">Reset</button>
+      </div>
+
+      <div class="hint">
+        หมายเหตุ: Browser อ่าน “ตำแหน่งลำโพงจริง” ของมือถือไม่ได้โดยตรง จึงใช้เสียงที่ไมค์ได้ยินเป็นตัวคุมสี/จำนวน/แรง และใช้การเอียงมือถือเป็นทิศทางลมของ particle แทน ถ้าวางมือถือให้ลำโพงยิงเสียงไปทางไหน แล้วเอียงเครื่องตามทิศนั้น จะได้ฟีลเหมือนเสียงพัด particle ไปทางนั้น
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gl');
+    const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false, stencil: false });
+
+    if (!gl) {
+      document.getElementById('status').textContent = 'เครื่องนี้ไม่รองรับ WebGL';
+      throw new Error('WebGL not supported');
+    }
+
+    const MAX_PARTICLES = 14000;
+    const START_PARTICLES = 2200;
+
+    const vert = `
+      attribute vec2 a_position;
+      attribute float a_size;
+      attribute vec3 a_color;
+      attribute float a_alpha;
+      varying vec3 v_color;
+      varying float v_alpha;
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+        gl_PointSize = a_size;
+        v_color = a_color;
+        v_alpha = a_alpha;
+      }
+    `;
+
+    const frag = `
+      precision mediump float;
+      varying vec3 v_color;
+      varying float v_alpha;
+      void main() {
+        vec2 uv = gl_PointCoord.xy - 0.5;
+        float d = length(uv);
+        float glow = smoothstep(0.5, 0.0, d);
+        float core = smoothstep(0.18, 0.0, d);
+        vec3 color = v_color * (0.55 + core * 1.8);
+        gl_FragColor = vec4(color, glow * v_alpha);
+      }
+    `;
+
+    function shader(type, source) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, source);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(s));
+      }
+      return s;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, shader(gl.VERTEX_SHADER, vert));
+    gl.attachShader(program, shader(gl.FRAGMENT_SHADER, frag));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(program));
+    }
+    gl.useProgram(program);
+
+    const loc = {
+      position: gl.getAttribLocation(program, 'a_position'),
+      size: gl.getAttribLocation(program, 'a_size'),
+      color: gl.getAttribLocation(program, 'a_color'),
+      alpha: gl.getAttribLocation(program, 'a_alpha')
+    };
+
+    const data = new Float32Array(MAX_PARTICLES * 7);
+    const particles = [];
+    let activeCount = START_PARTICLES;
+    let width = 1;
+    let height = 1;
+    let dpr = 1;
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data.byteLength, gl.DYNAMIC_DRAW);
+
+    const stride = 7 * 4;
+    gl.enableVertexAttribArray(loc.position);
+    gl.vertexAttribPointer(loc.position, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(loc.size);
+    gl.vertexAttribPointer(loc.size, 1, gl.FLOAT, false, stride, 2 * 4);
+    gl.enableVertexAttribArray(loc.color);
+    gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, stride, 3 * 4);
+    gl.enableVertexAttribArray(loc.alpha);
+    gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, stride, 6 * 4);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    gl.disable(gl.DEPTH_TEST);
+
+    const audio = {
+      context: null,
+      analyser: null,
+      freq: null,
+      time: null,
+      enabled: false,
+      volume: 0,
+      bass: 0,
+      mid: 0,
+      treble: 0,
+      smoothVolume: 0,
+      lastBeat: 0
+    };
+
+    const motion = {
+      x: 0.8,
+      y: -0.15,
+      tx: 0.8,
+      ty: -0.15,
+      enabled: false
+    };
+
+    const ui = {
+      status: document.getElementById('status'),
+      count: document.getElementById('countLabel'),
+      bass: document.getElementById('bassFill'),
+      mid: document.getElementById('midFill'),
+      treble: document.getElementById('trebleFill'),
+      vol: document.getElementById('volFill'),
+      start: document.getElementById('startBtn'),
+      reset: document.getElementById('resetBtn')
+    };
+
+    function rand(a, b) { return a + Math.random() * (b - a); }
+
+    function resetParticle(p, burst = false) {
+      const edge = Math.floor(Math.random() * 4);
+      if (burst) {
+        p.x = rand(-0.08, 0.08);
+        p.y = rand(-0.08, 0.08);
+      } else if (edge === 0) {
+        p.x = -1.12; p.y = rand(-1.1, 1.1);
+      } else if (edge === 1) {
+        p.x = 1.12; p.y = rand(-1.1, 1.1);
+      } else if (edge === 2) {
+        p.x = rand(-1.1, 1.1); p.y = -1.12;
+      } else {
+        p.x = rand(-1.1, 1.1); p.y = 1.12;
+      }
+      const speed = burst ? rand(0.006, 0.026) : rand(0.001, 0.008);
+      const angle = burst ? rand(0, Math.PI * 2) : Math.atan2(motion.y, motion.x) + rand(-1.3, 1.3);
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed;
+      p.life = rand(0.45, 1);
+      p.decay = rand(0.0025, 0.009);
+      p.size = rand(1.2, 4.5);
+      p.seed = Math.random() * 1000;
+      p.hue = rand(0, 1);
+    }
+
+    function initParticles() {
+      particles.length = 0;
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        const p = {};
+        resetParticle(p);
+        particles.push(p);
+      }
+    }
+
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      width = Math.floor(innerWidth * dpr);
+      height = Math.floor(innerHeight * dpr);
+      canvas.width = width;
+      canvas.height = height;
+      gl.viewport(0, 0, width, height);
+    }
+    window.addEventListener('resize', resize, { passive: true });
+    resize();
+    initParticles();
+
+    function avgRange(array, from, to) {
+      let sum = 0;
+      let count = 0;
+      for (let i = from; i < to && i < array.length; i++) {
+        sum += array[i];
+        count++;
+      }
+      return count ? sum / count / 255 : 0;
+    }
+
+    function updateAudio() {
+      if (!audio.enabled || !audio.analyser) {
+        audio.volume *= 0.94;
+        audio.bass *= 0.94;
+        audio.mid *= 0.94;
+        audio.treble *= 0.94;
+        return;
+      }
+
+      audio.analyser.getByteFrequencyData(audio.freq);
+      audio.analyser.getByteTimeDomainData(audio.time);
+
+      let rms = 0;
+      for (let i = 0; i < audio.time.length; i++) {
+        const v = (audio.time[i] - 128) / 128;
+        rms += v * v;
+      }
+      rms = Math.sqrt(rms / audio.time.length);
+
+      const bass = avgRange(audio.freq, 1, 10);
+      const mid = avgRange(audio.freq, 10, 70);
+      const treble = avgRange(audio.freq, 70, 180);
+
+      audio.volume = audio.volume * 0.72 + Math.min(1, rms * 5.2) * 0.28;
+      audio.bass = audio.bass * 0.78 + bass * 0.22;
+      audio.mid = audio.mid * 0.78 + mid * 0.22;
+      audio.treble = audio.treble * 0.78 + treble * 0.22;
+      audio.smoothVolume = audio.smoothVolume * 0.86 + audio.volume * 0.14;
+    }
+
+    function hslToRgb(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1 / 6) return p + (q - p) * 6 * t;
+          if (t < 1 / 2) return q;
+          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+      }
+      return [r, g, b];
+    }
+
+    function requestMotionPermission() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(state => {
+          motion.enabled = state === 'granted';
+        }).catch(() => {});
+      } else {
+        motion.enabled = true;
+      }
+    }
+
+    window.addEventListener('deviceorientation', (e) => {
+      const gamma = e.gamma || 0; // left-right tilt
+      const beta = e.beta || 0;   // front-back tilt
+      const gx = Math.max(-1, Math.min(1, gamma / 35));
+      const gy = Math.max(-1, Math.min(1, beta / 55));
+      if (Math.abs(gx) + Math.abs(gy) > 0.03) {
+        motion.tx = gx;
+        motion.ty = -gy;
+      }
+    }, { passive: true });
+
+    let pointerDown = false;
+    window.addEventListener('pointerdown', (e) => {
+      pointerDown = true;
+      const x = (e.clientX / innerWidth) * 2 - 1;
+      const y = -((e.clientY / innerHeight) * 2 - 1);
+      const len = Math.hypot(x, y) || 1;
+      motion.tx = x / len;
+      motion.ty = y / len;
+    }, { passive: true });
+    window.addEventListener('pointermove', (e) => {
+      if (!pointerDown) return;
+      const x = (e.clientX / innerWidth) * 2 - 1;
+      const y = -((e.clientY / innerHeight) * 2 - 1);
+      const len = Math.hypot(x, y) || 1;
+      motion.tx = x / len;
+      motion.ty = y / len;
+    }, { passive: true });
+    window.addEventListener('pointerup', () => pointerDown = false, { passive: true });
+
+    async function startSound() {
+      try {
+        requestMotionPermission();
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        });
+
+        audio.context = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audio.context.createMediaStreamSource(stream);
+        audio.analyser = audio.context.createAnalyser();
+        audio.analyser.fftSize = 1024;
+        audio.analyser.smoothingTimeConstant = 0.72;
+        audio.freq = new Uint8Array(audio.analyser.frequencyBinCount);
+        audio.time = new Uint8Array(audio.analyser.fftSize);
+        source.connect(audio.analyser);
+        audio.enabled = true;
+        ui.status.textContent = 'กำลังฟังเสียงอยู่: เปิดเพลงจากลำโพงมือถือ หรือพูด/ตบมือใกล้ไมค์ได้เลย';
+        ui.start.textContent = 'Sound On';
+      } catch (err) {
+        ui.status.textContent = 'เปิดไมค์ไม่ได้: ต้องอนุญาต Microphone และเปิดผ่าน HTTPS/GitHub Pages';
+        console.error(err);
+      }
+    }
+
+    ui.start.addEventListener('click', startSound);
+    ui.reset.addEventListener('click', () => {
+      activeCount = START_PARTICLES;
+      for (let i = 0; i < particles.length; i++) resetParticle(particles[i]);
+    });
+
+    function burst(amount) {
+      const n = Math.min(amount, MAX_PARTICLES);
+      for (let i = 0; i < n; i++) {
+        resetParticle(particles[Math.floor(Math.random() * activeCount)], true);
+      }
+    }
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(2.2, (now - last) / 16.666);
+      last = now;
+
+      updateAudio();
+
+      const vol = audio.volume;
+      const bass = audio.bass;
+      const mid = audio.mid;
+      const treble = audio.treble;
+
+      const targetCount = Math.floor(1700 + mid * 7600 + vol * 4400 + bass * 1600);
+      activeCount += Math.round((Math.min(MAX_PARTICLES, targetCount) - activeCount) * 0.04);
+      activeCount = Math.max(800, Math.min(MAX_PARTICLES, activeCount));
+
+      if (vol > 0.34 && now - audio.lastBeat > 150) {
+        burst(Math.floor(90 + bass * 360 + vol * 260));
+        audio.lastBeat = now;
+      }
+
+      motion.x += (motion.tx - motion.x) * 0.045;
+      motion.y += (motion.ty - motion.y) * 0.045;
+      const ml = Math.hypot(motion.x, motion.y) || 1;
+      const wx = motion.x / ml;
+      const wy = motion.y / ml;
+
+      const t = now * 0.001;
+      const baseHue = (0.62 - bass * 0.28 + treble * 0.44 + t * 0.03) % 1;
+      const windForce = (0.0012 + bass * 0.012 + vol * 0.018) * dt;
+      const swirl = (0.001 + treble * 0.008) * dt;
+      const aspect = width / height;
+
+      for (let i = 0; i < activeCount; i++) {
+        const p = particles[i];
+
+        const n1 = Math.sin(p.seed + t * (0.9 + treble * 4.0) + p.y * 6.0);
+        const n2 = Math.cos(p.seed * 1.3 + t * (0.7 + mid * 3.0) + p.x * 5.0);
+        p.vx += wx * windForce + n1 * swirl;
+        p.vy += wy * windForce + n2 * swirl;
+
+        const drag = 0.992 - vol * 0.025;
+        p.vx *= drag;
+        p.vy *= drag;
+
+        p.x += p.vx * dt * (height / width);
+        p.y += p.vy * dt;
+        p.life -= p.decay * dt * (0.55 + vol * 1.8);
+
+        const speed = Math.hypot(p.vx, p.vy);
+        const hue = (baseHue + p.hue * 0.12 + speed * 5.0 + mid * 0.12) % 1;
+        const sat = 0.68 + treble * 0.3;
+        const light = 0.42 + vol * 0.26 + treble * 0.15;
+        const rgb = hslToRgb(hue, sat, light);
+        const size = p.size * (1.0 + bass * 2.6 + treble * 1.1) * dpr;
+        const alpha = Math.max(0, Math.min(1, p.life * (0.38 + vol * 0.8 + treble * 0.3)));
+
+        const o = i * 7;
+        data[o] = p.x;
+        data[o + 1] = p.y;
+        data[o + 2] = size;
+        data[o + 3] = rgb[0];
+        data[o + 4] = rgb[1];
+        data[o + 5] = rgb[2];
+        data[o + 6] = alpha;
+
+        if (p.life <= 0 || p.x < -1.25 * aspect || p.x > 1.25 * aspect || p.y < -1.25 || p.y > 1.25) {
+          resetParticle(p);
+          p.x -= wx * 1.6 * Math.random() * (height / width);
+          p.y -= wy * 1.6 * Math.random();
+        }
+      }
+
+      gl.clearColor(0.01 + bass * 0.03, 0.012 + mid * 0.025, 0.025 + treble * 0.04, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, activeCount * 7));
+      gl.drawArrays(gl.POINTS, 0, activeCount);
+
+      ui.bass.style.width = `${Math.round(bass * 100)}%`;
+      ui.mid.style.width = `${Math.round(mid * 100)}%`;
+      ui.treble.style.width = `${Math.round(treble * 100)}%`;
+      ui.vol.style.width = `${Math.round(vol * 100)}%`;
+      ui.count.textContent = `${activeCount.toLocaleString()} particles`;
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
