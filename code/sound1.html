@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,user-scalable=no"/>
-<title>Matrix Camera Ultimate v5.0</title>
+<title>Matrix Camera Spatial v6.0</title>
 
 <style>
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -53,7 +53,7 @@ select{ background:rgba(0,20,0,.6); color:#00ff41; outline:none; appearance:none
 
 <body>
 
-<div class="version">ULTIMATE MATRIX v5.0<br>ภาพชัดขึ้น + สีดั้งเดิม + จำนวน/ทิศทางตามเสียง</div>
+<div class="version">SPATIAL MATRIX v6.0<br>อนุภาคอิสระ + ทิศทางเสียงซ้าย/ขวา</div>
 
 <canvas id="gl"></canvas>
 <video id="cam" autoplay playsinline muted></video>
@@ -70,14 +70,14 @@ select{ background:rgba(0,20,0,.6); color:#00ff41; outline:none; appearance:none
 
     <div class="row">
       <select id="formation">
-        <option value="matrix" selected>โหมด: Matrix Rain</option>
-        <option value="polygon">โหมด: Polygon Fly</option>
+        <option value="polygon" selected>โหมด: Spatial Polygon</option>
         <option value="spider">โหมด: Spider Web</option>
         <option value="wave">โหมด: Glitch Wave</option>
+        <option value="matrix">โหมด: Matrix Rain</option>
       </select>
       <select id="spriteShape">
-        <option value="0" selected>รูปทรง: Block (Matrix)</option>
-        <option value="1">รูปทรง: Circle</option>
+        <option value="1" selected>รูปทรง: Circle</option>
+        <option value="0">รูปทรง: Block (Matrix)</option>
         <option value="2">รูปทรง: Ring</option>
         <option value="3">รูปทรง: Diamond</option>
         <option value="4">รูปทรง: Cross</option>
@@ -87,7 +87,7 @@ select{ background:rgba(0,20,0,.6); color:#00ff41; outline:none; appearance:none
 
     <div class="row">
       <select id="palette">
-        <option value="original" selected>สี: สีดั้งเดิมจากกล้อง (Original)</option>
+        <option value="original" selected>สี: สีดั้งเดิมจากกล้อง</option>
         <option value="matrix">สี: Matrix Green</option>
         <option value="cyber">สี: Cyberpunk</option>
         <option value="rainbow">สี: Hologram</option>
@@ -97,7 +97,7 @@ select{ background:rgba(0,20,0,.6); color:#00ff41; outline:none; appearance:none
       </select>
     </div>
 
-    <div class="stats" id="stats">รอการเปิดกล้องและไมค์...</div>
+    <div class="stats" id="stats">รอการเชื่อมต่อกล้องและไมค์...</div>
   </div>
 </div>
 
@@ -119,11 +119,9 @@ const DEVICE = {
   dpr: Math.min(window.devicePixelRatio || 1, 2)
 };
 
-// เพิ่มจำนวนอนุภาคสูงสุด
-const MAX_PARTICLES = DEVICE.memory >= 8 ? 25000 : 15000;
-let currentActiveParticles = 5000; // จะเพิ่มขึ้นตามเสียง
+const MAX_PARTICLES = DEVICE.memory >= 8 ? 20000 : 12000;
+let currentActiveParticles = 4000; 
 let width, height, aspect;
-
 let facingMode = 'user';
 let touch = { x: 0, y: 0, active: false };
 
@@ -156,7 +154,6 @@ const vert = `
   attribute float alpha;
   varying vec3 vColor;
   varying float vAlpha;
-
   void main() {
     gl_Position = vec4(pos, 0.0, 1.0);
     gl_PointSize = size;
@@ -170,7 +167,6 @@ const frag = `
   varying vec3 vColor;
   varying float vAlpha;
   uniform int u_shape;
-
   void main() {
     vec2 uv = gl_PointCoord.xy - 0.5;
     float d = 0.0;
@@ -185,52 +181,39 @@ const frag = `
       return;
     } 
     else if(u_shape == 1) { // Circle
-      d = length(uv);
-      core = smoothstep(0.5, 0.1, d);
+      d = length(uv); core = smoothstep(0.5, 0.1, d);
     }
     else if(u_shape == 2) { // Ring
-      d = length(uv);
-      core = smoothstep(0.5, 0.3, d) - smoothstep(0.3, 0.1, d);
+      d = length(uv); core = smoothstep(0.5, 0.3, d) - smoothstep(0.3, 0.1, d);
     }
     else if(u_shape == 3) { // Diamond
-      d = abs(uv.x) + abs(uv.y);
-      core = smoothstep(0.5, 0.1, d);
+      d = abs(uv.x) + abs(uv.y); core = smoothstep(0.5, 0.1, d);
     }
     else if(u_shape == 4) { // Cross
       d = min(abs(uv.x), abs(uv.y)) + max(abs(uv.x), abs(uv.y))*0.2;
       core = smoothstep(0.2, 0.05, d) * smoothstep(0.5, 0.4, max(abs(uv.x), abs(uv.y)));
     }
     else if(u_shape == 5) { // Heart
-      uv.y += 0.1;
-      float a = atan(uv.x, uv.y) / 3.14159;
-      float r = length(uv);
-      float h = abs(a);
+      uv.y += 0.1; float a = atan(uv.x, uv.y) / 3.14159; float r = length(uv); float h = abs(a);
       float d2 = (13.0*h - 22.0*h*h + 10.0*h*h*h)/(6.0-5.0*h);
       core = smoothstep(0.5, 0.4, r/d2);
     }
-
     gl_FragColor = vec4(vColor * (1.0 + core), core * vAlpha);
   }
 `;
 
 function shader(type, src) {
-  const s = gl.createShader(type);
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  return s;
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s;
 }
 
 const program = gl.createProgram();
 gl.attachShader(program, shader(gl.VERTEX_SHADER, vert));
 gl.attachShader(program, shader(gl.FRAGMENT_SHADER, frag));
-gl.linkProgram(program);
-gl.useProgram(program);
+gl.linkProgram(program); gl.useProgram(program);
 
 const loc = {
-  pos: gl.getAttribLocation(program, 'pos'),
-  color: gl.getAttribLocation(program, 'color'),
-  size: gl.getAttribLocation(program, 'size'),
-  alpha: gl.getAttribLocation(program, 'alpha'),
+  pos: gl.getAttribLocation(program, 'pos'), color: gl.getAttribLocation(program, 'color'),
+  size: gl.getAttribLocation(program, 'size'), alpha: gl.getAttribLocation(program, 'alpha'),
   shape: gl.getUniformLocation(program, 'u_shape')
 };
 
@@ -248,194 +231,184 @@ function initParticles() {
   particles.length = 0;
 
   for(let i=0; i<actualParticles; i++) {
-    let cx = i % cols;
-    let cy = Math.floor(i / cols);
-    let nx = (cx / cols) * 2 - 1;
-    let ny = (cy / rows) * 2 - 1;
-
+    let cx = i % cols; let cy = Math.floor(i / cols);
+    let nx = (cx / cols) * 2 - 1; let ny = (cy / rows) * 2 - 1;
     particles.push({
-      ox: nx * aspect, 
-      oy: -ny,         
-      x: nx * aspect,
-      y: (Math.random() * 2 - 1),
+      ox: nx * aspect, oy: -ny, // ตำแหน่งอ้างอิงบนรูป (ล็อคไว้ดึงสี)
+      x: nx * aspect, y: -ny,   // ตำแหน่งปัจจุบัน (เคลื่อนที่อิสระได้)
       vx: 0, vy: 0,
-      speed: Math.random() * 0.015 + 0.005,
-      seed: Math.random()
+      speed: Math.random() * 0.01 + 0.005,
+      seed: Math.random() * 1000,   // ค่าประตัว (ทำให้ขยับไม่เหมือนกัน)
+      pan: (nx + 1) / 2             // 0 = ซ้ายสุด, 1 = ขวาสุด (ไว้รับเสียงแยกซ้ายขวา)
     });
   }
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-  
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
   gl.enableVertexAttribArray(loc.pos); gl.vertexAttribPointer(loc.pos, 2, gl.FLOAT, false, stride*4, 0);
   gl.enableVertexAttribArray(loc.color); gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, stride*4, 8);
   gl.enableVertexAttribArray(loc.size); gl.vertexAttribPointer(loc.size, 1, gl.FLOAT, false, stride*4, 20);
   gl.enableVertexAttribArray(loc.alpha); gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, stride*4, 24);
-  
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 }
 initParticles();
 
-// --- AUDIO & CAMERA ---
-let audioCtx, analyser, freq;
-let bass=0, mid=0, treb=0, lastBass=0;
+// --- STEREO AUDIO ENGINE ---
+let audioCtx, splitter, analyserL, analyserR;
+let freqL, freqR;
+let audioStats = { L: {bass:0, mid:0}, R: {bass:0, mid:0}, globalLevel: 0 };
 
 async function startAudio() {
   try {
     if(!audioCtx) audioCtx = new(window.AudioContext || window.webkitAudioContext)();
     if(audioCtx.state === 'suspended') await audioCtx.resume();
     
-    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    // ตั้งค่าขอไมค์แบบ Stereo
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: { channelCount: 2, echoCancellation: false, autoGainControl: false } 
+    });
     const src = audioCtx.createMediaStreamSource(stream);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    src.connect(analyser);
-    freq = new Uint8Array(analyser.frequencyBinCount);
+    
+    // แยกแชนเนลซ้าย-ขวา
+    splitter = audioCtx.createChannelSplitter(2);
+    analyserL = audioCtx.createAnalyser(); analyserL.fftSize = 128;
+    analyserR = audioCtx.createAnalyser(); analyserR.fftSize = 128;
+    
+    src.connect(splitter);
+    splitter.connect(analyserL, 0); // ซ้าย
+    splitter.connect(analyserR, 1); // ขวา
+    
+    freqL = new Uint8Array(analyserL.frequencyBinCount);
+    freqR = new Uint8Array(analyserR.frequencyBinCount);
   } catch(err) { console.log("Audio Error", err); }
 }
 
 async function startCameraView() {
-  if (video.srcObject) {
-    video.srcObject.getTracks().forEach(track => { if(track.kind === 'video') track.stop(); });
-  }
+  if (video.srcObject) video.srcObject.getTracks().forEach(t => { if(t.kind === 'video') t.stop(); });
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: facingMode }, audio:false });
     video.srcObject = stream;
-    if(!analyser) await startAudio();
-  } catch(err) {
-    alert('ไม่สามารถเปิดกล้องได้: ' + err.message);
-  }
+    if(!analyserL) await startAudio();
+  } catch(err) { alert('เปิดกล้องไม่ได้: ' + err.message); }
 }
 
 document.getElementById('startBtn').onclick = startCameraView;
-document.getElementById('switchCamBtn').onclick = () => {
-  facingMode = facingMode === 'user' ? 'environment' : 'user';
-  startCameraView();
-};
+document.getElementById('switchCamBtn').onclick = () => { facingMode = facingMode==='user'?'environment':'user'; startCameraView(); };
 
 const camCanvas = document.createElement('canvas');
 const camCtx = camCanvas.getContext('2d', { willReadFrequently:true });
 
-function updateAudioStats() {
-  if(!analyser) return false;
-  analyser.getByteFrequencyData(freq);
-  let bSum=0, mSum=0, tSum=0;
+function updateStereoAudio() {
+  if(!analyserL) return;
+  analyserL.getByteFrequencyData(freqL);
+  analyserR.getByteFrequencyData(freqR);
   
-  for(let i=1; i<6; i++) bSum+=freq[i];    // Bass (1-5)
-  for(let i=6; i<20; i++) mSum+=freq[i];   // Mid (6-19)
-  for(let i=20; i<60; i++) tSum+=freq[i];  // Treble (20-59)
+  let bL=0, mL=0, bR=0, mR=0;
+  for(let i=1; i<4; i++) { bL+=freqL[i]; bR+=freqR[i]; } // Bass
+  for(let i=4; i<16; i++) { mL+=freqL[i]; mR+=freqR[i]; } // Mid
   
-  lastBass = bass;
-  bass = (bSum/5)/255;
-  mid = (mSum/14)/255;
-  treb = (tSum/40)/255;
-  
-  return (bass > 0.65 && bass - lastBass > 0.15); // isBeat
+  audioStats.L.bass = (bL/3)/255; audioStats.L.mid = (mL/12)/255;
+  audioStats.R.bass = (bR/3)/255; audioStats.R.mid = (mR/12)/255;
+  audioStats.globalLevel = (audioStats.L.bass + audioStats.R.bass + audioStats.L.mid + audioStats.R.mid) / 4;
 }
 
 function getPalette(mode, v, x, y, r, g, b) {
-  if(mode==='original') return [r/255, g/255, b/255]; // สีดั้งเดิมจากกล้อง
+  if(mode==='original') return [r/255, g/255, b/255];
   if(mode==='matrix') return [v*0.1, v*1.2 + 0.1, v*0.2];
   if(mode==='cyber') return x<0 ? [0, v*1.2, v*1.5] : [v*1.5, 0, v*1.2];
   if(mode==='aurora') return [v*1.2, v*1.2, v*1.5];
   if(mode==='fire') return [v*1.5, v*0.6, v*0.1];
   if(mode==='ocean') return [v*0.1, v*0.8, v*1.5];
-  // Rainbow
   return [Math.sin(x*2.0)*v + v, Math.cos(y*2.0)*v + v, Math.sin((x+y)*2.0)*v + v]; 
 }
 
 function draw(now) {
   requestAnimationFrame(draw);
   const t = now * .001;
-  const isBeat = updateAudioStats();
+  updateStereoAudio();
 
-  // ไดนามิกจำนวนอนุภาคตามเสียง (Audio Driven Particle Count)
-  // เงียบๆ = 30%, ดังสุด = 100%
-  let audioLevel = Math.max(bass, mid, treb);
-  let targetCount = MAX_PARTICLES * (0.3 + audioLevel * 0.7);
+  // ไดนามิกจำนวนอนุภาคตามเสียง
+  let targetCount = MAX_PARTICLES * (0.25 + audioStats.globalLevel * 0.75);
   currentActiveParticles += (targetCount - currentActiveParticles) * 0.1;
   let renderCount = Math.min(MAX_PARTICLES, Math.floor(currentActiveParticles));
 
   const scale = DEVICE.memory >= 8 ? 300 : 200; 
-  
   if(video.videoWidth) {
     const vAspect = video.videoWidth / video.videoHeight;
-    camCanvas.width = scale;
-    camCanvas.height = scale / vAspect;
-    
+    camCanvas.width = scale; camCanvas.height = scale / vAspect;
     camCtx.save();
-    if(facingMode === 'user') {
-      camCtx.translate(camCanvas.width, 0);
-      camCtx.scale(-1, 1);
-    }
+    if(facingMode === 'user') { camCtx.translate(camCanvas.width, 0); camCtx.scale(-1, 1); }
     camCtx.drawImage(video, 0, 0, camCanvas.width, camCanvas.height);
     camCtx.restore();
 
-    const frame = camCtx.getImageData(0, 0, camCanvas.width, camCanvas.height);
-    const img = frame.data;
-
+    const img = camCtx.getImageData(0, 0, camCanvas.width, camCanvas.height).data;
     const formation = formationSelect.value;
     const pShape = parseInt(spriteSelect.value);
     const pColor = paletteSelect.value;
 
-    // สร้าง "กระแสลม" จากเสียงแหลมและเสียงกลาง (Audio Wind)
-    const windX = Math.sin(t * 1.5) * mid * 0.03;
-    const windY = Math.cos(t * 2.0) * treb * 0.03;
-
     for(let i=0; i<renderCount; i++) {
       const p = particles[i];
       
-      // ฟิสิกส์ระเบิด (Audio Blast)
-      if (isBeat) {
-        let angle = Math.atan2(p.y, p.x);
-        let force = bass * (Math.random() * 0.15 + 0.05);
-        p.vx += Math.cos(angle) * force;
-        p.vy += Math.sin(angle) * force;
-      }
+      // คำนวณเสียงเฉพาะจุดของอนุภาคตัวนี้ (ซ้าย-ขวา Interpolation)
+      // อนุภาคซ้ายสุด (pan=0) รับเสียง L 100%, ขวาสุด (pan=1) รับเสียง R 100%
+      let leftWeight = 1.0 - p.pan;
+      let rightWeight = p.pan;
+      let localBass = (audioStats.L.bass * leftWeight) + (audioStats.R.bass * rightWeight);
+      let localMid = (audioStats.L.mid * leftWeight) + (audioStats.R.mid * rightWeight);
 
-      // ฟิสิกส์สัมผัสหน้าจอ (Touch Scatter)
+      // 1. ฟิสิกส์สัมผัสหน้าจอ (Touch)
       if (touch.active) {
-        let dx = p.x - touch.x * aspect;
-        let dy = p.y - touch.y;
+        let dx = p.x - touch.x * aspect; let dy = p.y - touch.y;
         let dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < 0.4) {
-          let repel = (0.4 - dist) * 0.15;
-          p.vx += (dx/dist) * repel;
-          p.vy += (dy/dist) * repel;
+        if (dist < 0.35) {
+          let repel = (0.35 - dist) * 0.2;
+          p.vx += (dx/dist) * repel; p.vy += (dy/dist) * repel;
         }
       }
 
-      // นำกระแสลมจากเสียงมาใช้ (ลมพัดเบาๆ)
-      p.vx += windX;
-      p.vy += windY;
+      // 2. ทิศทางลมและแรงระเบิดจากเสียง (อิสระระดับพิกเซลด้วย Seed)
+      // ลมแยกทิศ (พัดอนุภาคไปคนละทิศคนละทาง)
+      let windForceX = Math.sin(t * 3.0 + p.seed * 0.5) * localMid * 0.05;
+      let windForceY = Math.cos(t * 2.5 + p.seed * 0.7) * localMid * 0.05;
+      p.vx += windForceX;
+      p.vy += windForceY;
 
-      // จัดการการเคลื่อนที่ตามโหมด
-      let sampleX, sampleY; // จุดที่จะดึงพิกเซลมาประมวลผล
-
-      if (formation === 'matrix') {
-        p.x = p.ox; // ล็อคให้อยู่ในคอลัมน์ (หน้าจะได้ไม่เละ)
-        p.y -= p.speed * (1.0 + bass * 2.0); // ตกตามแรงโน้มถ่วง
-        if(p.y < -1.2) p.y = 1.2; // วนกลับไปข้างบน
-        p.vx = 0; p.vy = 0;
-        
-        // **หัวใจของความคมชัด:** Matrix ต้องอ่านค่าสีจากพิกัด 'ปัจจุบัน' (p.x, p.y) ที่มันกำลังไหลผ่าน
-        sampleX = ((p.x / aspect) * .5 + .5) * camCanvas.width | 0;
-        sampleY = (-p.y * .5 + .5) * camCanvas.height | 0;
-      } 
-      else {
-        // โหมดอิสระ ดึงกลับไปที่กริดเดิม
-        p.vx += (p.ox - p.x) * 0.05;
-        p.vy += (p.oy - p.y) * 0.05;
-        p.vx *= 0.88; p.vy *= 0.88;
-        p.x += p.vx; p.y += p.vy;
-
-        // โหมดอื่นๆ อ่านค่าสีจากพิกัด 'เริ่มต้น' เพื่อให้ภาพไม่เละเวลาอนุภาคกระเด็น
-        sampleX = ((p.ox / aspect) * .5 + .5) * camCanvas.width | 0;
-        sampleY = (-p.oy * .5 + .5) * camCanvas.height | 0;
+      // ระเบิดออกจากเสียง (Directional Audio Burst)
+      if (localBass > 0.6) {
+        // ให้กระจายออกจากฝั่งที่เสียงดัง (ถ้าซ้ายดัง ผลักไปขวา)
+        let pushDirX = rightWeight - leftWeight; 
+        let blastForce = (localBass - 0.5) * 0.15;
+        // ใส่ seed เพื่อให้แต่ละเม็ดกระเด็นด้วยความแรงไม่เท่ากัน
+        p.vx += pushDirX * blastForce * (Math.sin(p.seed) + 1.2); 
+        p.vy += (Math.cos(p.seed) * blastForce * 0.5);
       }
 
-      // ดึงค่าสีจากวิดีโอ (RGB)
+      // 3. ฟิสิกส์ดึงกลับเข้าฟอร์ม (Shape Formation)
+      if (formation === 'matrix') {
+        // Matrix ล็อคแกน X ให้อ่านออก แต่ยอมให้สั่นตามลมเสียงนิดๆ ได้
+        p.x = p.ox + (windForceX * 0.5); 
+        p.y -= p.speed * (1.0 + localBass * 2.0); 
+        if(p.y < -1.2) p.y = 1.2; 
+        p.vx = 0; p.vy = 0;
+      } 
+      else {
+        // โหมดอื่นๆ ดึงกลับไปที่กริดภาพแบบอิสระ
+        p.vx += (p.ox - p.x) * 0.04;
+        p.vy += (p.oy - p.y) * 0.04;
+
+        if(formation === 'wave') { p.vx += Math.sin(t + p.seed*0.1 + p.y*10) * 0.01 * localMid; }
+        if(formation === 'spider') {
+           const ang = (p.seed) * Math.PI * 2 + t;
+           p.vx += Math.cos(ang*5) * 0.003; p.vy += Math.sin(ang*5) * 0.003;
+        }
+        
+        p.vx *= 0.88; p.vy *= 0.88;
+        p.x += p.vx; p.y += p.vy;
+      }
+
+      // 4. ดึงสีจากวิดีโอ (อิงจากตำแหน่งที่แท้จริง ox, oy เพื่อไม่ให้ภาพหน้าเละ)
+      let sampleX = ((p.ox / aspect) * .5 + .5) * camCanvas.width | 0;
+      let sampleY = (-p.oy * .5 + .5) * camCanvas.height | 0;
+      
       let r = 0, g = 0, b = 0, strength = 0;
       if(sampleX >= 0 && sampleY >= 0 && sampleX < camCanvas.width && sampleY < camCanvas.height) {
         const idx = (sampleY * camCanvas.width + sampleX) * 4;
@@ -444,14 +417,11 @@ function draw(now) {
         strength = Math.pow(luma, 1.4); 
       }
 
-      // สร้างเอฟเฟกต์กระพริบให้ Matrix (Twinkle)
-      let twinkle = 1.0;
-      if (formation === 'matrix') twinkle = Math.sin(t * 8.0 + p.seed * 50.0) * 0.5 + 0.5;
-
-      const col = getPalette(pColor, strength + bass*0.3, p.ox, p.oy, r, g, b);
+      // เรนเดอร์ลงจอ
+      const col = getPalette(pColor, strength + localBass*0.3, p.ox, p.oy, r, g, b);
       const sizeBase = pShape === 0 ? 9.0 : 6.0;
-      const size = (1.5 + strength * sizeBase + bass * 4.0) * DEVICE.dpr * twinkle;
-      const alpha = Math.min(1.0, (strength * 1.8 + bass*0.5 + 0.1) * twinkle);
+      const size = (1.5 + strength * sizeBase + localBass * 5.0) * DEVICE.dpr;
+      const alpha = Math.min(1.0, strength * 2.0 + localBass + 0.1);
 
       const o = i * stride;
       data[o]   = p.x / aspect;
@@ -466,18 +436,17 @@ function draw(now) {
 
   gl.clearColor(0, 0, 0, 1); 
   gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.uniform1i(loc.shape, parseInt(spriteSelect.value));
+  gl.uniform1i(loc.shape, pShape);
   
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
   gl.drawArrays(gl.POINTS, 0, renderCount);
 
+  let lBar = Math.round(audioStats.L.bass*100);
+  let rBar = Math.round(audioStats.R.bass*100);
   stats.innerHTML = 
-    `Camera: ${facingMode === 'user' ? 'Front' : 'Back'} | ` +
-    `Particles: ${renderCount.toLocaleString()} <br>` +
-    `Mic: ${analyser ? 'Active' : 'Muted'} ` +
-    `[Vol: ${Math.round(audioLevel*100)}%] ` +
-    (isBeat ? '🔥' : '');
+    `Camera: ${facingMode==='user'?'Front':'Back'} | Pt: ${renderCount.toLocaleString()}<br>` +
+    (analyserL ? `[Stereo] L: ${lBar}% | R: ${rBar}%` : `Mic Muted`);
 }
 
 requestAnimationFrame(draw);
