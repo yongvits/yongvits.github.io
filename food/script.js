@@ -1,14 +1,26 @@
-const imageInput = document.getElementById("imageInput");
-const preview = document.getElementById("preview");
-const analyzeBtn = document.getElementById("analyzeBtn");
-const result = document.getElementById("result");
-const loading = document.getElementById("loading");
+const cameraInput =
+  document.getElementById("cameraInput");
+
+const galleryInput =
+  document.getElementById("galleryInput");
+
+const preview =
+  document.getElementById("preview");
+
+const analyzeBtn =
+  document.getElementById("analyzeBtn");
+
+const result =
+  document.getElementById("result");
+
+const loading =
+  document.getElementById("loading");
 
 let base64Image = "";
 
-imageInput.addEventListener("change", () => {
+function loadImage(input){
 
-  const file = imageInput.files[0];
+  const file = input.files[0];
 
   if(!file) return;
 
@@ -21,15 +33,34 @@ imageInput.addEventListener("change", () => {
     preview.src = base64Image;
 
     preview.style.display = "block";
+
+    result.innerHTML = "";
   };
 
   reader.readAsDataURL(file);
-});
+}
 
-analyzeBtn.addEventListener("click", async () => {
+cameraInput.addEventListener(
+  "change",
+  () => loadImage(cameraInput)
+);
+
+galleryInput.addEventListener(
+  "change",
+  () => loadImage(galleryInput)
+);
+
+analyzeBtn.addEventListener(
+  "click",
+  analyzeFood
+);
+
+async function analyzeFood(){
 
   if(!base64Image){
-    alert("กรุณาถ่ายรูปก่อน");
+
+    alert("กรุณาเลือกรูปอาหาร");
+
     return;
   }
 
@@ -40,13 +71,16 @@ analyzeBtn.addEventListener("click", async () => {
   try{
 
     const response = await fetch(
+
       "https://api.openai.com/v1/chat/completions",
+
       {
         method:"POST",
 
         headers:{
           "Content-Type":"application/json",
-          "Authorization":`Bearer ${OPENAI_API_KEY}`
+          "Authorization":
+            `Bearer ${OPENAI_API_KEY}`
         },
 
         body:JSON.stringify({
@@ -54,12 +88,15 @@ analyzeBtn.addEventListener("click", async () => {
           model:"gpt-4.1-mini",
 
           messages:[
+
             {
               role:"system",
+
               content:`
+
 คุณคือ AI วิเคราะห์อาหาร
 
-ตอบ JSON เท่านั้น
+ให้ตอบ JSON เท่านั้น
 
 รูปแบบ:
 
@@ -75,43 +112,62 @@ analyzeBtn.addEventListener("click", async () => {
   ],
   "total_calories":500
 }
-              `
+
+ถ้าเป็นอาหารไทย
+ให้ตอบชื่อไทย
+
+ประมาณค่าตามภาพจริง
+
+`
             },
 
             {
               role:"user",
+
               content:[
+
                 {
                   type:"text",
                   text:"วิเคราะห์อาหารในภาพนี้"
                 },
+
                 {
                   type:"image_url",
+
                   image_url:{
                     url:base64Image
                   }
                 }
+
               ]
             }
+
           ],
 
-          max_tokens:500
+          max_tokens:700
+
         })
       }
     );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     console.log(data);
 
     const raw =
-      data.choices[0].message.content;
+      data.choices[0]
+      .message
+      .content;
 
     const clean =
-      raw.replace(/```json/g,"")
-         .replace(/```/g,"");
+      raw
+      .replace(/```json/g,"")
+      .replace(/```/g,"")
+      .trim();
 
-    const json = JSON.parse(clean);
+    const json =
+      JSON.parse(clean);
 
     renderFoods(json);
 
@@ -120,14 +176,14 @@ analyzeBtn.addEventListener("click", async () => {
     console.error(err);
 
     result.innerHTML = `
-      <div class="food-card">
-        ❌ Error วิเคราะห์อาหาร
+      <div class="error">
+        ❌ วิเคราะห์อาหารไม่สำเร็จ
       </div>
     `;
   }
 
   loading.classList.add("hidden");
-});
+}
 
 function renderFoods(data){
 
@@ -139,27 +195,52 @@ function renderFoods(data){
 
       <div class="food-card">
 
-        <h2>${food.name}</h2>
+        <h2>
+          ${food.name}
+        </h2>
 
         <div class="kcal">
+
           ${food.calories} kcal
+
         </div>
 
         <div class="macros">
 
-          <div>
-            🥩<br>
-            ${food.protein}g
+          <div class="macro-box">
+
+            <div>🥩</div>
+
+            <div>
+              ${food.protein}g
+            </div>
+
+            <small>Protein</small>
+
           </div>
 
-          <div>
-            🍚<br>
-            ${food.carbs}g
+          <div class="macro-box">
+
+            <div>🍚</div>
+
+            <div>
+              ${food.carbs}g
+            </div>
+
+            <small>Carbs</small>
+
           </div>
 
-          <div>
-            🧈<br>
-            ${food.fat}g
+          <div class="macro-box">
+
+            <div>🧈</div>
+
+            <div>
+              ${food.fat}g
+            </div>
+
+            <small>Fat</small>
+
           </div>
 
         </div>
@@ -171,12 +252,14 @@ function renderFoods(data){
 
   result.innerHTML += `
 
-    <div class="total">
+    <div class="total-card">
 
       <div>Total Calories</div>
 
       <h1>
+
         ${data.total_calories}
+
       </h1>
 
       <div>kcal</div>
