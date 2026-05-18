@@ -4,11 +4,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,user-scalable=no"/>
-<title>3D Audio Matrix Camera v8.0</title>
+<title>Audio VJ Matrix v9.0</title>
 
 <style>
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html,body{ margin:0; width:100%; height:100%; overflow:hidden; background:#020202; touch-action:none; font-family:system-ui, sans-serif; }
+html,body{ margin:0; width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; font-family:system-ui, sans-serif; }
 canvas{ position:fixed; inset:0; width:100%; height:100%; display:block; }
 video{ display:none; }
 
@@ -16,44 +16,45 @@ video{ display:none; }
   position:fixed; left:0; right:0; bottom:0;
   padding: 16px max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
   z-index:20; pointer-events:none;
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 .panel{
-  max-width:640px; margin:auto; padding:14px; border-radius:24px;
-  background:rgba(5,15,5,.85); border:1px solid rgba(0,255,100,.3);
+  max-width:640px; margin:auto; padding:16px; border-radius:24px;
+  background:rgba(5,10,15,.85); border:1px solid rgba(0,255,150,.3);
   backdrop-filter:blur(20px); color:#0f0; text-shadow: 0 0 5px rgba(0,255,0,0.5);
   pointer-events:auto; box-shadow: 0 10px 40px rgba(0,0,0,0.9);
 }
 .row{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
 button,select{
-  flex:1; min-width:30%; border:1px solid rgba(0,255,100,.3); border-radius:12px; padding:12px 8px;
+  flex:1; min-width:30%; border:1px solid rgba(0,255,150,.3); border-radius:12px; padding:12px 8px;
   font-weight:700; font-size:13px; cursor:pointer; text-align:center; transition:all 0.2s;
 }
 button{
-  background: linear-gradient(135deg, #00ff41, #008f11); color:black;
-  box-shadow: 0 0 10px rgba(0,255,65,0.2);
+  background: linear-gradient(135deg, #00ff66, #008f33); color:black;
+  box-shadow: 0 0 10px rgba(0,255,100,0.2);
 }
 button:active { transform:scale(0.95); }
-select{ background:rgba(0,20,0,.6); color:#00ff41; outline:none; appearance:none; }
+select{ background:rgba(0,20,10,.7); color:#00ff66; outline:none; appearance:none; }
 
-.btn-secondary { background:rgba(0,255,100,0.15); color:#00ff41; }
+.btn-secondary { background:rgba(0,255,150,0.15); color:#00ff66; }
 
 .hide{
   position:fixed; top:max(14px,env(safe-area-inset-top)); right:max(14px,env(safe-area-inset-right));
-  z-index:50; padding:10px 14px; border-radius:999px; background:rgba(0,20,0,0.7);
-  color:#00ff41; border:1px solid rgba(0,255,100,.3); text-shadow:none; cursor:pointer;
+  z-index:50; padding:10px 14px; border-radius:999px; background:rgba(0,20,10,0.7);
+  color:#00ff66; border:1px solid rgba(0,255,150,.3); text-shadow:none; cursor:pointer;
 }
-.stats{ margin-top:10px; font-size:11px; opacity:.9; line-height:1.4; color:#aaffaa; text-align:center;}
+.stats{ margin-top:12px; font-size:11px; opacity:.9; line-height:1.4; color:#aaffcc; text-align:center;}
 .version{
   position:fixed; left:12px; top:max(12px,env(safe-area-inset-top)); z-index:40;
-  color:rgba(0,255,65,.6); font-size:11px; letter-spacing:.12em; pointer-events:none;
+  color:rgba(0,255,100,.6); font-size:11px; letter-spacing:.12em; pointer-events:none;
 }
-.hidden{ display:none; }
+.ui.hidden { opacity: 0; transform: translateY(20px); pointer-events: none; }
 </style>
 </head>
 
 <body>
 
-<div class="version">3D AUDIO MATRIX v8.0<br>3D Analyzer / Matrix Interactive / Freeze on Silence</div>
+<div class="version">VJ PARTY MATRIX v9.0<br>แยกสีตามย่านความถี่ + Auto Rotate</div>
 
 <canvas id="gl"></canvas>
 <video id="cam" autoplay playsinline muted></video>
@@ -64,41 +65,39 @@ select{ background:rgba(0,20,0,.6); color:#00ff41; outline:none; appearance:none
   <div class="panel">
     
     <div class="row" style="margin-top:0;">
-      <button id="startBtn">1. เปิดกล้อง/ไมค์</button>
-      <button id="switchCamBtn" class="btn-secondary">สลับกล้อง</button>
+      <button id="startBtn">1. เปิดกล้องและไมค์ (Start VJ)</button>
+      <button id="switchCamBtn" class="btn-secondary">สลับหน้า/หลัง</button>
     </div>
 
     <div class="row">
       <select id="formation">
-        <option value="analyzer3d" selected>🚀 โหมด: 3D Music Analyzer (หมุนได้)</option>
-        <option value="matrix">โหมด: Matrix Rain (Interactive)</option>
-        <option value="polygon">โหมด: Spatial Polygon</option>
-        <option value="spider">โหมด: Spider Web</option>
-        <option value="wave">โหมด: Glitch Wave</option>
+        <option value="analyzer3d" selected>🚀 3D Waterfall Spectrum</option>
+        <option value="sphere3d">🌐 3D Audio Sphere (ใหม่)</option>
+        <option value="matrix">💻 Camera Matrix Rain</option>
+        <option value="polygon">🕸️ Spatial Polygon</option>
+        <option value="wave">🌊 Glitch Wave</option>
       </select>
       <select id="spriteShape">
-        <option value="1" selected>รูปทรง: Circle</option>
-        <option value="0">รูปทรง: Block</option>
-        <option value="2">รูปทรง: Ring</option>
-        <option value="3">รูปทรง: Diamond</option>
-        <option value="4">รูปทรง: Cross</option>
-        <option value="5">รูปทรง: Heart</option>
+        <option value="1" selected>Shape: Circle</option>
+        <option value="0">Shape: Block</option>
+        <option value="2">Shape: Ring</option>
+        <option value="4">Shape: Cross</option>
+        <option value="5">Shape: Heart</option>
       </select>
     </div>
 
     <div class="row">
       <select id="palette">
-        <option value="original" selected>สี: สีดั้งเดิมจากกล้อง</option>
+        <option value="frequency" selected>🎵 สี: แยกตามย่านเสียง (Spectrum) 🔥</option>
+        <option value="original">สี: สีดั้งเดิมจากกล้อง</option>
         <option value="matrix">สี: Matrix Green</option>
-        <option value="cyber">สี: Cyberpunk</option>
-        <option value="rainbow">สี: Hologram</option>
-        <option value="aurora">สี: Ghost White</option>
-        <option value="fire">สี: Inferno</option>
-        <option value="ocean">สี: Deep Ocean</option>
+        <option value="cyber">สี: Cyberpunk (ชมพู-ฟ้า)</option>
+        <option value="fire">สี: Inferno (ไฟ)</option>
+        <option value="ocean">สี: Deep Ocean (น้ำลึก)</option>
       </select>
     </div>
 
-    <div class="stats" id="stats">รอการเชื่อมต่อ... (โหมด 3D ลากนิ้วเพื่อหมุนกล้อง)</div>
+    <div class="stats" id="stats">พร้อมใช้งาน: กดปุ่ม Start VJ แล้วเปิดเพลงได้เลย!</div>
   </div>
 </div>
 
@@ -125,12 +124,24 @@ let currentActiveParticles = 6000;
 let width, height, aspect;
 let facingMode = 'user';
 
+// UI Auto Hide
+let uiTimer = null;
+function resetUiTimer() {
+  ui.classList.remove('hidden');
+  clearTimeout(uiTimer);
+  uiTimer = setTimeout(() => { ui.classList.add('hidden'); }, 6000); // ซ่อนอัตโนมัติถ้าไม่กด 6 วินาที
+}
+document.addEventListener('touchstart', resetUiTimer);
+document.addEventListener('mousemove', resetUiTimer);
+
 // Touch / 3D Rotation State
 let touch = { x: 0, y: 0, dx: 0, dy: 0, active: false };
 let lastTouch = { x: 0, y: 0 };
-let rotX = 1.0; // หมุนมุมมองลงมา 3D
-let rotY = 0.5; // หมุนรอบตัว 3D
-let timeFreezeMultiplier = 0; // ควบคุมให้หยุดตอนไม่มีเสียง
+let rotX = 1.0; 
+let rotY = 0.5; 
+let lastTouchTime = performance.now();
+let timeFreezeMultiplier = 0; 
+let beatPulse = 0;
 
 function resize() {
   width = innerWidth; height = innerHeight;
@@ -142,36 +153,37 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-document.getElementById('hideBtn').onclick = () => ui.classList.toggle('hidden');
+document.getElementById('hideBtn').onclick = () => {
+  ui.classList.toggle('hidden');
+  if(!ui.classList.contains('hidden')) resetUiTimer();
+};
 
-// --- Input Handling ---
 window.addEventListener('pointerdown', (e) => { 
-  touch.active = true; 
+  touch.active = true; lastTouchTime = performance.now();
   lastTouch.x = e.clientX; lastTouch.y = e.clientY;
   updateTouch(e); 
 });
 window.addEventListener('pointermove', (e) => { 
   if(!touch.active) return;
+  lastTouchTime = performance.now();
   touch.dx = e.clientX - lastTouch.x;
   touch.dy = e.clientY - lastTouch.y;
   lastTouch.x = e.clientX; lastTouch.y = e.clientY;
   
-  if(formationSelect.value === 'analyzer3d') {
-    // ลากนิ้วหมุนกล้อง 3D
+  if(formationSelect.value.includes('3d')) {
     rotY += touch.dx * 0.01;
     rotX += touch.dy * 0.01;
-    rotX = Math.max(0.1, Math.min(Math.PI/2, rotX)); // ล็อคมุมก้มเงย
+    rotX = Math.max(-0.5, Math.min(Math.PI/2, rotX)); 
   }
   updateTouch(e); 
 });
-window.addEventListener('pointerup', () => { touch.active = false; touch.dx = 0; touch.dy = 0; });
+window.addEventListener('pointerup', () => { touch.active = false; });
 
 function updateTouch(e) {
-  touch.x = (e.clientX / width) * 2 - 1;
-  touch.y = -(e.clientY / height) * 2 + 1;
+  touch.x = (e.clientX / width) * 2 - 1; touch.y = -(e.clientY / height) * 2 + 1;
 }
 
-// --- SHADERS (รองรับ 3D Perspective) ---
+// --- SHADERS ---
 const vert = `
   attribute vec3 pos;
   attribute vec3 color;
@@ -183,42 +195,37 @@ const vert = `
   
   uniform float u_aspect;
   uniform float u_is3D;
-  uniform vec2 u_rot; // rotX, rotY
+  uniform vec2 u_rot;
+  uniform float u_beat; // ส่งค่าความสั่น (Beat)
 
   void main() {
     vec3 p = pos;
     float finalSize = size;
     
+    // RGB Glitch / Shake Effect on Beat
+    if(u_beat > 0.0) {
+       p.x += sin(pos.y * 50.0) * u_beat * 0.02;
+    }
+    
     if (u_is3D > 0.5) {
-      // 3D Isometric / Perspective Math ใน WebGL
-      p *= 1.3; // scale up
-      p.y -= 0.3; // เลื่อนลงมากลางจอ
-      
-      // หมุนแกน X (Pitch)
+      p *= 1.3; 
+      p.y -= 0.3; 
       float cx = cos(u_rot.x); float sx = sin(u_rot.x);
-      float y1 = p.y * cx - p.z * sx;
-      float z1 = p.y * sx + p.z * cx;
+      float y1 = p.y * cx - p.z * sx; float z1 = p.y * sx + p.z * cx;
       p.y = y1; p.z = z1;
       
-      // หมุนแกน Y (Yaw)
       float cy = cos(u_rot.y); float sy = sin(u_rot.y);
-      float x2 = p.x * cy + p.z * sy;
-      float z2 = -p.x * sy + p.z * cy;
+      float x2 = p.x * cy + p.z * sy; float z2 = -p.x * sy + p.z * cy;
       p.x = x2; p.z = z2;
       
-      // การยืดหด Perspective
       float zDepth = p.z + 2.5; 
-      p.x /= zDepth * 0.6;
-      p.y /= zDepth * 0.6;
-      
+      p.x /= zDepth * 0.6; p.y /= zDepth * 0.6;
       finalSize = size * (2.0 / zDepth);
     } 
     
-    // จัดการ Aspect Ratio ใน Shader เลย (แก้ปัญหาภาพยืด)
     p.x /= u_aspect;
-    
     gl_Position = vec4(p.x, p.y, 0.0, 1.0);
-    gl_PointSize = finalSize;
+    gl_PointSize = finalSize + (u_beat * 5.0);
     vColor = color;
     vAlpha = alpha;
   }
@@ -232,40 +239,20 @@ const frag = `
   
   void main() {
     vec2 uv = gl_PointCoord.xy - 0.5;
-    float d = 0.0;
-    float core = 0.0;
+    float d = 0.0; float core = 0.0;
     
-    if(u_shape == 0) { // Block
-      d = max(abs(uv.x), abs(uv.y * 1.2));
-      if (d > 0.5) discard;
-      float detail = sin(uv.y * 15.0) * 0.5 + 0.5;
-      core = smoothstep(0.4, 0.1, d);
-      gl_FragColor = vec4(vColor * (1.0 + core) * (0.6 + detail*0.6), core * vAlpha);
-      return;
-    } 
-    else {
-      if(u_shape == 1) { // Circle
-        d = length(uv); core = smoothstep(0.5, 0.1, d);
-      } else if(u_shape == 2) { // Ring
-        d = length(uv); core = smoothstep(0.5, 0.3, d) - smoothstep(0.3, 0.1, d);
-      } else if(u_shape == 3) { // Diamond
-        d = abs(uv.x) + abs(uv.y); core = smoothstep(0.5, 0.1, d);
-      } else if(u_shape == 4) { // Cross
-        d = min(abs(uv.x), abs(uv.y)) + max(abs(uv.x), abs(uv.y))*0.2;
-        core = smoothstep(0.2, 0.05, d) * smoothstep(0.5, 0.4, max(abs(uv.x), abs(uv.y)));
-      } else if(u_shape == 5) { // Heart
-        uv.y += 0.1; float a = atan(uv.x, uv.y) / 3.14159; float r = length(uv); float h = abs(a);
-        float d2 = (13.0*h - 22.0*h*h + 10.0*h*h*h)/(6.0-5.0*h);
-        core = smoothstep(0.5, 0.4, r/d2);
-      }
-      gl_FragColor = vec4(vColor * (1.0 + core), core * vAlpha);
-    }
+    if(u_shape == 0) { d = max(abs(uv.x), abs(uv.y * 1.2)); if(d>0.5) discard; core = smoothstep(0.4, 0.1, d); } 
+    else if(u_shape == 1) { d = length(uv); core = smoothstep(0.5, 0.1, d); }
+    else if(u_shape == 2) { d = length(uv); core = smoothstep(0.5, 0.3, d) - smoothstep(0.3, 0.1, d); }
+    else if(u_shape == 4) { d = min(abs(uv.x), abs(uv.y)) + max(abs(uv.x), abs(uv.y))*0.2; core = smoothstep(0.2, 0.05, d) * smoothstep(0.5, 0.4, max(abs(uv.x), abs(uv.y))); }
+    else if(u_shape == 5) { uv.y+=0.1; float a=atan(uv.x,uv.y)/3.14159; float r=length(uv); float h=abs(a); core=smoothstep(0.5,0.4,r/((13.0*h-22.0*h*h+10.0*h*h*h)/(6.0-5.0*h))); }
+    
+    gl_FragColor = vec4(vColor * (1.0 + core), core * vAlpha);
   }
 `;
 
 function shader(type, src) {
-  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); 
-  return s;
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s;
 }
 
 const program = gl.createProgram();
@@ -276,13 +263,11 @@ gl.linkProgram(program); gl.useProgram(program);
 const loc = {
   pos: gl.getAttribLocation(program, 'pos'), color: gl.getAttribLocation(program, 'color'),
   size: gl.getAttribLocation(program, 'size'), alpha: gl.getAttribLocation(program, 'alpha'),
-  shape: gl.getUniformLocation(program, 'u_shape'),
-  aspect: gl.getUniformLocation(program, 'u_aspect'),
-  is3D: gl.getUniformLocation(program, 'u_is3D'),
-  rot: gl.getUniformLocation(program, 'u_rot')
+  shape: gl.getUniformLocation(program, 'u_shape'), aspect: gl.getUniformLocation(program, 'u_aspect'),
+  is3D: gl.getUniformLocation(program, 'u_is3D'), rot: gl.getUniformLocation(program, 'u_rot'),
+  beat: gl.getUniformLocation(program, 'u_beat')
 };
 
-// เปลี่ยน stride เป็น 8 รองรับแกน Z (x, y, z, r, g, b, size, alpha)
 const stride = 8;
 let data, buffer;
 const particles = [];
@@ -300,20 +285,21 @@ function initParticles() {
     let cx = i % cols; let cy = Math.floor(i / cols);
     let nx = (cx / cols) * 2 - 1; let ny = (cy / rows) * 2 - 1;
     particles.push({
-      ox: nx * aspect, oy: -ny, oz: 0, // ตำแหน่งอ้างอิงบนรูป
-      x: nx * aspect, y: -ny, z: 0,    // ตำแหน่งปัจจุบัน
+      ox: nx * aspect, oy: -ny, oz: 0, 
+      x: nx * aspect, y: -ny, z: 0,    
       vx: 0, vy: 0, vz: 0,
       speed: Math.random() * 0.015 + 0.005,
       seed: Math.random() * 1000,   
-      pan: cx / cols
+      pan: cx / cols,
+      freqBand: i % 3 // 0=Bass, 1=Mid, 2=Treble (สำหรับโหมดสี Spectrum 2D)
     });
   }
 
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-  gl.enableVertexAttribArray(loc.pos); gl.vertexAttribPointer(loc.pos, 3, gl.FLOAT, false, stride*4, 0); // 3 floats for pos
-  gl.enableVertexAttribArray(loc.color); gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, stride*4, 12); // offset 12
-  gl.enableVertexAttribArray(loc.size); gl.vertexAttribPointer(loc.size, 1, gl.FLOAT, false, stride*4, 24); // offset 24
-  gl.enableVertexAttribArray(loc.alpha); gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, stride*4, 28); // offset 28
+  gl.enableVertexAttribArray(loc.pos); gl.vertexAttribPointer(loc.pos, 3, gl.FLOAT, false, stride*4, 0); 
+  gl.enableVertexAttribArray(loc.color); gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, stride*4, 12);
+  gl.enableVertexAttribArray(loc.size); gl.vertexAttribPointer(loc.size, 1, gl.FLOAT, false, stride*4, 24); 
+  gl.enableVertexAttribArray(loc.alpha); gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, stride*4, 28); 
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 }
 initParticles();
@@ -321,9 +307,7 @@ initParticles();
 // --- AUDIO ENGINE ---
 let audioCtx, analyser;
 let freqData;
-let audioStats = { bass:0, mid:0, treb:0, global: 0 };
-
-// ประวัติคลื่นเสียงสำหรับ 3D Analyzer
+let audioStats = { bass:0, mid:0, treb:0, global: 0, lastGlobal: 0 };
 const NUM_BINS = 128;
 const HISTORY_ROWS = 100;
 const audioHistory = Array.from({length: HISTORY_ROWS}, () => new Uint8Array(NUM_BINS));
@@ -333,13 +317,9 @@ async function startAudio() {
   try {
     if(!audioCtx) audioCtx = new(window.AudioContext || window.webkitAudioContext)();
     if(audioCtx.state === 'suspended') await audioCtx.resume();
-    
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
     const src = audioCtx.createMediaStreamSource(stream);
-    
-    analyser = audioCtx.createAnalyser(); 
-    analyser.fftSize = 256; // ได้ 128 bins พอดีกับ 3D Grid
-    
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 256; 
     src.connect(analyser);
     freqData = new Uint8Array(analyser.frequencyBinCount);
   } catch(err) { console.log("Audio Error:", err); }
@@ -353,7 +333,8 @@ async function startCameraView() {
     video.srcObject = stream;
     video.onloadedmetadata = () => { video.play().catch(e => console.error(e)); };
     if(!analyser) startAudio(); 
-    statsEl.innerHTML = "ระบบกล้องทำงานปกติ";
+    statsEl.innerHTML = "VJ Mode Active: เปิดเพลงได้เลย!";
+    resetUiTimer();
   } catch(err) { alert('กรุณาอนุญาตกล้องและไมค์'); }
 }
 
@@ -375,18 +356,64 @@ function updateAudio() {
   audioStats.bass = (b/7)/255; 
   audioStats.mid = (m/22)/255;
   audioStats.treb = (t/50)/255;
+  
+  audioStats.lastGlobal = audioStats.global;
   audioStats.global = (audioStats.bass*1.5 + audioStats.mid + audioStats.treb*0.5) / 3.0;
 
-  // อัปเดตประวัติ 3D Waterfall
+  // ตรวจจับ Beat (กระแทก)
+  if(audioStats.global - audioStats.lastGlobal > 0.12 && audioStats.global > 0.4) {
+    beatPulse = 1.0;
+  }
+  beatPulse *= 0.9; // ค่อยๆ ลดลง
+
   historyHead = (historyHead - 1 + HISTORY_ROWS) % HISTORY_ROWS;
   audioHistory[historyHead].set(freqData);
 }
 
-function getPalette(mode, v, x, y, r, g, b) {
+// ฟังก์ชันแปลง HSL เป็น RGB 
+function hslToRgb(h, s, l) {
+  let r, g, b;
+  if(s === 0) { r = g = b = l; } 
+  else {
+    const hue2rgb = (p, q, t) => {
+      if(t < 0) t += 1; if(t > 1) t -= 1;
+      if(t < 1/6) return p + (q - p) * 6 * t;
+      if(t < 1/2) return q;
+      if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+  }
+  return [r, g, b];
+}
+
+// Palette อัปเกรดแยกตามย่านเสียง
+function getPalette(mode, v, x, y, r, g, b, particle) {
+  if(mode === 'frequency') {
+    // แยกสีตามความถี่ (Spectrum Map)
+    let hue = 0;
+    let power = 0;
+    
+    if(formationSelect.value.includes('3d')) {
+      // โหมด 3D Waterfall: อิงจากแกน X (ซ้าย=เบส=แดง, กลาง=กลาง=เขียว, ขวา=แหลม=น้ำเงิน)
+      hue = ((particle.ox + 1.0) / 2.0) * 0.8; // 0.0(Red) -> 0.8(Violet)
+      power = v; 
+    } else {
+      // โหมด 2D: อิงจากวงหน้าที่ (freqBand) ของอนุภาคนั้นๆ
+      if(particle.freqBand === 0) { hue = 0.0; power = audioStats.bass; } // Bass -> Red
+      else if(particle.freqBand === 1) { hue = 0.3; power = audioStats.mid; } // Mid -> Green
+      else { hue = 0.6; power = audioStats.treb; } // Treb -> Blue
+      power = power + v * 0.5; // ผสมความสว่างจากกล้องนิดหน่อย
+    }
+    return hslToRgb(hue, 1.0, Math.min(1.0, power * 1.2 + 0.1));
+  }
+
+  // โหมดสีอื่นๆ
   if(mode==='original') return [r/255, g/255, b/255];
   if(mode==='matrix') return [v*0.1, v*1.2 + 0.1, v*0.2];
   if(mode==='cyber') return x<0 ? [0, v*1.2, v*1.5] : [v*1.5, 0, v*1.2];
-  if(mode==='aurora') return [v*1.2, v*1.2, v*1.5];
   if(mode==='fire') return [v*1.5, v*0.5, v*0.0];
   if(mode==='ocean') return [v*0.1, v*0.8, v*1.5];
   return [Math.sin(x*2.0)*v + v, Math.cos(y*2.0)*v + v, Math.sin((x+y)*2.0)*v + v]; 
@@ -397,9 +424,13 @@ function draw(now) {
   const t = now * .001;
   updateAudio();
 
-  // เงียบ = หยุดนิ่ง (Freeze on Silence)
+  // Auto-Rotate 3D (ถ้าปล่อยทิ้งไว้ 3 วิ)
+  if (performance.now() - lastTouchTime > 3000 && formationSelect.value.includes('3d')) {
+    rotY += 0.003; // หมุนอัตโนมัติช้าๆ
+  }
+
   let isSilent = audioStats.global < 0.02;
-  timeFreezeMultiplier += ((isSilent ? 0.02 : 1.0) - timeFreezeMultiplier) * 0.1;
+  timeFreezeMultiplier += ((isSilent ? 0.05 : 1.0) - timeFreezeMultiplier) * 0.1;
 
   let targetCount = MAX_PARTICLES * (0.3 + audioStats.global * 0.7);
   currentActiveParticles += (targetCount - currentActiveParticles) * 0.1;
@@ -421,84 +452,88 @@ function draw(now) {
   const formation = formationSelect.value;
   const pShape = parseInt(spriteSelect.value);
   const pColor = paletteSelect.value;
-  const is3D = formation === 'analyzer3d';
-
-  // ลมและระเบิด
-  let windForceX = Math.sin(t * 3.0) * audioStats.mid * 0.05 * timeFreezeMultiplier;
-  let windForceY = Math.cos(t * 2.5) * audioStats.mid * 0.05 * timeFreezeMultiplier;
+  const is3D = formation.includes('3d');
 
   for(let i=0; i<renderCount; i++) {
     const p = particles[i];
     
-    // --- 1. การคำนวณตำแหน่งเป้าหมาย 3D / 2D ---
-    if (is3D) {
-      // 3D SPECTRUM WATERFALL
+    // --- 1. การเคลื่อนที่ (Movement) ---
+    if (formation === 'analyzer3d') {
       let colIdx = i % NUM_BINS;
       let rowIdx = Math.floor(i / NUM_BINS) % HISTORY_ROWS;
-      
       let histIndex = (historyHead + rowIdx) % HISTORY_ROWS;
       let power = audioHistory[histIndex][colIdx] / 255.0;
       
       p.ox = (colIdx / NUM_BINS) * 2.0 - 1.0; 
       p.oz = (rowIdx / HISTORY_ROWS) * 2.0 - 1.0; 
-      p.oy = power * 1.5; // ความสูง = พลังงานเสียง
+      p.oy = power * 1.5; 
       
       p.x += (p.ox - p.x) * 0.2;
       p.y += (p.oy - p.y) * 0.2;
       p.z += (p.oz - p.z) * 0.2;
     } 
+    else if (formation === 'sphere3d') {
+      // ใหม่: ลูกโลก Audio Sphere
+      let colIdx = i % NUM_BINS;
+      let rowIdx = Math.floor(i / NUM_BINS);
+      let power = freqData[colIdx] / 255.0;
+      
+      let lat = (rowIdx / (MAX_PARTICLES/NUM_BINS)) * Math.PI; // 0 to PI
+      let lon = (colIdx / NUM_BINS) * Math.PI * 2; // 0 to 2PI
+      
+      let radius = 1.0 + (power * 0.5) + (beatPulse * 0.2); // ขยายตามเสียง
+      p.ox = Math.sin(lat) * Math.cos(lon) * radius;
+      p.oy = Math.sin(lat) * Math.sin(lon) * radius;
+      p.oz = Math.cos(lat) * radius;
+      
+      p.x += (p.ox - p.x) * 0.2;
+      p.y += (p.oy - p.y) * 0.2;
+      p.z += (p.oz - p.z) * 0.2;
+    }
     else {
-      // โหมด 2D จัดการแกน z ให้แบน
       p.z += (0.0 - p.z) * 0.2; 
       
-      // Touch Repel (แยกย้ายกันอย่างอิสระ)
       if (touch.active) {
         let dx = p.x - touch.x * aspect; let dy = p.y - touch.y;
         let dist = Math.sqrt(dx*dx + dy*dy);
         if (dist < 0.3) {
-          let repel = (0.3 - dist) * 0.3;
+          let repel = (0.3 - dist) * 0.4;
           p.vx += (dx/dist) * repel; p.vy += (dy/dist) * repel;
         }
       }
 
-      // Audio Blast ระดับพิกเซล (ทิศทางอิสระ)
-      if (audioStats.bass > 0.5) {
-        let blastForce = (audioStats.bass - 0.4) * 0.15 * (Math.sin(p.seed) + 1.2);
-        p.vx += Math.cos(p.seed*10.0) * blastForce; 
-        p.vy += Math.sin(p.seed*10.0) * blastForce;
-      }
-
-      if (formation === 'matrix') {
-        p.vx += (p.ox - p.x) * 0.1; // ดึงกลับเข้าแกน X
-        // ร่วงลงมา (หยุดร่วงเมื่อไม่มีเสียง timeFreezeMultiplier)
-        p.y -= p.speed * (1.0 + audioStats.bass * 2.0) * timeFreezeMultiplier; 
-        if(p.y < -1.2) p.y = 1.2; 
-      } 
-      else {
-        p.vx += (p.ox - p.x) * 0.04;
-        p.vy += (p.oy - p.y) * 0.04;
-        p.vx += windForceX * (Math.sin(p.seed)+1.0);
-        p.vy += windForceY * (Math.cos(p.seed)+1.0);
-        
-        if(formation === 'wave') { p.vx += Math.sin(t + p.seed*0.1 + p.y*10) * 0.02 * audioStats.mid * timeFreezeMultiplier; }
-        if(formation === 'spider') {
-           const ang = (p.seed) * Math.PI * 2 + t * timeFreezeMultiplier;
-           p.vx += Math.cos(ang*5) * 0.005; p.vy += Math.sin(ang*5) * 0.005;
+      // Beat Shockwave Effect 
+      if (beatPulse > 0.5) {
+        let angle = Math.atan2(p.y, p.x);
+        let dist = Math.sqrt(p.x*p.x + p.y*p.y);
+        // คลื่นวงแหวนวิ่งออก
+        if(Math.abs(dist - (1.0 - beatPulse)*2.0) < 0.2) {
+          p.vx += Math.cos(angle) * 0.05; p.vy += Math.sin(angle) * 0.05;
         }
       }
 
-      p.vx *= 0.88; p.vy *= 0.88;
+      if (formation === 'matrix') {
+        p.vx += (p.ox - p.x) * 0.1; 
+        p.y -= p.speed * (1.0 + audioStats.bass * 2.0) * timeFreezeMultiplier; 
+        if(p.y < -1.2) { p.y = 1.2; p.x = p.ox; }
+      } 
+      else {
+        p.vx += (p.ox - p.x) * 0.04; p.vy += (p.oy - p.y) * 0.04;
+        let windForceX = Math.sin(t * 3.0 + p.seed) * audioStats.mid * 0.05 * timeFreezeMultiplier;
+        p.vx += windForceX;
+        
+        if(formation === 'wave') { p.vx += Math.sin(t + p.seed*0.1 + p.y*10) * 0.03 * audioStats.mid * timeFreezeMultiplier; }
+      }
+      p.vx *= 0.85; p.vy *= 0.85;
       p.x += p.vx; p.y += p.vy;
     }
 
-    // --- 2. การดึงสีจากกล้องมาแปะใส่ ---
+    // --- 2. การลงสี (Coloring) ---
     let sampleX = 0, sampleY = 0;
     if (is3D) {
-      // 3D Mode Map กล้องลงบนระนาบตาราง X-Z
       sampleX = ( (p.ox * 0.5 + 0.5) * camCanvas.width ) | 0;
       sampleY = ( (p.oz * 0.5 + 0.5) * camCanvas.height ) | 0;
     } else {
-      // 2D Mode Map อิงจาก Original X-Y
       sampleX = ( (p.ox / aspect * 0.5 + 0.5) * camCanvas.width ) | 0;
       sampleY = ( (-p.oy * 0.5 + 0.5) * camCanvas.height ) | 0;
     }
@@ -511,46 +546,37 @@ function draw(now) {
       strength = Math.pow(luma, 1.3); 
     }
 
-    // ใน 3D Mode ถ้าสีเป็น Rainbow ให้มันไล่สีตามความสูง (เหมือนในรูปภาพอ้างอิง)
-    let finalCol;
-    if(is3D && pColor === 'rainbow') {
-      finalCol = getPalette('fire', p.oy, p.ox, p.oz, r, g, b); // ใช้สีไฟตามความสูง
-    } else {
-      finalCol = getPalette(pColor, strength + audioStats.bass*0.2, p.ox, is3D ? p.oz : p.oy, r, g, b);
-    }
+    // เรียกใช้ฟังก์ชันสีใหม่ (ดึงค่า Frequency มาใช้)
+    const finalCol = getPalette(pColor, strength, p.ox, is3D ? p.oz : p.oy, r, g, b, p);
 
     const sizeBase = pShape === 0 ? 10.0 : 7.0;
-    let size = (1.5 + strength * sizeBase + audioStats.bass * 6.0) * DEVICE.dpr;
-    if(is3D) size *= 1.2; // 3D ขยายจุดให้ดูเต็มๆ
+    let size = (1.0 + strength * sizeBase + (pColor === 'frequency' ? audioStats.global * 8.0 : audioStats.bass * 6.0)) * DEVICE.dpr;
+    if(is3D) size *= (formation === 'sphere3d' ? 1.5 : 1.2); 
 
-    const alpha = Math.min(1.0, strength * 1.5 + audioStats.bass*1.2 + (is3D ? p.oy*2.0 : 0.15));
+    const alpha = Math.min(1.0, strength * 1.5 + audioStats.bass + (is3D ? p.oy*2.0 : 0.15) + (beatPulse*0.5));
 
     const o = i * stride;
-    data[o]   = p.x;
-    data[o+1] = p.y;
-    data[o+2] = p.z;
-    data[o+3] = finalCol[0];
-    data[o+4] = finalCol[1];
-    data[o+5] = finalCol[2];
-    data[o+6] = size;
-    data[o+7] = alpha;
+    data[o]   = p.x; data[o+1] = p.y; data[o+2] = p.z;
+    data[o+3] = finalCol[0]; data[o+4] = finalCol[1]; data[o+5] = finalCol[2];
+    data[o+6] = size; data[o+7] = alpha;
   }
 
   gl.clearColor(0, 0, 0, 1); 
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // เปิดใช้ Depth เพื่อ 3D
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); 
   
   gl.uniform1i(loc.shape, pShape);
   gl.uniform1f(loc.aspect, aspect);
   gl.uniform1f(loc.is3D, is3D ? 1.0 : 0.0);
   gl.uniform2f(loc.rot, rotX, rotY);
+  gl.uniform1f(loc.beat, beatPulse); // ส่งคลื่นบีทไปทำให้จอ Glitch
   
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
   gl.drawArrays(gl.POINTS, 0, renderCount);
 
-  if(analyser) {
-    let bBar = Math.round(audioStats.bass*100);
-    statsEl.innerHTML = `Pt: ${renderCount.toLocaleString()} | Vol: ${bBar}% | ${isSilent ? '🧊 หยุดนิ่ง' : '🎵 ทำงาน'}`;
+  if(analyser && !ui.classList.contains('hidden')) {
+    let volBar = Math.round(audioStats.global*100);
+    statsEl.innerHTML = `Pt: ${renderCount.toLocaleString()} | 🎵 Vol: ${volBar}% | Auto-hide UI in 6s`;
   }
 }
 
