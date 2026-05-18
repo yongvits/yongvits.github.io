@@ -1,84 +1,48 @@
 <!DOCTYPE html>
 <html lang="th">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Food Scanner</title>
-
   <link rel="stylesheet" href="style.css">
-
 </head>
-
 <body>
-
   <div class="app">
-
     <h1>🍱 AI Food Scanner</h1>
-
     <p class="subtitle">
       ถ่ายรูปหรือเลือกรูปอาหาร
       เพื่อวิเคราะห์แคลอรี่ด้วย AI
     </p>
 
     <button id="setKeyBtn">
-      🔑 Set OpenAI API Key
+      🔑 Set Gemini API Key
     </button>
 
     <div class="buttons">
-
       <label class="upload-btn camera">
-
         📸 Camera
-
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          id="cameraInput"
-        >
-
+        <input type="file" accept="image/*" capture="environment" id="cameraInput">
       </label>
 
       <label class="upload-btn album">
-
         🖼 Album
-
-        <input
-          type="file"
-          accept="image/*"
-          id="galleryInput"
-        >
-
+        <input type="file" accept="image/*" id="galleryInput">
       </label>
-
     </div>
 
     <img id="preview">
 
     <button id="analyzeBtn">
-
       🔍 Analyze Calories
-
     </button>
 
     <div id="loading" class="hidden">
-
       🤖 AI กำลังวิเคราะห์อาหาร...
-
     </div>
 
     <div id="result"></div>
-
   </div>
 
   <script src="script.js"></script>
-
 </body>
 </html>
