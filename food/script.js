@@ -1,6 +1,3 @@
-const OPENAI_API_KEY =
-prompt("Enter OpenAI API Key");
-
 const cameraInput =
   document.getElementById("cameraInput");
 
@@ -19,7 +16,61 @@ const result =
 const loading =
   document.getElementById("loading");
 
+const setKeyBtn =
+  document.getElementById("setKeyBtn");
+
 let base64Image = "";
+
+/* -------------------- */
+/* API KEY */
+/* -------------------- */
+
+function getApiKey(){
+
+  let key =
+    localStorage.getItem("OPENAI_API_KEY");
+
+  if(!key){
+
+    key = prompt(
+      "Enter OpenAI API Key"
+    );
+
+    if(key){
+
+      localStorage.setItem(
+        "OPENAI_API_KEY",
+        key
+      );
+    }
+  }
+
+  return key;
+}
+
+setKeyBtn.addEventListener(
+  "click",
+  () => {
+
+    const key = prompt(
+      "Enter OpenAI API Key"
+    );
+
+    if(key){
+
+      localStorage.setItem(
+        "OPENAI_API_KEY",
+        key
+      );
+
+      alert("API Key Saved");
+    }
+  }
+);
+
+/* -------------------- */
+/* IMAGE */
+/* -------------------- */
 
 function loadImage(input){
 
@@ -53,12 +104,26 @@ galleryInput.addEventListener(
   () => loadImage(galleryInput)
 );
 
+/* -------------------- */
+/* ANALYZE */
+/* -------------------- */
+
 analyzeBtn.addEventListener(
   "click",
   analyzeFood
 );
 
 async function analyzeFood(){
+
+  const OPENAI_API_KEY =
+    getApiKey();
+
+  if(!OPENAI_API_KEY){
+
+    alert("No API Key");
+
+    return;
+  }
 
   if(!base64Image){
 
@@ -88,7 +153,7 @@ async function analyzeFood(){
 
         body:JSON.stringify({
 
-          model:"gpt-4.1-mini",
+          model:"gpt-4o-mini",
 
           messages:[
 
@@ -99,7 +164,7 @@ async function analyzeFood(){
 
 คุณคือ AI วิเคราะห์อาหาร
 
-ให้ตอบ JSON เท่านั้น
+ตอบ JSON เท่านั้น
 
 รูปแบบ:
 
@@ -158,6 +223,13 @@ async function analyzeFood(){
 
     console.log(data);
 
+    if(data.error){
+
+      throw new Error(
+        data.error.message
+      );
+    }
+
     const raw =
       data.choices[0]
       .message
@@ -179,14 +251,22 @@ async function analyzeFood(){
     console.error(err);
 
     result.innerHTML = `
+
       <div class="error">
-        ❌ วิเคราะห์อาหารไม่สำเร็จ
+
+❌ ${err.message}
+
       </div>
+
     `;
   }
 
   loading.classList.add("hidden");
 }
+
+/* -------------------- */
+/* RENDER */
+/* -------------------- */
 
 function renderFoods(data){
 
@@ -210,39 +290,24 @@ function renderFoods(data){
 
         <div class="macros">
 
-          <div class="macro-box">
+          <div class="macro">
 
-            <div>🥩</div>
-
-            <div>
-              ${food.protein}g
-            </div>
-
-            <small>Protein</small>
+            🥩<br>
+            ${food.protein}g
 
           </div>
 
-          <div class="macro-box">
+          <div class="macro">
 
-            <div>🍚</div>
-
-            <div>
-              ${food.carbs}g
-            </div>
-
-            <small>Carbs</small>
+            🍚<br>
+            ${food.carbs}g
 
           </div>
 
-          <div class="macro-box">
+          <div class="macro">
 
-            <div>🧈</div>
-
-            <div>
-              ${food.fat}g
-            </div>
-
-            <small>Fat</small>
+            🧈<br>
+            ${food.fat}g
 
           </div>
 
@@ -255,7 +320,7 @@ function renderFoods(data){
 
   result.innerHTML += `
 
-    <div class="total-card">
+    <div class="total">
 
       <div>Total Calories</div>
 
