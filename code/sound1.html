@@ -2,10 +2,17 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,user-scalable=no" />
-<title>Matrix Camera Particle System</title>
+<meta name="viewport"
+content="width=device-width,initial-scale=1.0,viewport-fit=cover,user-scalable=no"/>
+
+<title>Matrix Camera Particles v2.7</title>
 
 <style>
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+
 html,body{
   margin:0;
   width:100%;
@@ -21,6 +28,7 @@ canvas{
   inset:0;
   width:100%;
   height:100%;
+  display:block;
 }
 
 video{
@@ -32,18 +40,22 @@ video{
   left:0;
   right:0;
   bottom:0;
-  padding:16px;
-  z-index:10;
+  padding:
+  16px
+  max(16px,env(safe-area-inset-right))
+  max(24px,env(safe-area-inset-bottom))
+  max(16px,env(safe-area-inset-left));
+  z-index:20;
 }
 
 .panel{
-  max-width:520px;
+  max-width:560px;
   margin:auto;
-  background:rgba(0,0,0,.5);
-  backdrop-filter:blur(12px);
-  border:1px solid rgba(255,255,255,.15);
-  border-radius:24px;
   padding:14px;
+  border-radius:24px;
+  background:rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(14px);
   color:white;
 }
 
@@ -58,69 +70,140 @@ button,select{
   border:0;
   border-radius:14px;
   padding:14px;
-  color:white;
-  background:#111827;
   font-weight:700;
+  font-size:14px;
 }
 
 button{
-  background:linear-gradient(135deg,#00ff99,#00ccff);
+  background:
+  linear-gradient(
+  135deg,
+  #00ff88,
+  #00ccff);
   color:black;
 }
 
-.stats{
-  font-size:12px;
-  opacity:.8;
-  margin-top:8px;
+select{
+  background:rgba(255,255,255,.08);
+  color:white;
 }
 
 .hide{
   position:fixed;
-  top:14px;
-  right:14px;
-  z-index:20;
+  top:max(14px,env(safe-area-inset-top));
+  right:max(14px,env(safe-area-inset-right));
+  z-index:50;
   width:auto;
   padding:10px 14px;
   border-radius:999px;
+}
+
+.stats{
+  margin-top:10px;
+  font-size:12px;
+  opacity:.8;
+  line-height:1.5;
+}
+
+.version{
+  position:fixed;
+  left:12px;
+  top:12px;
+  z-index:40;
+  color:rgba(255,255,255,.35);
+  font-size:11px;
+  letter-spacing:.12em;
+}
+
+.hidden{
+  display:none;
 }
 </style>
 </head>
 
 <body>
 
-<canvas id="c"></canvas>
-<video id="cam" autoplay playsinline muted></video>
+<div class="version">
+v2.7 MATRIX CAMERA
+</div>
 
-<button class="hide" id="hideBtn">Hide UI</button>
+<canvas id="gl"></canvas>
+
+<video
+id="cam"
+autoplay
+playsinline
+muted>
+</video>
+
+<button
+class="hide"
+id="hideBtn">
+Hide UI
+</button>
 
 <div class="ui" id="ui">
 <div class="panel">
 
-<div><b>Matrix Particle Camera</b></div>
-
-<div class="row">
-<button id="startBtn">START CAMERA</button>
-<button id="demoBtn">DEMO</button>
+<div>
+<b>Matrix Camera Particle System</b>
 </div>
 
 <div class="row">
+<button id="startBtn">
+START
+</button>
+
+<button id="demoBtn">
+DEMO
+</button>
+</div>
+
+<div class="row">
+
 <select id="shape">
-<option value="matrix">Matrix</option>
-<option value="polygon">Polygon</option>
-<option value="spider">Spider</option>
-<option value="wave">Wave</option>
+<option value="matrix">
+Matrix
+</option>
+
+<option value="polygon">
+Polygon
+</option>
+
+<option value="spider">
+Spider
+</option>
+
+<option value="wave">
+Wave
+</option>
+
 </select>
 
 <select id="palette">
-<option value="matrix">Matrix Green</option>
-<option value="cyber">Cyberpunk</option>
-<option value="rainbow">Rainbow</option>
-<option value="aurora">Aurora</option>
+
+<option value="matrix">
+Matrix Green
+</option>
+
+<option value="cyber">
+Cyberpunk
+</option>
+
+<option value="rainbow">
+Rainbow
+</option>
+
+<option value="aurora">
+Aurora
+</option>
+
 </select>
+
 </div>
 
 <div class="stats" id="stats">
-FPS: 0
+Waiting...
 </div>
 
 </div>
@@ -129,61 +212,100 @@ FPS: 0
 <script>
 'use strict';
 
-const canvas = document.getElementById('c');
-const gl = canvas.getContext('webgl',{
+const canvas =
+document.getElementById('gl');
+
+const gl =
+canvas.getContext('webgl',{
   antialias:false,
-  alpha:false
+  alpha:false,
+  depth:false
 });
 
-const video = document.getElementById('cam');
+const video =
+document.getElementById('cam');
 
-const ui = document.getElementById('ui');
+const ui =
+document.getElementById('ui');
 
-const startBtn = document.getElementById('startBtn');
-const demoBtn = document.getElementById('demoBtn');
-const stats = document.getElementById('stats');
-const shapeSelect = document.getElementById('shape');
-const paletteSelect = document.getElementById('palette');
+const shapeSelect =
+document.getElementById('shape');
 
-document.getElementById('hideBtn').onclick=()=>{
-  ui.style.display = ui.style.display==='none'?'block':'none';
-};
+const paletteSelect =
+document.getElementById('palette');
 
-const DEVICE = {
+const stats =
+document.getElementById('stats');
+
+const DEVICE={
   cores:navigator.hardwareConcurrency||4,
   memory:navigator.deviceMemory||4,
   dpr:Math.min(devicePixelRatio||1,2)
 };
 
-let PARTICLES = 12000;
+let PARTICLES=12000;
 
-if(DEVICE.cores>=8) PARTICLES+=12000;
-if(DEVICE.memory>=8) PARTICLES+=18000;
+if(DEVICE.cores>=8)
+PARTICLES+=12000;
 
-PARTICLES=Math.min(PARTICLES,50000);
+if(DEVICE.memory>=8)
+PARTICLES+=18000;
 
-let width,height,aspect;
+PARTICLES=
+Math.min(PARTICLES,50000);
+
+let width;
+let height;
+let aspect;
 
 function resize(){
+
   width=innerWidth;
   height=innerHeight;
-  aspect=width/height;
 
-  canvas.width=width*DEVICE.dpr;
-  canvas.height=height*DEVICE.dpr;
+  aspect=
+  width/height;
 
-  gl.viewport(0,0,canvas.width,canvas.height);
+  canvas.width=
+  width*DEVICE.dpr;
+
+  canvas.height=
+  height*DEVICE.dpr;
+
+  gl.viewport(
+  0,
+  0,
+  canvas.width,
+  canvas.height
+  );
 }
 
-addEventListener('resize',resize);
+addEventListener(
+'resize',
+resize
+);
+
 resize();
 
+document
+.getElementById('hideBtn')
+.onclick=()=>{
+
+ui.classList.toggle(
+'hidden'
+);
+
+};
+
 const vert=`
+
 attribute vec2 pos;
 attribute vec3 color;
 attribute float size;
+attribute float alpha;
 
 varying vec3 vColor;
+varying float vAlpha;
 
 uniform float time;
 uniform float bass;
@@ -192,88 +314,254 @@ void main(){
 
 vec2 p=pos;
 
-p.x+=sin(time+p.y*8.0)*bass*0.03;
-p.y+=cos(time+p.x*6.0)*bass*0.03;
+p.x+=
+sin(
+time+
+p.y*12.0
+)*bass*0.03;
 
-gl_Position=vec4(p,0.0,1.0);
+p.y+=
+cos(
+time+
+p.x*8.0
+)*bass*0.03;
+
+gl_Position=
+vec4(
+p,
+0.0,
+1.0
+);
 
 gl_PointSize=size;
 
 vColor=color;
+vAlpha=alpha;
+
 }
 `;
 
 const frag=`
+
 precision mediump float;
 
 varying vec3 vColor;
+varying float vAlpha;
 
 void main(){
 
-vec2 uv=gl_PointCoord-0.5;
+vec2 uv=
+gl_PointCoord.xy
+-.5;
 
-float d=length(uv);
+float d=
+length(uv);
 
-float a=smoothstep(0.5,0.0,d);
+float glow=
+smoothstep(
+.5,
+0.0,
+d
+);
 
-gl_FragColor=vec4(vColor,a);
+float core=
+smoothstep(
+.15,
+0.0,
+d
+);
+
+vec3 col=
+vColor*
+(1.0+core*2.0);
+
+gl_FragColor=
+vec4(
+col,
+glow*vAlpha
+);
+
 }
 `;
 
 function shader(type,src){
-  const s=gl.createShader(type);
-  gl.shaderSource(s,src);
-  gl.compileShader(s);
-  return s;
+
+const s=
+gl.createShader(type);
+
+gl.shaderSource(s,src);
+
+gl.compileShader(s);
+
+return s;
+
 }
 
-const program=gl.createProgram();
+const program=
+gl.createProgram();
 
-gl.attachShader(program,shader(gl.VERTEX_SHADER,vert));
-gl.attachShader(program,shader(gl.FRAGMENT_SHADER,frag));
+gl.attachShader(
+program,
+shader(
+gl.VERTEX_SHADER,
+vert
+)
+);
+
+gl.attachShader(
+program,
+shader(
+gl.FRAGMENT_SHADER,
+frag
+)
+);
 
 gl.linkProgram(program);
+
 gl.useProgram(program);
 
 const loc={
-  pos:gl.getAttribLocation(program,'pos'),
-  color:gl.getAttribLocation(program,'color'),
-  size:gl.getAttribLocation(program,'size'),
-  time:gl.getUniformLocation(program,'time'),
-  bass:gl.getUniformLocation(program,'bass')
+
+pos:
+gl.getAttribLocation(
+program,
+'pos'
+),
+
+color:
+gl.getAttribLocation(
+program,
+'color'
+),
+
+size:
+gl.getAttribLocation(
+program,
+'size'
+),
+
+alpha:
+gl.getAttribLocation(
+program,
+'alpha'
+),
+
+time:
+gl.getUniformLocation(
+program,
+'time'
+),
+
+bass:
+gl.getUniformLocation(
+program,
+'bass'
+)
+
 };
 
-const stride=6;
+const stride=7;
 
-const data=new Float32Array(PARTICLES*stride);
+const data=
+new Float32Array(
+PARTICLES*stride
+);
 
-const buffer=gl.createBuffer();
+const buffer=
+gl.createBuffer();
 
-gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
-gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
+gl.bindBuffer(
+gl.ARRAY_BUFFER,
+buffer
+);
 
-gl.enableVertexAttribArray(loc.pos);
-gl.vertexAttribPointer(loc.pos,2,gl.FLOAT,false,stride*4,0);
+gl.bufferData(
+gl.ARRAY_BUFFER,
+data,
+gl.DYNAMIC_DRAW
+);
 
-gl.enableVertexAttribArray(loc.color);
-gl.vertexAttribPointer(loc.color,3,gl.FLOAT,false,stride*4,8);
+gl.enableVertexAttribArray(
+loc.pos
+);
 
-gl.enableVertexAttribArray(loc.size);
-gl.vertexAttribPointer(loc.size,1,gl.FLOAT,false,stride*4,20);
+gl.vertexAttribPointer(
+loc.pos,
+2,
+gl.FLOAT,
+false,
+stride*4,
+0
+);
+
+gl.enableVertexAttribArray(
+loc.color
+);
+
+gl.vertexAttribPointer(
+loc.color,
+3,
+gl.FLOAT,
+false,
+stride*4,
+8
+);
+
+gl.enableVertexAttribArray(
+loc.size
+);
+
+gl.vertexAttribPointer(
+loc.size,
+1,
+gl.FLOAT,
+false,
+stride*4,
+20
+);
+
+gl.enableVertexAttribArray(
+loc.alpha
+);
+
+gl.vertexAttribPointer(
+loc.alpha,
+1,
+gl.FLOAT,
+false,
+stride*4,
+24
+);
 
 gl.enable(gl.BLEND);
-gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+
+gl.blendFunc(
+gl.SRC_ALPHA,
+gl.ONE
+);
 
 const particles=[];
 
 for(let i=0;i<PARTICLES;i++){
 
 particles.push({
-x:(Math.random()*2-1)*aspect,
-y:Math.random()*2-1,
+
+x:
+(Math.random()*2-1)
+*aspect,
+
+y:
+Math.random()*2-1,
+
 vx:0,
 vy:0,
-size:1+Math.random()*4
+
+life:
+Math.random(),
+
+size:
+1+Math.random()*4
+
 });
 
 }
@@ -288,23 +576,43 @@ async function startAudio(){
 
 try{
 
-audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+audioCtx=
+new(
+window.AudioContext||
+window.webkitAudioContext
+)();
 
-const stream=await navigator.mediaDevices.getUserMedia({
+const stream=
+await navigator
+.mediaDevices
+.getUserMedia({
+
 audio:true
+
 });
 
-const src=audioCtx.createMediaStreamSource(stream);
+const src=
+audioCtx
+.createMediaStreamSource(
+stream
+);
 
-analyser=audioCtx.createAnalyser();
+analyser=
+audioCtx
+.createAnalyser();
+
+analyser.fftSize=512;
 
 src.connect(analyser);
 
-freq=new Uint8Array(analyser.frequencyBinCount);
+freq=
+new Uint8Array(
+analyser.frequencyBinCount
+);
 
-}catch(e){
+}catch(err){
 
-console.log(e);
+console.log(err);
 
 }
 
@@ -314,7 +622,10 @@ async function startCamera(){
 
 try{
 
-const stream=await navigator.mediaDevices.getUserMedia({
+const stream=
+await navigator
+.mediaDevices
+.getUserMedia({
 
 video:{
 facingMode:'environment'
@@ -324,233 +635,488 @@ audio:false
 
 });
 
-video.srcObject=stream;
+video.srcObject=
+stream;
 
 await startAudio();
 
-}catch(e){
+}catch(err){
 
-alert('Camera/Mic permission denied');
+alert(
+'Camera/Mic Permission Denied'
+);
 
-console.log(e);
+console.log(err);
 
 }
 
 }
 
-startBtn.onclick=startCamera;
+document
+.getElementById('startBtn')
+.onclick=
+startCamera;
 
-const camCanvas=document.createElement('canvas');
-const camCtx=camCanvas.getContext('2d',{willReadFrequently:true});
+const camCanvas=
+document.createElement('canvas');
 
-let prevFrame=null;
+const camCtx=
+camCanvas.getContext(
+'2d',
+{
+willReadFrequently:true
+}
+);
 
-function getBass(){
+function updateBass(){
 
-if(!analyser)return 0;
+if(!analyser)
+return 0;
 
-analyser.getByteFrequencyData(freq);
+analyser
+.getByteFrequencyData(freq);
 
 let sum=0;
 
-for(let i=1;i<12;i++){
+for(let i=1;i<18;i++){
 
 sum+=freq[i];
 
 }
 
-bass=sum/11/255;
+bass=
+sum/18/255;
 
 return bass;
 
 }
 
-function palette(mode,v,x){
+function palette(
+mode,
+v,
+x
+){
 
 if(mode==='matrix'){
 
-return [0,0.8+v*0.2,0.3+v];
+return[
+0,
+0.8+v*.2,
+0.3+v
+];
 
 }
 
 if(mode==='cyber'){
 
-return x<0?
-[0,1,v]:
+return x<0
+?
+[0,1,v]
+:
 [1,0,v];
 
 }
 
 if(mode==='aurora'){
 
-return [
+return[
 0.2+v,
-0.8,
-0.6+Math.sin(x*4)*0.3
+0.7,
+0.5+
+Math.sin(x*5)*.5
 ];
 
 }
 
-return [
-Math.sin(x)*0.5+0.5,
-Math.cos(x*2)*0.5+0.5,
+return[
+Math.sin(x)*.5+.5,
+Math.cos(x*2)*.5+.5,
 v
 ];
 
 }
 
+let prevFrame=null;
+
 function draw(now){
 
 requestAnimationFrame(draw);
 
-const t=now*.001;
+const t=
+now*.001;
 
-bass=getBass();
+updateBass();
 
-camCanvas.width=120;
-camCanvas.height=90;
+const scale=
+DEVICE.memory>=8
+?
+320
+:
+220;
+
+camCanvas.width=scale;
+camCanvas.height=
+scale*.75;
 
 if(video.videoWidth){
 
-camCtx.drawImage(video,0,0,120,90);
+camCtx.drawImage(
+video,
+0,
+0,
+camCanvas.width,
+camCanvas.height
+);
 
-const frame=camCtx.getImageData(0,0,120,90);
+const frame=
+camCtx.getImageData(
+0,
+0,
+camCanvas.width,
+camCanvas.height
+);
 
-const img=frame.data;
+const img=
+frame.data;
 
 for(let i=0;i<PARTICLES;i++){
 
-const p=particles[i];
+const p=
+particles[i];
 
-const px=((p.x/aspect)*0.5+0.5)*120|0;
-const py=((p.y)*-0.5+0.5)*90|0;
+const px=
+(
+(
+p.x/aspect
+)*.5+.5
+)*camCanvas.width|0;
 
-const idx=(py*120+px)*4;
+const py=
+(
+p.y*-.5+.5
+)*camCanvas.height|0;
 
-const r=img[idx]||0;
-const g=img[idx+1]||0;
-const b=img[idx+2]||0;
+if(
+px<0||
+py<0||
+px>=camCanvas.width||
+py>=camCanvas.height
+){
+continue;
+}
 
-const bright=(r+g+b)/3/255;
+const idx=
+(
+py*
+camCanvas.width+
+px
+)*4;
+
+const r=
+img[idx]||0;
+
+const g=
+img[idx+1]||0;
+
+const b=
+img[idx+2]||0;
+
+const rr=
+img[idx+4]||0;
+
+const luma=
+(
+0.2126*r+
+0.7152*g+
+0.0722*b
+)/255;
+
+const edge=
+Math.abs(r-rr)/255;
+
+const strength=
+luma*.4+
+edge*.9;
+
+if(
+strength<0.18
+){
+
+p.life*=.9;
+
+}else{
+
+p.life+=.04;
+
+}
+
+p.life=
+Math.max(
+0,
+Math.min(1,p.life)
+);
 
 let motion=0;
 
 if(prevFrame){
 
-const pr=prevFrame[idx]||0;
+const pr=
+prevFrame[idx]||0;
 
-motion=Math.abs(r-pr)/255;
-
-}
-
-const flow=motion*0.04;
-
-p.vx+=(Math.random()-0.5)*flow;
-p.vy+=(Math.random()-0.5)*flow;
-
-if(shapeSelect.value==='matrix'){
-
-p.vy-=0.0005-bright*0.002;
+motion=
+Math.abs(r-pr)
+/255;
 
 }
 
-if(shapeSelect.value==='wave'){
+const flow=
+motion*.04;
 
-p.vx+=Math.sin(t+p.y*10)*0.001;
+p.vx+=
+(Math.random()-.5)
+*flow;
 
-}
+p.vy+=
+(Math.random()-.5)
+*flow;
 
-if(shapeSelect.value==='polygon'){
+const shape=
+shapeSelect.value;
 
-const ang=(i/PARTICLES)*Math.PI*2;
+if(shape==='matrix'){
 
-const rad=.4+bass*.3;
-
-const tx=Math.cos(ang)*rad*aspect;
-const ty=Math.sin(ang)*rad;
-
-p.vx+=(tx-p.x)*0.0008;
-p.vy+=(ty-p.y)*0.0008;
-
-}
-
-if(shapeSelect.value==='spider'){
-
-const ang=(i/PARTICLES)*Math.PI*2;
-
-const tx=Math.cos(ang*8)*0.6*aspect;
-const ty=Math.sin(ang*8)*0.6;
-
-p.vx+=(tx-p.x)*0.0005;
-p.vy+=(ty-p.y)*0.0005;
+p.vy-=
+0.0006-
+strength*.003;
 
 }
 
-p.vx*=0.96;
-p.vy*=0.96;
+if(shape==='wave'){
+
+p.vx+=
+Math.sin(
+t+p.y*10
+)*0.001;
+
+}
+
+if(shape==='polygon'){
+
+const ang=
+(i/PARTICLES)
+*Math.PI*2;
+
+const rad=
+.3+
+bass*.35;
+
+const tx=
+Math.cos(ang)
+*rad
+*aspect;
+
+const ty=
+Math.sin(ang)
+*rad;
+
+p.vx+=
+(tx-p.x)
+*0.0012;
+
+p.vy+=
+(ty-p.y)
+*0.0012;
+
+}
+
+if(shape==='spider'){
+
+const ang=
+(i/PARTICLES)
+*Math.PI*2;
+
+const tx=
+Math.cos(ang*8)
+*.55
+*aspect;
+
+const ty=
+Math.sin(ang*8)
+*.55;
+
+p.vx+=
+(tx-p.x)
+*0.0008;
+
+p.vy+=
+(ty-p.y)
+*0.0008;
+
+}
+
+const tx=
+(
+px/
+camCanvas.width
+)*2-1;
+
+const ty=
+-(
+py/
+camCanvas.height
+)*2+1;
+
+p.vx+=
+(tx*aspect-p.x)
+*strength
+*0.002;
+
+p.vy+=
+(ty-p.y)
+*strength
+*0.002;
+
+p.vx*=.94;
+p.vy*=.94;
 
 p.x+=p.vx;
 p.y+=p.vy;
 
 if(
-p.x<-aspect||
-p.x>aspect||
-p.y<-1||
-p.y>1
+Math.abs(p.x)>aspect||
+Math.abs(p.y)>1.2
 ){
 
-p.x=(Math.random()*2-1)*aspect;
-p.y=Math.random()*2-1;
+p.x=
+(Math.random()*2-1)
+*aspect;
+
+p.y=
+Math.random()*2-1;
 
 }
 
-const col=palette(
+const col=
+palette(
 paletteSelect.value,
-bright+bass,
+strength+bass,
 p.x
 );
 
-const o=i*stride;
+const size=
+(
+1+
+strength*7+
+bass*10
+)
+*DEVICE.dpr;
 
-data[o]=p.x/aspect;
-data[o+1]=p.y;
+const alpha=
+p.life*
+Math.min(
+1,
+strength*2
+);
 
-data[o+2]=col[0];
-data[o+3]=col[1];
-data[o+4]=col[2];
+const o=
+i*stride;
 
-data[o+5]=(1+bright*6+bass*8)*DEVICE.dpr;
+data[o]=
+p.x/aspect;
+
+data[o+1]=
+p.y;
+
+data[o+2]=
+col[0];
+
+data[o+3]=
+col[1];
+
+data[o+4]=
+col[2];
+
+data[o+5]=
+size;
+
+data[o+6]=
+alpha;
 
 }
 
-prevFrame=img.slice(0);
+prevFrame=
+img.slice(0);
 
 }
 
-gl.clearColor(0,0,0,.08);
-gl.clear(gl.COLOR_BUFFER_BIT);
+gl.clearColor(
+0,
+0,
+0,
+0.08
+);
 
-gl.uniform1f(loc.time,t);
-gl.uniform1f(loc.bass,bass);
+gl.clear(
+gl.COLOR_BUFFER_BIT
+);
 
-gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+gl.uniform1f(
+loc.time,
+t
+);
 
-gl.bufferSubData(gl.ARRAY_BUFFER,0,data);
+gl.uniform1f(
+loc.bass,
+bass
+);
 
-gl.drawArrays(gl.POINTS,0,PARTICLES);
+gl.bindBuffer(
+gl.ARRAY_BUFFER,
+buffer
+);
+
+gl.bufferSubData(
+gl.ARRAY_BUFFER,
+0,
+data
+);
+
+gl.drawArrays(
+gl.POINTS,
+0,
+PARTICLES
+);
 
 stats.innerHTML=
-'FPS: '+Math.round(1000/(performance.now()-lastFrame))+
-'<br>Particles: '+PARTICLES+
-'<br>Bass: '+bass.toFixed(2)+
-'<br>CPU: '+DEVICE.cores+
-'<br>RAM: '+DEVICE.memory+'GB';
+'FPS: '+
+Math.round(
+1000/
+(
+performance.now()
+-lastFrame
+)
+)+
 
-lastFrame=performance.now();
+'<br>Particles: '+
+PARTICLES+
+
+'<br>Bass: '+
+bass.toFixed(2)+
+
+'<br>CPU: '+
+DEVICE.cores+
+
+'<br>RAM: '+
+DEVICE.memory+
+'GB';
+
+lastFrame=
+performance.now();
 
 }
 
-let lastFrame=performance.now();
+let lastFrame=
+performance.now();
 
 requestAnimationFrame(draw);
 
