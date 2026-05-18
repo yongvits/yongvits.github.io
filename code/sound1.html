@@ -1,636 +1,560 @@
-```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Stereo Sound Particles WebGL</title>
-  <style>
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-      color: white;
-      font-family: system-ui, -apple-system, sans-serif;
-      touch-action: none; /* ป้องกันการเลื่อนหน้าจอบนมือถือ */
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    canvas {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      display: block;
-      background: radial-gradient(circle at center, #0f172a 0%, #020617 60%, #000 100%);
-    }
-    button, select {
-      appearance: none;
-      border: 0;
-      border-radius: 12px;
-      padding: 14px 12px;
-      color: #fff;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    button {
-      background: linear-gradient(135deg, #6366f1, #ec4899);
-      box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
-      transition: transform 0.1s;
-    }
-    button:active { transform: scale(0.95); }
-    button.secondary, select {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.15);
-      backdrop-filter: blur(10px);
-      box-shadow: none;
-    }
-    .hide-ui-btn {
-      position: fixed;
-      top: max(14px, env(safe-area-inset-top));
-      right: max(14px, env(safe-area-inset-right));
-      z-index: 20;
-      min-width: 80px;
-      padding: 10px 14px;
-      border-radius: 99px;
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255,255,255,0.2);
-      backdrop-filter: blur(10px);
-    }
-    .top-hint {
-      position: fixed;
-      top: max(14px, env(safe-area-inset-top));
-      left: 14px;
-      right: 110px;
-      display: flex;
-      justify-content: flex-start;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .pill {
-      padding: 8px 14px;
-      border-radius: 99px;
-      background: rgba(0, 0, 0, 0.6);
-      border: 1px solid rgba(255,255,255,0.15);
-      backdrop-filter: blur(10px);
-      font-size: 12px;
-      line-height: 1.4;
-    }
-    .ui {
-      position: fixed;
-      inset: auto 0 0 0;
-      padding: 14px max(14px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
-      pointer-events: none;
-      z-index: 10;
-    }
-    .panel {
-      width: min(100%, 600px);
-      margin: 0 auto;
-      padding: 14px;
-      border-radius: 20px;
-      background: rgba(10, 15, 30, 0.75);
-      border: 1px solid rgba(255,255,255,0.15);
-      backdrop-filter: blur(16px);
-      pointer-events: auto;
-    }
-    .title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      font-size: 12px;
-      color: rgba(255,255,255,0.7);
-    }
-    .title strong { font-size: 16px; color: #fff; }
-    
-    .meters {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .meter {
-      background: rgba(0,0,0,0.3);
-      padding: 8px;
-      border-radius: 10px;
-    }
-    .label {
-      font-size: 10px;
-      opacity: 0.8;
-      margin-bottom: 6px;
-      text-align: center;
-    }
-    .bar {
-      height: 6px;
-      border-radius: 10px;
-      background: rgba(255,255,255,0.1);
-      overflow: hidden;
-    }
-    .fill {
-      width: 0%;
-      height: 100%;
-      border-radius: 10px;
-      background: currentColor;
-      box-shadow: 0 0 10px currentColor;
-      transition: width 0.05s linear;
-    }
-    
-    .controls {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .controls > button { grid-column: span 1; }
-    .controls > select { grid-column: span 1; text-align: center; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover,user-scalable=no" />
+<title>Matrix Camera Particle System</title>
 
-    body.ui-hidden .ui, body.ui-hidden .top-hint {
-      opacity: 0; transform: translateY(20px); transition: 0.3s ease; pointer-events: none;
-    }
-    body:not(.ui-hidden) .ui, body:not(.ui-hidden) .top-hint {
-      opacity: 1; transform: translateY(0); transition: 0.3s ease;
-    }
+<style>
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:black;
+  touch-action:none;
+  font-family:system-ui;
+}
 
-    @media (max-width: 400px) {
-      .controls { grid-template-columns: 1fr; }
-      .controls > button, .controls > select { grid-column: span 1; }
-    }
-  </style>
+canvas{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+
+video{
+  display:none;
+}
+
+.ui{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  padding:16px;
+  z-index:10;
+}
+
+.panel{
+  max-width:520px;
+  margin:auto;
+  background:rgba(0,0,0,.5);
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:24px;
+  padding:14px;
+  color:white;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+
+button,select{
+  flex:1;
+  border:0;
+  border-radius:14px;
+  padding:14px;
+  color:white;
+  background:#111827;
+  font-weight:700;
+}
+
+button{
+  background:linear-gradient(135deg,#00ff99,#00ccff);
+  color:black;
+}
+
+.stats{
+  font-size:12px;
+  opacity:.8;
+  margin-top:8px;
+}
+
+.hide{
+  position:fixed;
+  top:14px;
+  right:14px;
+  z-index:20;
+  width:auto;
+  padding:10px 14px;
+  border-radius:999px;
+}
+</style>
 </head>
+
 <body>
-  <canvas id="gl"></canvas>
-  <button class="hide-ui-btn" id="hideUiBtn">ซ่อน UI</button>
 
-  <div class="top-hint">
-    <div class="pill" id="status">แตะหน้าจอเพื่อปัดอนุภาค<br>ซ้าย/ขวา ตอบสนองเสียง Stereo 분리</div>
-  </div>
+<canvas id="c"></canvas>
+<video id="cam" autoplay playsinline muted></video>
 
-  <div class="ui">
-    <div class="panel">
-      <div class="title">
-        <strong>Stereo Particles</strong>
-        <span id="countLabel">0 pt</span>
-      </div>
+<button class="hide" id="hideBtn">Hide UI</button>
 
-      <div class="meters">
-        <div class="meter" style="color:#60a5fa">
-          <div class="label">L-VOL</div>
-          <div class="bar"><div class="fill" id="volLFill"></div></div>
-        </div>
-        <div class="meter" style="color:#f472b6">
-          <div class="label">R-VOL</div>
-          <div class="bar"><div class="fill" id="volRFill"></div></div>
-        </div>
-        <div class="meter" style="color:#34d399">
-          <div class="label">BASS</div>
-          <div class="bar"><div class="fill" id="bassFill"></div></div>
-        </div>
-        <div class="meter" style="color:#fbbf24">
-          <div class="label">TREBLE</div>
-          <div class="bar"><div class="fill" id="trebleFill"></div></div>
-        </div>
-      </div>
+<div class="ui" id="ui">
+<div class="panel">
 
-      <div class="controls">
-        <button id="startBtn">เริ่มฟังเสียง (Mic)</button>
-        <button class="secondary" id="demoBtn">โหมดทดสอบ (Demo)</button>
+<div><b>Matrix Particle Camera</b></div>
 
-        <select id="shapeSelect">
-          <option value="polygonVertex" selected>Polygon Vertex</option>
-          <option value="infinity">Infinity (ใหม่)</option>
-          <option value="spider">Spider</option>
-          <option value="wave">Wave</option>
-          <option value="circle">Circle</option>
-          <option value="heart">Heart</option>
-          <option value="wind">Wind</option>
-        </select>
+<div class="row">
+<button id="startBtn">START CAMERA</button>
+<button id="demoBtn">DEMO</button>
+</div>
 
-        <select id="colorSelect">
-          <option value="cyberpunk" selected>Cyberpunk (ใหม่)</option>
-          <option value="rainbow">Rainbow</option>
-          <option value="neon">Neon</option>
-          <option value="sunset">Sunset</option>
-          <option value="aurora">Aurora</option>
-        </select>
-      </div>
-    </div>
-  </div>
+<div class="row">
+<select id="shape">
+<option value="matrix">Matrix</option>
+<option value="polygon">Polygon</option>
+<option value="spider">Spider</option>
+<option value="wave">Wave</option>
+</select>
 
-  <script>
-    'use strict';
+<select id="palette">
+<option value="matrix">Matrix Green</option>
+<option value="cyber">Cyberpunk</option>
+<option value="rainbow">Rainbow</option>
+<option value="aurora">Aurora</option>
+</select>
+</div>
 
-    const canvas = document.getElementById('gl');
-    const gl = canvas.getContext('webgl', { alpha: false, antialias: false, depth: false });
+<div class="stats" id="stats">
+FPS: 0
+</div>
 
-    const ui = {
-      status: document.getElementById('status'),
-      count: document.getElementById('countLabel'),
-      volL: document.getElementById('volLFill'),
-      volR: document.getElementById('volRFill'),
-      bass: document.getElementById('bassFill'),
-      treble: document.getElementById('trebleFill'),
-      start: document.getElementById('startBtn'),
-      demo: document.getElementById('demoBtn'),
-      shape: document.getElementById('shapeSelect'),
-      color: document.getElementById('colorSelect'),
-      hideUi: document.getElementById('hideUiBtn')
-    };
+</div>
+</div>
 
-    // ปรับลดจำนวนสูงสุดลงเพื่อมือถือ แต่เพิ่มขนาดใน Shader แทน
-    const MAX_PARTICLES = 12000;
-    const START_PARTICLES = 4000;
-    const TAU = Math.PI * 2;
+<script>
+'use strict';
 
-    const vert = `
-      attribute vec2 a_position;
-      attribute float a_size;
-      attribute vec3 a_color;
-      attribute float a_alpha;
-      varying vec3 v_color;
-      varying float v_alpha;
-      void main() {
-        gl_Position = vec4(a_position, 0.0, 1.0);
-        gl_PointSize = a_size;
-        v_color = a_color;
-        v_alpha = a_alpha;
-      }
-    `;
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl',{
+  antialias:false,
+  alpha:false
+});
 
-    const frag = `
-      precision mediump float;
-      varying vec3 v_color;
-      varying float v_alpha;
-      void main() {
-        vec2 uv = gl_PointCoord.xy - 0.5;
-        float d = length(uv);
-        // สร้างขอบวงแหวนเรืองแสง (Glowing Ring) แทนจุดทึบ
-        float ring = smoothstep(0.5, 0.2, d) - smoothstep(0.3, 0.0, d) * 0.6;
-        float core = smoothstep(0.15, 0.0, d);
-        vec3 color = v_color * (1.2 + core * 2.0);
-        gl_FragColor = vec4(color, max(ring, core) * v_alpha);
-      }
-    `;
+const video = document.getElementById('cam');
 
-    function makeShader(type, source) {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      return shader;
-    }
+const ui = document.getElementById('ui');
 
-    const program = gl.createProgram();
-    gl.attachShader(program, makeShader(gl.VERTEX_SHADER, vert));
-    gl.attachShader(program, makeShader(gl.FRAGMENT_SHADER, frag));
-    gl.linkProgram(program);
-    gl.useProgram(program);
+const startBtn = document.getElementById('startBtn');
+const demoBtn = document.getElementById('demoBtn');
+const stats = document.getElementById('stats');
+const shapeSelect = document.getElementById('shape');
+const paletteSelect = document.getElementById('palette');
 
-    const loc = {
-      position: gl.getAttribLocation(program, 'a_position'),
-      size: gl.getAttribLocation(program, 'a_size'),
-      color: gl.getAttribLocation(program, 'a_color'),
-      alpha: gl.getAttribLocation(program, 'a_alpha')
-    };
+document.getElementById('hideBtn').onclick=()=>{
+  ui.style.display = ui.style.display==='none'?'block':'none';
+};
 
-    const data = new Float32Array(MAX_PARTICLES * 7);
-    const particles = [];
-    let activeCount = START_PARTICLES;
-    let aspect = 1, dpr = 1;
+const DEVICE = {
+  cores:navigator.hardwareConcurrency||4,
+  memory:navigator.deviceMemory||4,
+  dpr:Math.min(devicePixelRatio||1,2)
+};
 
-    let currentShape = 'polygonVertex';
-    let currentColorMode = 'cyberpunk';
-    let beatFlash = 0, previousVolume = 0;
-    let displayedVertexCount = 6;
+let PARTICLES = 12000;
 
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data.byteLength, gl.DYNAMIC_DRAW);
+if(DEVICE.cores>=8) PARTICLES+=12000;
+if(DEVICE.memory>=8) PARTICLES+=18000;
 
-    const stride = 7 * 4;
-    gl.enableVertexAttribArray(loc.position); gl.vertexAttribPointer(loc.position, 2, gl.FLOAT, false, stride, 0);
-    gl.enableVertexAttribArray(loc.size);     gl.vertexAttribPointer(loc.size, 1, gl.FLOAT, false, stride, 8);
-    gl.enableVertexAttribArray(loc.color);    gl.vertexAttribPointer(loc.color, 3, gl.FLOAT, false, stride, 12);
-    gl.enableVertexAttribArray(loc.alpha);    gl.vertexAttribPointer(loc.alpha, 1, gl.FLOAT, false, stride, 24);
+PARTICLES=Math.min(PARTICLES,50000);
 
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+let width,height,aspect;
 
-    // Audio State แยกซ้ายขวา
-    const audio = {
-      context: null, splitter: null,
-      analyserL: null, analyserR: null,
-      freqL: null, freqR: null,
-      enabled: false, demo: false,
-      volL: 0, volR: 0,
-      bass: 0, mid: 0, treble: 0,
-      volume: 0, lastBeat: 0
-    };
+function resize(){
+  width=innerWidth;
+  height=innerHeight;
+  aspect=width/height;
 
-    const motion = { x: 0, y: 0, tx: 0, ty: 0, touchActive: false };
+  canvas.width=width*DEVICE.dpr;
+  canvas.height=height*DEVICE.dpr;
 
-    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-    function lerp(a, b, t) { return a + (b - a) * t; }
-    function rand(a, b) { return a + Math.random() * (b - a); }
+  gl.viewport(0,0,canvas.width,canvas.height);
+}
 
-    function hslToRgb(h, s, l) {
-      let r, g, b;
-      if (s === 0) r = g = b = l;
-      else {
-        const hue2rgb = (p, q, t) => {
-          if(t < 0) t += 1; if(t > 1) t -= 1;
-          if(t < 1/6) return p + (q - p) * 6 * t;
-          if(t < 1/2) return q;
-          if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
-      }
-      return [r, g, b];
-    }
+addEventListener('resize',resize);
+resize();
 
-    // Shapes
-    function shapePoint(shape, index, total, t, a) {
-      const id = index / Math.max(1, total - 1);
-      const angle = id * TAU + t * (0.2 + a.treble);
+const vert=`
+attribute vec2 pos;
+attribute vec3 color;
+attribute float size;
 
-      if (shape === 'infinity') {
-        const t2 = id * TAU + t * 0.5;
-        const scale = 0.6 + a.bass * 0.4;
-        const x = (scale * Math.cos(t2)) / (1 + Math.sin(t2) * Math.sin(t2));
-        const y = (scale * Math.cos(t2) * Math.sin(t2)) / (1 + Math.sin(t2) * Math.sin(t2));
-        const jitter = a.treble * 0.08 * Math.sin(id * 100 + t * 15);
-        return { x: (x + jitter) / aspect, y: y + jitter };
-      }
-      
-      if (shape === 'polygonVertex') {
-        const sides = displayedVertexCount;
-        const segment = Math.floor(id * sides);
-        const local = (id * sides) % 1;
-        const rot = t * 0.15;
-        const a0 = (segment / sides) * TAU + rot;
-        const a1 = ((segment + 1) / sides) * TAU + rot;
-        const r = 0.5 + a.bass * 0.3 + beatFlash * 0.1;
-        const v0 = { x: Math.cos(a0)*r/aspect, y: Math.sin(a0)*r };
-        const v1 = { x: Math.cos(a1)*r/aspect, y: Math.sin(a1)*r };
-        const ex = lerp(v0.x, v1.x, local);
-        const ey = lerp(v0.y, v1.y, local);
-        const wave = Math.sin(local * Math.PI * 3 + t * 4) * a.mid * 0.15;
-        return { x: ex + wave, y: ey + wave };
-      }
-      
-      if (shape === 'circle') {
-        const r = 0.5 + a.bass * 0.3;
-        return { x: Math.cos(angle)*r/aspect, y: Math.sin(angle)*r };
-      }
-      
-      if (shape === 'heart') {
-        const th = id * TAU;
-        const x = 16 * Math.pow(Math.sin(th), 3);
-        const y = 13 * Math.cos(th) - 5 * Math.cos(2 * th) - 2 * Math.cos(3 * th) - Math.cos(4 * th);
-        const s = 0.03 + a.volume * 0.015;
-        return { x: (x * s) / aspect, y: y * s - 0.1 };
-      }
+varying vec3 vColor;
 
-      return { x: null, y: null }; // Wind fallback
-    }
+uniform float time;
+uniform float bass;
 
-    function getColorParams(mode, a, t, id, pX) {
-      // Stereo Color Shift: ซ้ายจะสีนึง ขวาจะสีนึงนิดหน่อย
-      const stereoShift = (pX / aspect) * 0.1; 
-      
-      if (mode === 'cyberpunk') {
-        const isCyan = (id * 100) % 2 > 1; 
-        const hue = isCyan ? 0.5 + a.treble*0.1 + stereoShift : 0.85 - a.bass*0.1 - stereoShift;
-        return { hue: hue%1, sat: 1.0, light: 0.5 + beatFlash * 0.3 + a.volume*0.2 };
-      }
-      if (mode === 'neon') return { hue: (0.78 + id*0.2 + a.treble*0.1 + stereoShift)%1, sat: 0.9, light: 0.5+beatFlash*0.2 };
-      if (mode === 'sunset') return { hue: (0.02 + id*0.1 + a.bass*0.1 + stereoShift)%1, sat: 0.9, light: 0.5+beatFlash*0.2 };
-      
-      // Rainbow
-      return { hue: (t*0.05 + id + stereoShift)%1, sat: 0.8, light: 0.5 + a.volume*0.2 };
-    }
+void main(){
 
-    function resetParticle(p, burst = false) {
-      p.x = burst ? rand(-0.1, 0.1) : rand(-1.2*aspect, 1.2*aspect);
-      p.y = burst ? rand(-0.1, 0.1) : (Math.random()>0.5 ? -1.2 : 1.2);
-      const speed = burst ? rand(0.01, 0.04) : rand(0.002, 0.006);
-      const angle = rand(0, TAU);
-      p.vx = Math.cos(angle) * speed;
-      p.vy = Math.sin(angle) * speed;
-      p.life = rand(0.6, 1);
-      p.decay = rand(0.002, 0.006); // หางยาวขึ้น
-      p.size = rand(2.0, 7.0); // อนุภาคใหญ่ขึ้น
-    }
+vec2 p=pos;
 
-    function initParticles() {
-      for (let i = 0; i < MAX_PARTICLES; i++) {
-        const p = {}; resetParticle(p); particles.push(p);
-      }
-    }
+p.x+=sin(time+p.y*8.0)*bass*0.03;
+p.y+=cos(time+p.x*6.0)*bass*0.03;
 
-    function resize() {
-      dpr = Math.min(2, window.devicePixelRatio || 1); // ล็อคความละเอียดสูงสุดเพื่อมือถือ
-      const w = innerWidth, h = innerHeight;
-      aspect = w / Math.max(1, h);
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
-      gl.viewport(0, 0, canvas.width, canvas.height);
-    }
-    window.addEventListener('resize', resize);
-    resize(); initParticles();
+gl_Position=vec4(p,0.0,1.0);
 
-    function avgRange(arr, from, to) {
-      let sum = 0, count = 0;
-      for (let i = from; i < to && i < arr.length; i++) { sum += arr[i]; count++; }
-      return count ? (sum / count) / 255 : 0;
-    }
+gl_PointSize=size;
 
-    function updateAudio(now) {
-      const t = now * 0.001;
-      if (audio.demo) {
-        // สร้างเสียงจำลองแยกซ้ายขวา
-        audio.volL = clamp(0.1 + Math.sin(t * 3.2) * 0.4, 0, 1);
-        audio.volR = clamp(0.1 + Math.cos(t * 2.8) * 0.4, 0, 1);
-        audio.bass = clamp(0.2 + Math.sin(t * 1.5) * 0.3, 0, 1);
-        audio.treble = clamp(0.1 + Math.sin(t * 4.5) * 0.3, 0, 1);
-        audio.mid = (audio.volL + audio.volR) / 2;
-        audio.volume = (audio.volL + audio.volR) / 2;
-        return;
-      }
+vColor=color;
+}
+`;
 
-      if (!audio.enabled || !audio.analyserL) {
-        audio.volL *= 0.9; audio.volR *= 0.9; audio.bass *= 0.9;
-        return;
-      }
+const frag=`
+precision mediump float;
 
-      audio.analyserL.getByteFrequencyData(audio.freqL);
-      audio.analyserR.getByteFrequencyData(audio.freqR);
+varying vec3 vColor;
 
-      const bassL = avgRange(audio.freqL, 1, 8), bassR = avgRange(audio.freqR, 1, 8);
-      const midL = avgRange(audio.freqL, 8, 50), midR = avgRange(audio.freqR, 8, 50);
-      const trebL = avgRange(audio.freqL, 50, 150), trebR = avgRange(audio.freqR, 50, 150);
+void main(){
 
-      const vL = avgRange(audio.freqL, 1, 150);
-      const vR = avgRange(audio.freqR, 1, 150);
+vec2 uv=gl_PointCoord-0.5;
 
-      audio.volL = audio.volL * 0.7 + vL * 0.3 * 2.5;
-      audio.volR = audio.volR * 0.7 + vR * 0.3 * 2.5;
-      audio.bass = audio.bass * 0.8 + ((bassL + bassR)/2) * 0.2;
-      audio.mid = audio.mid * 0.8 + ((midL + midR)/2) * 0.2;
-      audio.treble = audio.treble * 0.8 + ((trebL + trebR)/2) * 0.2;
-      audio.volume = clamp((audio.volL + audio.volR) / 2, 0, 1);
-    }
+float d=length(uv);
 
-    // Touch Handling (ปัด/ผลักอนุภาค)
-    window.addEventListener('pointerdown', e => { motion.touchActive = true; updateTouch(e); });
-    window.addEventListener('pointermove', e => { if (motion.touchActive) updateTouch(e); });
-    window.addEventListener('pointerup', () => { motion.touchActive = false; });
-    
-    function updateTouch(e) {
-      motion.tx = (e.clientX / innerWidth) * 2 - 1;
-      motion.ty = -((e.clientY / innerHeight) * 2 - 1);
-    }
+float a=smoothstep(0.5,0.0,d);
 
-    async function startSound() {
-      audio.demo = false;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audio.context = new (window.AudioContext || window.webkitAudioContext)();
-        if (audio.context.state === 'suspended') await audio.context.resume();
-        
-        audio.source = audio.context.createMediaStreamSource(stream);
-        audio.splitter = audio.context.createChannelSplitter(2); // แยกซ้าย/ขวา
-        audio.analyserL = audio.context.createAnalyser();
-        audio.analyserR = audio.context.createAnalyser();
-        
-        audio.source.connect(audio.splitter);
-        audio.splitter.connect(audio.analyserL, 0, 0); // Channel 0 -> L
-        audio.splitter.connect(audio.analyserR, 1, 0); // Channel 1 -> R
+gl_FragColor=vec4(vColor,a);
+}
+`;
 
-        audio.freqL = new Uint8Array(audio.analyserL.frequencyBinCount);
-        audio.freqR = new Uint8Array(audio.analyserR.frequencyBinCount);
-        
-        audio.enabled = true;
-        ui.status.innerHTML = 'Mic Active: ระบบ Stereo ทำงาน (ลำโพงซ้าย-ขวา)';
-        ui.start.textContent = 'กำลังฟัง...';
-        ui.demo.textContent = 'Demo';
-      } catch (err) {
-        ui.status.innerHTML = 'ไม่สามารถเปิดไมค์ได้ เล่น Demo แทน';
-        startDemo();
-      }
-    }
+function shader(type,src){
+  const s=gl.createShader(type);
+  gl.shaderSource(s,src);
+  gl.compileShader(s);
+  return s;
+}
 
-    function startDemo() {
-      if(audio.context) { audio.enabled = false; }
-      audio.demo = true;
-      ui.start.textContent = 'เริ่มฟังเสียง (Mic)';
-      ui.demo.textContent = 'กำลังเล่น Demo...';
-      ui.status.innerHTML = 'Demo Mode: จำลองคลื่นเสียง Stereo ซ้าย/ขวา';
-    }
+const program=gl.createProgram();
 
-    ui.start.addEventListener('click', startSound);
-    ui.demo.addEventListener('click', startDemo);
-    ui.shape.addEventListener('change', () => currentShape = ui.shape.value);
-    ui.color.addEventListener('change', () => currentColorMode = ui.color.value);
-    ui.hideUi.addEventListener('click', () => {
-      document.body.classList.toggle('ui-hidden');
-      ui.hideUi.textContent = document.body.classList.contains('ui-hidden') ? 'แสดง UI' : 'ซ่อน UI';
-    });
+gl.attachShader(program,shader(gl.VERTEX_SHADER,vert));
+gl.attachShader(program,shader(gl.FRAGMENT_SHADER,frag));
 
-    function drawFrame(now) {
-      updateAudio(now);
-      const t = now * 0.001;
-      const a = audio;
+gl.linkProgram(program);
+gl.useProgram(program);
 
-      const isBeat = (a.volume > 0.4 || (a.volume > 0.25 && a.volume - previousVolume > 0.05)) && now - a.lastBeat > 200;
-      if (isBeat) {
-        const burstCount = Math.min(activeCount, Math.floor(100 + a.bass * 300));
-        for(let i=0; i<burstCount; i++) resetParticle(particles[Math.floor(Math.random() * activeCount)], true);
-        beatFlash = 1;
-        a.lastBeat = now;
-      }
-      beatFlash *= 0.9;
-      previousVolume = a.volume;
+const loc={
+  pos:gl.getAttribLocation(program,'pos'),
+  color:gl.getAttribLocation(program,'color'),
+  size:gl.getAttribLocation(program,'size'),
+  time:gl.getUniformLocation(program,'time'),
+  bass:gl.getUniformLocation(program,'bass')
+};
 
-      displayedVertexCount += (Math.max(3, 3 + Math.floor(a.bass * 8)) - displayedVertexCount) * 0.1;
+const stride=6;
 
-      // จัดการจำนวนอนุภาคแบบลื่นไหล
-      const targetCount = Math.floor(1500 + a.volume * 8000 + a.bass * 2500);
-      activeCount += Math.round((clamp(targetCount, 1000, MAX_PARTICLES) - activeCount) * 0.05);
+const data=new Float32Array(PARTICLES*stride);
 
-      for (let i = 0; i < activeCount; i++) {
-        const p = particles[i];
-        const id = i / Math.max(1, activeCount - 1);
+const buffer=gl.createBuffer();
 
-        // STEREO PHYSICS: ฝั่งซ้ายรับแรงจาก volL, ขวารับแรงจาก volR
-        const pan = clamp(p.x / aspect, -1, 1); // -1 (ซ้ายสุด) ถึง 1 (ขวาสุด)
-        const localVol = lerp(a.volL, a.volR, (pan + 1) / 2); 
-        
-        p.vx += Math.sin(p.y * 5 + t) * 0.001 * (1 + localVol);
-        p.vy += Math.cos(p.x * 5 + t) * 0.001 * (1 + localVol);
+gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
 
-        const target = shapePoint(currentShape, i, activeCount, t, a);
-        if (target.x !== null) {
-          const force = 0.01 + localVol * 0.02;
-          p.vx += (target.x - p.x) * force;
-          p.vy += (target.y - p.y) * force;
-        }
+gl.enableVertexAttribArray(loc.pos);
+gl.vertexAttribPointer(loc.pos,2,gl.FLOAT,false,stride*4,0);
 
-        // TOUCH REPEL (ผลักอนุภาคเมื่อแตะจอ)
-        if (motion.touchActive) {
-          const dx = p.x - motion.tx * aspect;
-          const dy = p.y - motion.ty;
-          const dist = Math.hypot(dx, dy);
-          if (dist < 0.6) { // รัศมีที่นิ้วมีผล
-            const repel = (0.6 - dist) * 0.05;
-            p.vx += (dx / dist) * repel;
-            p.vy += (dy / dist) * repel;
-          }
-        }
+gl.enableVertexAttribArray(loc.color);
+gl.vertexAttribPointer(loc.color,3,gl.FLOAT,false,stride*4,8);
 
-        p.vx *= 0.98 - localVol * 0.02;
-        p.vy *= 0.98 - localVol * 0.02;
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= p.decay * (0.5 + localVol);
+gl.enableVertexAttribArray(loc.size);
+gl.vertexAttribPointer(loc.size,1,gl.FLOAT,false,stride*4,20);
 
-        const col = getColorParams(currentColorMode, a, t, id, p.x);
-        const rgb = hslToRgb(col.hue, col.sat, col.light);
-        // ขนาดใหญ่ขึ้นตามลำโพงฝั่งตัวเอง
-        const size = p.size * (1.0 + localVol * 3.0 + beatFlash * 1.5) * dpr;
-        const alpha = clamp(p.life * (0.5 + localVol), 0, 1);
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
 
-        const o = i * 7;
-        data[o]   = p.x;   data[o+1] = p.y;   data[o+2] = size;
-        data[o+3] = rgb[0]; data[o+4] = rgb[1]; data[o+5] = rgb[2];
-        data[o+6] = alpha;
+const particles=[];
 
-        if (p.life <= 0 || Math.abs(p.x) > 1.5 * aspect || Math.abs(p.y) > 1.5) resetParticle(p);
-      }
+for(let i=0;i<PARTICLES;i++){
 
-      gl.clearColor(0, 0, 0, 1); // สีดำสนิทให้สี Cyberpunk เด้งขึ้นมา
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, activeCount * 7));
-      gl.drawArrays(gl.POINTS, 0, activeCount);
+particles.push({
+x:(Math.random()*2-1)*aspect,
+y:Math.random()*2-1,
+vx:0,
+vy:0,
+size:1+Math.random()*4
+});
 
-      // อัปเดต UI Meters
-      ui.volL.style.width = `${Math.round(a.volL * 100)}%`;
-      ui.volR.style.width = `${Math.round(a.volR * 100)}%`;
-      ui.bass.style.width = `${Math.round(a.bass * 100)}%`;
-      ui.treble.style.width = `${Math.round(a.treble * 100)}%`;
-      ui.count.textContent = `${activeCount.toLocaleString()} pt`;
+}
 
-      requestAnimationFrame(drawFrame);
-    }
+let audioCtx;
+let analyser;
+let freq;
 
-    requestAnimationFrame(drawFrame);
-  </script>
+let bass=0;
+
+async function startAudio(){
+
+try{
+
+audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+
+const stream=await navigator.mediaDevices.getUserMedia({
+audio:true
+});
+
+const src=audioCtx.createMediaStreamSource(stream);
+
+analyser=audioCtx.createAnalyser();
+
+src.connect(analyser);
+
+freq=new Uint8Array(analyser.frequencyBinCount);
+
+}catch(e){
+
+console.log(e);
+
+}
+
+}
+
+async function startCamera(){
+
+try{
+
+const stream=await navigator.mediaDevices.getUserMedia({
+
+video:{
+facingMode:'environment'
+},
+
+audio:false
+
+});
+
+video.srcObject=stream;
+
+await startAudio();
+
+}catch(e){
+
+alert('Camera/Mic permission denied');
+
+console.log(e);
+
+}
+
+}
+
+startBtn.onclick=startCamera;
+
+const camCanvas=document.createElement('canvas');
+const camCtx=camCanvas.getContext('2d',{willReadFrequently:true});
+
+let prevFrame=null;
+
+function getBass(){
+
+if(!analyser)return 0;
+
+analyser.getByteFrequencyData(freq);
+
+let sum=0;
+
+for(let i=1;i<12;i++){
+
+sum+=freq[i];
+
+}
+
+bass=sum/11/255;
+
+return bass;
+
+}
+
+function palette(mode,v,x){
+
+if(mode==='matrix'){
+
+return [0,0.8+v*0.2,0.3+v];
+
+}
+
+if(mode==='cyber'){
+
+return x<0?
+[0,1,v]:
+[1,0,v];
+
+}
+
+if(mode==='aurora'){
+
+return [
+0.2+v,
+0.8,
+0.6+Math.sin(x*4)*0.3
+];
+
+}
+
+return [
+Math.sin(x)*0.5+0.5,
+Math.cos(x*2)*0.5+0.5,
+v
+];
+
+}
+
+function draw(now){
+
+requestAnimationFrame(draw);
+
+const t=now*.001;
+
+bass=getBass();
+
+camCanvas.width=120;
+camCanvas.height=90;
+
+if(video.videoWidth){
+
+camCtx.drawImage(video,0,0,120,90);
+
+const frame=camCtx.getImageData(0,0,120,90);
+
+const img=frame.data;
+
+for(let i=0;i<PARTICLES;i++){
+
+const p=particles[i];
+
+const px=((p.x/aspect)*0.5+0.5)*120|0;
+const py=((p.y)*-0.5+0.5)*90|0;
+
+const idx=(py*120+px)*4;
+
+const r=img[idx]||0;
+const g=img[idx+1]||0;
+const b=img[idx+2]||0;
+
+const bright=(r+g+b)/3/255;
+
+let motion=0;
+
+if(prevFrame){
+
+const pr=prevFrame[idx]||0;
+
+motion=Math.abs(r-pr)/255;
+
+}
+
+const flow=motion*0.04;
+
+p.vx+=(Math.random()-0.5)*flow;
+p.vy+=(Math.random()-0.5)*flow;
+
+if(shapeSelect.value==='matrix'){
+
+p.vy-=0.0005-bright*0.002;
+
+}
+
+if(shapeSelect.value==='wave'){
+
+p.vx+=Math.sin(t+p.y*10)*0.001;
+
+}
+
+if(shapeSelect.value==='polygon'){
+
+const ang=(i/PARTICLES)*Math.PI*2;
+
+const rad=.4+bass*.3;
+
+const tx=Math.cos(ang)*rad*aspect;
+const ty=Math.sin(ang)*rad;
+
+p.vx+=(tx-p.x)*0.0008;
+p.vy+=(ty-p.y)*0.0008;
+
+}
+
+if(shapeSelect.value==='spider'){
+
+const ang=(i/PARTICLES)*Math.PI*2;
+
+const tx=Math.cos(ang*8)*0.6*aspect;
+const ty=Math.sin(ang*8)*0.6;
+
+p.vx+=(tx-p.x)*0.0005;
+p.vy+=(ty-p.y)*0.0005;
+
+}
+
+p.vx*=0.96;
+p.vy*=0.96;
+
+p.x+=p.vx;
+p.y+=p.vy;
+
+if(
+p.x<-aspect||
+p.x>aspect||
+p.y<-1||
+p.y>1
+){
+
+p.x=(Math.random()*2-1)*aspect;
+p.y=Math.random()*2-1;
+
+}
+
+const col=palette(
+paletteSelect.value,
+bright+bass,
+p.x
+);
+
+const o=i*stride;
+
+data[o]=p.x/aspect;
+data[o+1]=p.y;
+
+data[o+2]=col[0];
+data[o+3]=col[1];
+data[o+4]=col[2];
+
+data[o+5]=(1+bright*6+bass*8)*DEVICE.dpr;
+
+}
+
+prevFrame=img.slice(0);
+
+}
+
+gl.clearColor(0,0,0,.08);
+gl.clear(gl.COLOR_BUFFER_BIT);
+
+gl.uniform1f(loc.time,t);
+gl.uniform1f(loc.bass,bass);
+
+gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+
+gl.bufferSubData(gl.ARRAY_BUFFER,0,data);
+
+gl.drawArrays(gl.POINTS,0,PARTICLES);
+
+stats.innerHTML=
+'FPS: '+Math.round(1000/(performance.now()-lastFrame))+
+'<br>Particles: '+PARTICLES+
+'<br>Bass: '+bass.toFixed(2)+
+'<br>CPU: '+DEVICE.cores+
+'<br>RAM: '+DEVICE.memory+'GB';
+
+lastFrame=performance.now();
+
+}
+
+let lastFrame=performance.now();
+
+requestAnimationFrame(draw);
+
+</script>
+
 </body>
 </html>
-
-```
