@@ -28,18 +28,20 @@ let base64Image = "";
 function getApiKey(){
 
   let key =
-    localStorage.getItem("OPENAI_API_KEY");
+    localStorage.getItem(
+      "GEMINI_API_KEY"
+    );
 
   if(!key){
 
     key = prompt(
-      "Enter OpenAI API Key"
+      "Enter Gemini API Key"
     );
 
     if(key){
 
       localStorage.setItem(
-        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
         key
       );
     }
@@ -53,17 +55,17 @@ setKeyBtn.addEventListener(
   () => {
 
     const key = prompt(
-      "Enter OpenAI API Key"
+      "Enter Gemini API Key"
     );
 
     if(key){
 
       localStorage.setItem(
-        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
         key
       );
 
-      alert("API Key Saved");
+      alert("Gemini API Key Saved");
     }
   }
 );
@@ -115,12 +117,12 @@ analyzeBtn.addEventListener(
 
 async function analyzeFood(){
 
-  const OPENAI_API_KEY =
+  const API_KEY =
     getApiKey();
 
-  if(!OPENAI_API_KEY){
+  if(!API_KEY){
 
-    alert("No API Key");
+    alert("No Gemini API Key");
 
     return;
   }
@@ -138,31 +140,33 @@ async function analyzeFood(){
 
   try{
 
+    /* remove data:image/jpeg;base64, */
+
+    const imageBase64 =
+      base64Image.split(",")[1];
+
     const response = await fetch(
 
-      "https://api.openai.com/v1/chat/completions",
+`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
 
       {
         method:"POST",
 
         headers:{
-          "Content-Type":"application/json",
-          "Authorization":
-            `Bearer ${OPENAI_API_KEY}`
+          "Content-Type":"application/json"
         },
 
         body:JSON.stringify({
 
-          model:"gpt-4o-mini",
-
-          messages:[
+          contents:[
 
             {
-              role:"system",
+              parts:[
 
-              content:`
+                {
+                  text:`
 
-คุณคือ AI วิเคราะห์อาหาร
+วิเคราะห์อาหารในภาพนี้
 
 ตอบ JSON เท่านั้น
 
@@ -184,26 +188,13 @@ async function analyzeFood(){
 ถ้าเป็นอาหารไทย
 ให้ตอบชื่อไทย
 
-ประมาณค่าตามภาพจริง
-
 `
-            },
-
-            {
-              role:"user",
-
-              content:[
-
-                {
-                  type:"text",
-                  text:"วิเคราะห์อาหารในภาพนี้"
                 },
 
                 {
-                  type:"image_url",
-
-                  image_url:{
-                    url:base64Image
+                  inline_data:{
+                    mime_type:"image/jpeg",
+                    data:imageBase64
                   }
                 }
 
@@ -212,7 +203,9 @@ async function analyzeFood(){
 
           ],
 
-          max_tokens:700
+          generationConfig:{
+            temperature:0.4
+          }
 
         })
       }
@@ -231,9 +224,11 @@ async function analyzeFood(){
     }
 
     const raw =
-      data.choices[0]
-      .message
-      .content;
+      data
+      .candidates[0]
+      .content
+      .parts[0]
+      .text;
 
     const clean =
       raw
