@@ -1,3 +1,6 @@
+const OPENAI_API_KEY =
+prompt("Enter OpenAI API Key");
+
 const cameraInput =
   document.getElementById("cameraInput");
 
