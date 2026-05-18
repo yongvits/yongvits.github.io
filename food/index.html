@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
+
   <meta charset="UTF-8" />
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
@@ -10,39 +13,72 @@
   <title>AI Food Scanner</title>
 
   <link rel="stylesheet" href="style.css" />
+
 </head>
+
 <body>
 
   <div class="app">
 
     <div class="header">
+
       <h1>🍱 AI Food Scanner</h1>
-      <p>ถ่ายรูปอาหารเพื่อคำนวณแคลอรี่</p>
+
+      <p>
+        ถ่ายรูปหรือเลือกรูปอาหาร
+        เพื่อวิเคราะห์แคลอรี่ด้วย AI
+      </p>
+
     </div>
 
-    <label class="camera-btn">
-      📸 Open Camera
-      <input
-        type="file"
-        id="imageInput"
-        accept="image/*"
-        capture="environment"
-      />
-    </label>
+    <div class="buttons">
+
+      <label class="upload-btn camera">
+
+        📸 Camera
+
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          id="cameraInput"
+        />
+
+      </label>
+
+      <label class="upload-btn album">
+
+        🖼 Album
+
+        <input
+          type="file"
+          accept="image/*"
+          id="galleryInput"
+        />
+
+      </label>
+
+    </div>
 
     <div class="preview-wrap">
+
       <img id="preview" />
+
     </div>
 
     <button id="analyzeBtn">
-      Analyze Calories
+
+      🔍 Analyze Calories
+
     </button>
 
     <div id="loading" class="loading hidden">
-      🔍 AI กำลังวิเคราะห์อาหาร...
+
+      AI กำลังวิเคราะห์อาหาร...
+
     </div>
 
-    <div id="result" class="result"></div>
+    <div id="result"></div>
 
   </div>
 
