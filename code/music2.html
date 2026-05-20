@@ -259,11 +259,9 @@
         }
 
         function updateFileProgress(id, percent) {
-            // อัปเดตใน Array
             const fileItem = fileQueue.find(f => f.id === id);
             if (fileItem) {
                 fileItem.progress = percent;
-                // อัปเดต UI (เรียก render ใหม่เพื่อให้ง่ายต่อการจัดการ state)
                 renderFileList(); 
             }
         }
@@ -286,7 +284,6 @@
                 if (!loaded) return;
             }
 
-            // หาไฟล์ที่รอคิวแปลง
             const pendingFiles = fileQueue.filter(f => f.status === 'pending');
             if (pendingFiles.length === 0) return;
 
@@ -299,27 +296,20 @@
                 updateFileStatus(item.id, 'converting');
 
                 try {
-                    // กำหนดชื่อไฟล์ในระบบจำลองของ WebAssembly
                     const ext = item.file.name.substring(item.file.name.lastIndexOf('.'));
                     const inputName = `input_${item.id}${ext}`;
                     const outputName = `output_${item.id}.mp3`;
 
-                    // 1. เขียนไฟล์ลง Virtual File System
                     await ffmpeg.writeFile(inputName, await fetchFile(item.file));
-                    
-                    // 2. รันคำสั่ง FFmpeg แปลงเป็น mp3 192k (เพิ่ม -vn เพื่อตัดภาพวิดีโอทิ้ง ช่วยให้ประมวลผลเร็วขึ้น)
                     await ffmpeg.exec(['-i', inputName, '-vn', '-b:a', '192k', outputName]);
                     
-                    // 3. อ่านไฟล์ผลลัพธ์
                     const data = await ffmpeg.readFile(outputName);
                     const blob = new Blob([data.buffer], { type: 'audio/mp3' });
                     const url = URL.createObjectURL(blob);
                     
-                    // 4. ลบไฟล์ออกจาก Virtual FS เพื่อคืนพื้นที่ RAM ทันที (ป้องกันเบราว์เซอร์ค้าง)
                     await ffmpeg.deleteFile(inputName);
                     await ffmpeg.deleteFile(outputName);
 
-                    // อัปเดตสถานะสำเร็จ
                     updateFileStatus(item.id, 'done', url);
                     
                 } catch (error) {
@@ -328,7 +318,6 @@
                 }
             }
 
-            // เมื่อจบลูปทั้งหมด
             isConverting = false;
             currentProcessingId = null;
             updateConvertButton();
@@ -355,12 +344,22 @@
         dropZone.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (e) => {
             handleFileSelect(e.target.files);
-            fileInput.value = ''; // รีเซ็ต input เผื่อผู้ใช้เลือกไฟล์เดิมซ้ำ
+            fileInput.value = ''; 
         });
         
         convertBtn.addEventListener('click', convertAllFiles);
 
-        // จัดการคลิกปุ่มเพิ่มลิงก์ YouTube (เชื่อมต่อ Third-party API)
+        // ==========================================
+        // ส่วนจัดการ YouTube (เชื่อมกับ RapidAPI)
+        // ==========================================
+        
+        // ฟังก์ชันช่วยแยก Video ID ออกจากลิงก์ YouTube
+        function extractVideoID(url) {
+            const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[7].length == 11) ? match[7] : false;
+        }
+
         addYoutubeBtn.addEventListener('click', async () => {
             const url = youtubeInput.value.trim();
             if (!url) {
@@ -368,59 +367,72 @@
                 return;
             }
 
-            if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+            const videoId = extractVideoID(url);
+            if (!videoId) {
                 showToast('รูปแบบลิงก์ YouTube ไม่ถูกต้อง', 'error');
                 return;
             }
 
-            showToast('กำลังส่งลิงก์ไปยังเซิร์ฟเวอร์ภายนอก...', 'info');
+            // API KEY ของคุณจากในรูป
+            const RAPID_API_KEY = "6308b8aaadmsh6b43bbc19936347p1bafb8jsn980be223bcb0"; 
+            
+            showToast('กำลังขอลิงก์ดาวน์โหลดจากเซิร์ฟเวอร์...', 'info');
+            addYoutubeBtn.disabled = true;
+            addYoutubeBtn.innerHTML = 'กำลังโหลด...';
             
             try {
-                // =========================================================
-                // จุดที่ต้องแก้ไข: นำ URL ของ API ที่คุณหามาได้ มาใส่ตรงนี้
-                // =========================================================
-                // ตัวอย่างนี้เป็นเพียงโครงสร้าง (Mock-up) 
-                const apiUrl = `https://api.example-third-party.com/convert?url=${encodeURIComponent(url)}`;
-                
-                /* --- รูปแบบโค้ดเมื่อใช้งาน API จริง ---
+                // อัปเดต Endpoint URL ตาม API 
+                const apiUrl = `https://youtube-mp3-audio-video-downloader.p.rapidapi.com/download_audio_mp3?videoid=${videoId}`;
                 
                 const response = await fetch(apiUrl, {
                     method: 'GET',
-                    // ถ้าใช้ RapidAPI ต้องใส่ Headers API Key ตามที่เว็บนั้นบอก เช่น:
-                    // headers: {
-                    //     'X-RapidAPI-Key': 'YOUR_API_KEY_HERE',
-                    //     'X-RapidAPI-Host': 'youtube-mp36.p.rapidapi.com'
-                    // }
+                    headers: {
+                        'x-rapidapi-key': RAPID_API_KEY,
+                        'x-rapidapi-host': 'youtube-mp3-audio-video-downloader.p.rapidapi.com'
+                    }
                 });
                 
                 const data = await response.json();
                 
-                if (data.download_url) {
-                    showToast('กำลังดึงไฟล์ลงมาที่เบราว์เซอร์...', 'info');
+                // ตรวจสอบโครงสร้างของ Response ตามรูปภาพล่าสุด (ใช้ data.file)
+                const downloadUrl = data.file || data.url || data.link;
+
+                if (downloadUrl) {
+                    showToast('กำลังดึงไฟล์เสียงลงมา (อาจใช้เวลาเตรียมไฟล์)...', 'info');
                     
-                    // โหลดไฟล์จาก Direct URL ที่ API ให้มา
-                    const fileResponse = await fetch(data.download_url);
-                    const blob = await fileResponse.blob();
-                    
-                    // แปลงข้อมูลให้กลายเป็น File Object เพื่อโยนเข้าระบบเรา
-                    // ตั้งชื่อไฟล์ชั่วคราวเป็น mp4 เพื่อให้ระบบเราดึงเสียงออกต่อ
-                    const file = new File([blob], "youtube_download.mp4", { type: "video/mp4" });
-                    
-                    handleFileSelect([file]); // โยนเข้า Queue ของเรา
-                    youtubeInput.value = '';
-                    showToast('เพิ่มไฟล์จาก YouTube สำเร็จ!', 'success');
+                    // เพิ่มการหน่วงเวลาสักนิด (polling) หรือลองโหลดเลย
+                    // เนื่องจาก API บอกว่าอาจต้องรอ 20-300 วินาที เราจะใช้ try/catch ดัก Error ไว้
+                    try {
+                        const fileResponse = await fetch(downloadUrl);
+                        if (!fileResponse.ok) throw new Error("ไฟล์ยังไม่พร้อม หรือไม่สามารถโหลดได้");
+                        
+                        const blob = await fileResponse.blob();
+                        
+                        // สร้างไฟล์จำลอง เป็น mp3 ไปเลยเพราะ API เจ้านี้บอกว่าเป็น mp3
+                        const file = new File([blob], `youtube_${videoId}.mp3`, { type: "audio/mp3" });
+                        
+                        handleFileSelect([file]);
+                        youtubeInput.value = '';
+                        showToast('เพิ่มไฟล์จาก YouTube สำเร็จ!', 'success');
+                    } catch (fetchError) {
+                        console.error("Error fetching file:", fetchError);
+                        showToast('ไฟล์บนเซิร์ฟเวอร์ยังไม่พร้อม กรุณาลองใหม่ในอีก 1-2 นาที', 'error');
+                    }
+
                 } else {
-                    showToast('เซิร์ฟเวอร์ภายนอกไม่พบไฟล์', 'error');
+                    console.error("API Response:", data);
+                    showToast('เซิร์ฟเวอร์ไม่ส่งลิงก์กลับมา (ดู Console)', 'error');
                 }
-                
-                ---------------------------------------- */
-                
-                // ข้อความแจ้งเตือนชั่วคราวก่อนคุณหา API มาใส่
-                showToast('กรุณาใส่ URL ของ Third-party API ในโค้ดก่อนใช้งานจริง', 'error');
 
             } catch (err) {
                 console.error(err);
-                showToast('เชื่อมต่อ API ล้มเหลว (อาจล่ม หรือติด CORS)', 'error');
+                showToast('เชื่อมต่อ API ล้มเหลว', 'error');
+            } finally {
+                addYoutubeBtn.disabled = false;
+                addYoutubeBtn.innerHTML = `
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                    เพิ่มลิงก์
+                `;
             }
         });
 
