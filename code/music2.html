@@ -85,7 +85,7 @@
         let ffmpegLoaded = false;
         let ffmpeg = null;
         let fetchFile = null;
-        let currentProcessingId = null; // เก็บ ID ของไฟล์ที่กำลังแปลงอยู่
+        let currentProcessingId = null; 
 
         // Custom Toast Notification
         function showToast(message, type = 'info') {
@@ -118,7 +118,7 @@
                 ffmpeg = new FFmpeg();
                 fetchFile = _fetchFile;
                 
-                // ติดตั้ง Event Progress ครั้งเดียว ใช้ร่วมกันทุกไฟล์
+                // ติดตั้ง Event Progress
                 ffmpeg.on('progress', ({ progress }) => {
                     if (currentProcessingId !== null) {
                         const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
@@ -147,15 +147,13 @@
             
             let addedCount = 0;
             Array.from(files).forEach(file => {
-                // เช็คว่าเป็นไฟล์เสียง หรือไฟล์วิดีโอ MP4
                 if (file.type.startsWith('audio/') || file.type === 'video/mp4' || file.name.match(/\.(mp4|m4a|mp3|wav|ogg|flac|aac|wma)$/i)) {
-                    // สร้าง Object เก็บข้อมูลไฟล์แต่ละอัน
                     const fileObj = {
                         id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                         file: file,
                         name: file.name,
                         size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-                        status: 'pending', // pending, converting, done, error
+                        status: 'pending', 
                         progress: 0,
                         downloadUrl: null
                     };
@@ -202,7 +200,7 @@
         }
 
         function renderFileList() {
-            fileListContainer.innerHTML = ''; // ล้างของเดิม
+            fileListContainer.innerHTML = ''; 
             
             fileQueue.forEach(item => {
                 const itemDiv = document.createElement('div');
@@ -212,7 +210,6 @@
                 let rightActionHTML = '';
                 let progressHTML = '';
 
-                // ตัดสินใจว่าจะแสดงปุ่มอะไรตาม Status
                 if (item.status === 'pending') {
                     rightActionHTML = `
                         <button onclick="removeFile('${item.id}')" class="text-red-400 hover:text-red-600 p-1" title="ลบออก">
@@ -230,7 +227,6 @@
                      rightActionHTML = `<span class="text-xs text-red-500 font-medium">ล้มเหลว</span>`;
                 }
 
-                // แถบโหลด
                 if (item.status === 'converting' || item.progress > 0) {
                     const color = item.status === 'error' ? 'bg-red-500' : (item.status === 'done' ? 'bg-green-500' : 'bg-blue-600');
                     progressHTML = `
@@ -350,10 +346,9 @@
         convertBtn.addEventListener('click', convertAllFiles);
 
         // ==========================================
-        // ส่วนจัดการ YouTube (เชื่อมกับ RapidAPI)
+        // ส่วนจัดการ YouTube (เชื่อมกับ RapidAPI - ytjar)
         // ==========================================
         
-        // ฟังก์ชันช่วยแยก Video ID ออกจากลิงก์ YouTube
         function extractVideoID(url) {
             const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
             const match = url.match(regExp);
@@ -373,55 +368,64 @@
                 return;
             }
 
-            // API KEY ของคุณจากในรูป
+            // API KEY ของคุณ
             const RAPID_API_KEY = "6308b8aaadmsh6b43bbc19936347p1bafb8jsn980be223bcb0"; 
             
-            showToast('กำลังขอลิงก์ดาวน์โหลดจากเซิร์ฟเวอร์...', 'info');
+            showToast('กำลังขอดึงไฟล์จากเซิร์ฟเวอร์...', 'info');
             addYoutubeBtn.disabled = true;
             addYoutubeBtn.innerHTML = 'กำลังโหลด...';
             
             try {
-                // อัปเดต Endpoint URL ตาม API 
-                const apiUrl = `https://youtube-mp3-audio-video-downloader.p.rapidapi.com/download_audio_mp3?videoid=${videoId}`;
+                const apiUrl = `https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`;
                 
                 const response = await fetch(apiUrl, {
                     method: 'GET',
                     headers: {
                         'x-rapidapi-key': RAPID_API_KEY,
-                        'x-rapidapi-host': 'youtube-mp3-audio-video-downloader.p.rapidapi.com'
+                        'x-rapidapi-host': 'youtube-mp36.p.rapidapi.com'
                     }
                 });
                 
                 const data = await response.json();
-                
-                // ตรวจสอบโครงสร้างของ Response ตามรูปภาพล่าสุด (ใช้ data.file)
-                const downloadUrl = data.file || data.url || data.link;
+                const downloadUrl = data.link || data.url;
 
                 if (downloadUrl) {
-                    showToast('กำลังดึงไฟล์เสียงลงมา (อาจใช้เวลาเตรียมไฟล์)...', 'info');
+                    showToast('ได้ลิงก์แล้ว กำลังดึงไฟล์ลงระบบ...', 'info');
                     
-                    // เพิ่มการหน่วงเวลาสักนิด (polling) หรือลองโหลดเลย
-                    // เนื่องจาก API บอกว่าอาจต้องรอ 20-300 วินาที เราจะใช้ try/catch ดัก Error ไว้
                     try {
-                        const fileResponse = await fetch(downloadUrl);
-                        if (!fileResponse.ok) throw new Error("ไฟล์ยังไม่พร้อม หรือไม่สามารถโหลดได้");
+                        let fileResponse;
+                        // ลองโหลดไฟล์แบบตรงๆ ก่อน
+                        try {
+                            fileResponse = await fetch(downloadUrl);
+                            if (!fileResponse.ok) throw new Error("Direct fetch failed");
+                        } catch (corsError) {
+                            // หากติด CORS ให้ใช้ Proxy ดึงแทน (แก้ปัญหาบน GitHub Pages)
+                            console.log("CORS blocked direct fetch, using AllOrigins proxy...");
+                            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(downloadUrl)}`;
+                            fileResponse = await fetch(proxyUrl);
+                            if (!fileResponse.ok) throw new Error("Proxy fetch failed");
+                        }
                         
                         const blob = await fileResponse.blob();
+                        const fileName = data.title ? `${data.title}.mp3` : `youtube_${videoId}.mp3`;
                         
-                        // สร้างไฟล์จำลอง เป็น mp3 ไปเลยเพราะ API เจ้านี้บอกว่าเป็น mp3
-                        const file = new File([blob], `youtube_${videoId}.mp3`, { type: "audio/mp3" });
+                        // สร้างไฟล์จำลองเพื่อโยนเข้าคิว
+                        const file = new File([blob], fileName, { type: "audio/mp3" });
                         
                         handleFileSelect([file]);
                         youtubeInput.value = '';
-                        showToast('เพิ่มไฟล์จาก YouTube สำเร็จ!', 'success');
+                        showToast('เพิ่มไฟล์จาก YouTube เข้าคิวสำเร็จ!', 'success');
+                        
                     } catch (fetchError) {
                         console.error("Error fetching file:", fetchError);
-                        showToast('ไฟล์บนเซิร์ฟเวอร์ยังไม่พร้อม กรุณาลองใหม่ในอีก 1-2 นาที', 'error');
+                        showToast('ไฟล์ใหญ่เกินไป หรือติดบล็อก กำลังเปิดหน้าให้ดาวน์โหลดแทน...', 'error');
+                        // Fallback สุดท้าย หากโหลดเข้าเว็บไม่สำเร็จจริงๆ จะเปิดแท็บใหม่ให้ดาวน์โหลด
+                        window.open(downloadUrl, '_blank');
                     }
 
                 } else {
                     console.error("API Response:", data);
-                    showToast('เซิร์ฟเวอร์ไม่ส่งลิงก์กลับมา (ดู Console)', 'error');
+                    showToast(data.message || 'เซิร์ฟเวอร์ไม่ส่งลิงก์กลับมา (ดู Console)', 'error');
                 }
 
             } catch (err) {
