@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Audio Converter</title>
+    <title>Batch Audio Converter</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- โหลดไลบรารี FFmpeg ผ่าน jsDelivr (เสถียรกว่าและป้องกันปัญหา CORS) -->
+    <!-- โหลดไลบรารี FFmpeg -->
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     
@@ -20,55 +20,42 @@
             transform: translateY(0);
             opacity: 1;
         }
+        /* ซ่อน Scrollbar แต่ยังเลื่อนได้ */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-    <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
-        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">แปลงไฟล์เสียงเป็น MP3</h1>
+    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-lg w-full">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-2">แปลงไฟล์เสียงเป็น MP3</h1>
+        <p class="text-center text-sm text-gray-500 mb-6">สามารถเลือกได้หลายไฟล์พร้อมกัน</p>
         
         <!-- Upload Area -->
-        <div id="dropZone" class="border-2 border-dashed border-blue-400 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-colors">
+        <div id="dropZone" class="border-2 border-dashed border-blue-400 rounded-xl p-6 text-center cursor-pointer hover:bg-blue-50 transition-colors mb-4">
             <svg class="mx-auto h-12 w-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
-            <p class="text-sm text-gray-600 mb-1">คลิกหรือลากไฟล์มาวางที่นี่</p>
+            <p class="text-sm text-gray-600 mb-1">คลิกหรือลากไฟล์ทั้งหมดมาวางที่นี่</p>
             <p class="text-xs text-gray-400">รองรับ M4A, WAV, OGG, FLAC ฯลฯ</p>
-            <input type="file" id="fileInput" class="hidden" accept="audio/*">
+            <!-- เพิ่ม multiple attribute เพื่อให้เลือกได้หลายไฟล์ -->
+            <input type="file" id="fileInput" class="hidden" accept="audio/*" multiple>
         </div>
 
-        <!-- File Info -->
-        <div id="fileInfo" class="hidden mt-6 bg-gray-50 p-4 rounded-lg">
-            <div class="flex items-center justify-between">
-                <div class="truncate mr-4">
-                    <p class="text-sm font-medium text-gray-800 truncate" id="fileName">filename.m4a</p>
-                    <p class="text-xs text-gray-500" id="fileSize">0 MB</p>
-                </div>
-                <button id="removeBtn" class="text-red-500 hover:text-red-700 p-1">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
+        <!-- File List Container -->
+        <div id="fileListContainer" class="max-h-64 overflow-y-auto no-scrollbar mb-4 space-y-2">
+            <!-- รายการไฟล์จะถูกสร้างที่นี่โดย JavaScript -->
         </div>
 
-        <!-- Progress -->
-        <div id="progressContainer" class="hidden mt-6">
-            <div class="flex justify-between text-xs font-medium text-gray-600 mb-1">
-                <span id="progressText">กำลังเตรียมการ...</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-                <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-            </div>
-        </div>
-
-        <!-- Convert Button -->
-        <button id="convertBtn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden">
-            เริ่มแปลงไฟล์เป็น MP3
+        <!-- Convert All Button -->
+        <button id="convertBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden">
+            เริ่มแปลงไฟล์ทั้งหมด (0 ไฟล์)
         </button>
-
-        <!-- Download Button -->
-        <a id="downloadBtn" class="mt-4 w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-4 rounded-lg transition-colors text-center hidden cursor-pointer block">
-            ดาวน์โหลดไฟล์ MP3
-        </a>
     </div>
 
     <!-- Toast Container -->
@@ -78,40 +65,26 @@
         // DOM Elements
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
-        const fileInfo = document.getElementById('fileInfo');
-        const fileName = document.getElementById('fileName');
-        const fileSize = document.getElementById('fileSize');
-        const removeBtn = document.getElementById('removeBtn');
+        const fileListContainer = document.getElementById('fileListContainer');
         const convertBtn = document.getElementById('convertBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
         const toastContainer = document.getElementById('toastContainer');
 
-        // State
-        let currentFile = null;
+        // State Variables สำหรับระบบ Queue
+        let fileQueue = []; 
         let isConverting = false;
         let ffmpegLoaded = false;
         let ffmpeg = null;
         let fetchFile = null;
+        let currentProcessingId = null; // เก็บ ID ของไฟล์ที่กำลังแปลงอยู่
 
-        // Custom Toast Notification System
+        // Custom Toast Notification
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
-            const colors = {
-                info: 'bg-blue-500',
-                success: 'bg-green-500',
-                error: 'bg-red-500'
-            };
-            
+            const colors = { info: 'bg-blue-500', success: 'bg-green-500', error: 'bg-red-500' };
             toast.className = `${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg text-sm font-medium toast`;
             toast.textContent = message;
-            
             toastContainer.appendChild(toast);
-            
             setTimeout(() => toast.classList.add('show'), 10);
-            
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
@@ -120,15 +93,13 @@
 
         async function loadFFmpeg() {
             if (ffmpegLoaded) return true;
-            
             try {
-                showToast('กำลังดาวน์โหลดเครื่องมือแปลงไฟล์ (ใช้เวลาสักครู่)...', 'info');
+                showToast('กำลังโหลดเครื่องมือแปลงไฟล์...', 'info');
                 convertBtn.disabled = true;
                 convertBtn.textContent = 'กำลังโหลดเครื่องมือ...';
                 
-                // Check if CDN libraries are successfully loaded
                 if (typeof window.FFmpegWASM === 'undefined' || typeof window.FFmpegUtil === 'undefined') {
-                    throw new Error("ระบบไม่สามารถดึงไลบรารีได้ (อาจติดปัญหาเครือข่าย) กรุณารีเฟรชหน้าเว็บ");
+                    throw new Error("ไม่สามารถดึงไลบรารีได้");
                 }
 
                 const { FFmpeg } = window.FFmpegWASM;
@@ -137,129 +108,223 @@
                 ffmpeg = new FFmpeg();
                 fetchFile = _fetchFile;
                 
+                // ติดตั้ง Event Progress ครั้งเดียว ใช้ร่วมกันทุกไฟล์
                 ffmpeg.on('progress', ({ progress }) => {
-                    const percent = Math.round(progress * 100);
-                    if(percent >= 0 && percent <= 100) {
-                        progressText.textContent = `กำลังแปลงไฟล์: ${percent}%`;
-                        progressBar.style.width = `${percent}%`;
+                    if (currentProcessingId !== null) {
+                        const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
+                        updateFileProgress(currentProcessingId, percent);
                     }
                 });
 
-                // ใช้เวอร์ชัน Core มาตรฐาน ป้องกันปัญหา SharedArrayBuffer บล็อคการทำงานบน GitHub Pages
                 const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-                
                 await ffmpeg.load({
                     coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                     wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
                 });
 
                 ffmpegLoaded = true;
-                convertBtn.disabled = false;
-                convertBtn.textContent = 'เริ่มแปลงไฟล์เป็น MP3';
+                updateConvertButton();
                 return true;
-                
             } catch (error) {
-                console.error('Error loading FFmpeg:', error);
-                showToast('โหลดไม่สำเร็จ: ' + error.message, 'error');
-                convertBtn.textContent = 'โหลดเครื่องมือล้มเหลว';
+                console.error(error);
+                showToast('โหลดเครื่องมือไม่สำเร็จ กรุณารีเฟรช', 'error');
                 return false;
             }
         }
 
-        function handleFileSelect(file) {
-            if (!file) return;
+        function handleFileSelect(files) {
+            if (!files || files.length === 0) return;
             
-            if (!file.type.startsWith('audio/') && !file.name.match(/\.(m4a|mp3|wav|ogg|flac|aac|wma)$/i)) {
-                showToast('กรุณาเลือกไฟล์เสียงที่รองรับ', 'error');
+            let addedCount = 0;
+            Array.from(files).forEach(file => {
+                // เช็คว่าเป็นไฟล์เสียง
+                if (file.type.startsWith('audio/') || file.name.match(/\.(m4a|mp3|wav|ogg|flac|aac|wma)$/i)) {
+                    // สร้าง Object เก็บข้อมูลไฟล์แต่ละอัน
+                    const fileObj = {
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                        file: file,
+                        name: file.name,
+                        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+                        status: 'pending', // pending, converting, done, error
+                        progress: 0,
+                        downloadUrl: null
+                    };
+                    fileQueue.push(fileObj);
+                    addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                renderFileList();
+                updateConvertButton();
+                if (!ffmpegLoaded) loadFFmpeg();
+            } else {
+                showToast('ไม่พบไฟล์เสียงที่รองรับ', 'error');
+            }
+        }
+
+        function removeFile(id) {
+            if (isConverting && currentProcessingId === id) {
+                showToast('ไม่สามารถลบไฟล์ที่กำลังแปลงได้', 'error');
                 return;
             }
+            fileQueue = fileQueue.filter(f => f.id !== id);
+            renderFileList();
+            updateConvertButton();
+        }
 
-            currentFile = file;
-            fileName.textContent = file.name;
-            fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
-            
-            dropZone.classList.add('hidden');
-            fileInfo.classList.remove('hidden');
-            convertBtn.classList.remove('hidden');
-            downloadBtn.classList.add('hidden');
-            progressContainer.classList.add('hidden');
-            
-            if (!ffmpegLoaded) {
-                loadFFmpeg();
+        function updateConvertButton() {
+            const pendingCount = fileQueue.filter(f => f.status === 'pending').length;
+            if (fileQueue.length > 0) {
+                convertBtn.classList.remove('hidden');
+                convertBtn.disabled = pendingCount === 0 || isConverting || !ffmpegLoaded;
+                
+                if (isConverting) {
+                    convertBtn.textContent = 'กำลังแปลงไฟล์...';
+                } else if (pendingCount === 0) {
+                    convertBtn.textContent = 'แปลงไฟล์เสร็จสิ้นทั้งหมด';
+                } else {
+                    convertBtn.textContent = `เริ่มแปลงไฟล์ทั้งหมด (${pendingCount} ไฟล์)`;
+                }
+            } else {
+                convertBtn.classList.add('hidden');
             }
         }
 
-        function resetUI() {
-            currentFile = null;
-            isConverting = false;
-            fileInput.value = '';
+        function renderFileList() {
+            fileListContainer.innerHTML = ''; // ล้างของเดิม
             
-            dropZone.classList.remove('hidden');
-            fileInfo.classList.add('hidden');
-            convertBtn.classList.add('hidden');
-            downloadBtn.classList.add('hidden');
-            progressContainer.classList.add('hidden');
-            
-            progressBar.style.width = '0%';
-            progressText.textContent = 'กำลังเตรียมการ...';
-            
-            if (ffmpegLoaded) {
-                convertBtn.disabled = false;
-                convertBtn.textContent = 'เริ่มแปลงไฟล์เป็น MP3';
+            fileQueue.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'bg-gray-50 border border-gray-100 rounded-lg p-3 flex flex-col transition-all';
+                itemDiv.id = `item-${item.id}`;
+
+                let rightActionHTML = '';
+                let progressHTML = '';
+
+                // ตัดสินใจว่าจะแสดงปุ่มอะไรตาม Status
+                if (item.status === 'pending') {
+                    rightActionHTML = `
+                        <button onclick="removeFile('${item.id}')" class="text-red-400 hover:text-red-600 p-1" title="ลบออก">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    `;
+                } else if (item.status === 'done') {
+                    rightActionHTML = `
+                        <a href="${item.downloadUrl}" download="${item.name.replace(/\.[^/.]+$/, "") + '.mp3'}" class="text-white bg-green-500 hover:bg-green-600 p-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1 shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            โหลด MP3
+                        </a>
+                    `;
+                } else if (item.status === 'error') {
+                     rightActionHTML = `<span class="text-xs text-red-500 font-medium">ล้มเหลว</span>`;
+                }
+
+                // แถบโหลด
+                if (item.status === 'converting' || item.progress > 0) {
+                    const color = item.status === 'error' ? 'bg-red-500' : (item.status === 'done' ? 'bg-green-500' : 'bg-blue-600');
+                    progressHTML = `
+                        <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                            <div class="${color} h-1.5 rounded-full transition-all duration-300" style="width: ${item.progress}%"></div>
+                        </div>
+                    `;
+                }
+
+                let statusText = item.status === 'converting' ? `กำลังแปลง... ${item.progress}%` : item.size;
+
+                itemDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="truncate mr-3 flex-1">
+                            <p class="text-sm font-medium text-gray-800 truncate" title="${item.name}">${item.name}</p>
+                            <p class="text-xs text-gray-500 transition-colors" id="status-${item.id}">${statusText}</p>
+                        </div>
+                        <div class="flex-shrink-0 flex items-center">
+                            ${rightActionHTML}
+                        </div>
+                    </div>
+                    ${progressHTML}
+                `;
+                fileListContainer.appendChild(itemDiv);
+            });
+        }
+
+        function updateFileProgress(id, percent) {
+            // อัปเดตใน Array
+            const fileItem = fileQueue.find(f => f.id === id);
+            if (fileItem) {
+                fileItem.progress = percent;
+                // อัปเดต UI (เรียก render ใหม่เพื่อให้ง่ายต่อการจัดการ state)
+                renderFileList(); 
             }
         }
 
-        async function convertAudio() {
-            if (!currentFile || isConverting) return;
+        function updateFileStatus(id, status, url = null) {
+            const fileItem = fileQueue.find(f => f.id === id);
+            if (fileItem) {
+                fileItem.status = status;
+                if (url) fileItem.downloadUrl = url;
+                if (status === 'done') fileItem.progress = 100;
+                renderFileList();
+            }
+        }
+
+        async function convertAllFiles() {
+            if (isConverting) return;
             
             if (!ffmpegLoaded) {
                 const loaded = await loadFFmpeg();
                 if (!loaded) return;
             }
-            
+
+            // หาไฟล์ที่รอคิวแปลง
+            const pendingFiles = fileQueue.filter(f => f.status === 'pending');
+            if (pendingFiles.length === 0) return;
+
             isConverting = true;
-            convertBtn.disabled = true;
-            removeBtn.disabled = true;
-            downloadBtn.classList.add('hidden');
-            progressContainer.classList.remove('hidden');
-            progressText.textContent = 'กำลังอ่านไฟล์...';
-            progressBar.style.width = '0%';
+            updateConvertButton();
+            showToast('เริ่มกระบวนการแปลงไฟล์...', 'info');
 
-            try {
-                const inputName = 'input_audio' + currentFile.name.substring(currentFile.name.lastIndexOf('.'));
-                const outputName = 'output_audio.mp3';
+            for (const item of pendingFiles) {
+                currentProcessingId = item.id;
+                updateFileStatus(item.id, 'converting');
 
-                await ffmpeg.writeFile(inputName, await fetchFile(currentFile));
-                
-                progressText.textContent = 'กำลังแปลงไฟล์ (ขั้นตอนนี้อาจใช้เวลา)...';
-                // อัปเดตใช้คำสั่ง .exec() แทน .run() สำหรับ FFmpeg v0.12+
-                await ffmpeg.exec(['-i', inputName, '-b:a', '192k', outputName]);
-                
-                progressText.textContent = 'กำลังสร้างไฟล์ MP3...';
-                const data = await ffmpeg.readFile(outputName);
-                
-                const blob = new Blob([data.buffer], { type: 'audio/mp3' });
-                const url = URL.createObjectURL(blob);
-                
-                downloadBtn.href = url;
-                downloadBtn.download = currentFile.name.replace(/\.[^/.]+$/, "") + '.mp3';
-                downloadBtn.classList.remove('hidden');
-                
-                showToast('แปลงไฟล์สำเร็จ!', 'success');
-                progressText.textContent = 'เสร็จสมบูรณ์ 100%';
-                
-            } catch (error) {
-                console.error('Conversion error:', error);
-                showToast('เกิดข้อผิดพลาดขณะแปลงไฟล์', 'error');
-            } finally {
-                isConverting = false;
-                convertBtn.disabled = false;
-                removeBtn.disabled = false;
-                convertBtn.textContent = 'แปลงไฟล์อื่นต่อ';
+                try {
+                    // กำหนดชื่อไฟล์ในระบบจำลองของ WebAssembly
+                    const ext = item.file.name.substring(item.file.name.lastIndexOf('.'));
+                    const inputName = `input_${item.id}${ext}`;
+                    const outputName = `output_${item.id}.mp3`;
+
+                    // 1. เขียนไฟล์ลง Virtual File System
+                    await ffmpeg.writeFile(inputName, await fetchFile(item.file));
+                    
+                    // 2. รันคำสั่ง FFmpeg แปลงเป็น mp3 192k
+                    await ffmpeg.exec(['-i', inputName, '-b:a', '192k', outputName]);
+                    
+                    // 3. อ่านไฟล์ผลลัพธ์
+                    const data = await ffmpeg.readFile(outputName);
+                    const blob = new Blob([data.buffer], { type: 'audio/mp3' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    // 4. ลบไฟล์ออกจาก Virtual FS เพื่อคืนพื้นที่ RAM ทันที (ป้องกันเบราว์เซอร์ค้าง)
+                    await ffmpeg.deleteFile(inputName);
+                    await ffmpeg.deleteFile(outputName);
+
+                    // อัปเดตสถานะสำเร็จ
+                    updateFileStatus(item.id, 'done', url);
+                    
+                } catch (error) {
+                    console.error(`Error converting ${item.name}:`, error);
+                    updateFileStatus(item.id, 'error');
+                }
             }
+
+            // เมื่อจบลูปทั้งหมด
+            isConverting = false;
+            currentProcessingId = null;
+            updateConvertButton();
+            showToast('แปลงไฟล์ทั้งหมดเสร็จสมบูรณ์!', 'success');
         }
 
-        // Drag and Drop Events
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('border-blue-600', 'bg-blue-50');
@@ -273,14 +338,17 @@
             e.preventDefault();
             dropZone.classList.remove('border-blue-600', 'bg-blue-50');
             if (e.dataTransfer.files.length) {
-                handleFileSelect(e.dataTransfer.files[0]);
+                handleFileSelect(e.dataTransfer.files);
             }
         });
 
         dropZone.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
-        removeBtn.addEventListener('click', resetUI);
-        convertBtn.addEventListener('click', convertAudio);
+        fileInput.addEventListener('change', (e) => {
+            handleFileSelect(e.target.files);
+            fileInput.value = ''; // รีเซ็ต input เผื่อผู้ใช้เลือกไฟล์เดิมซ้ำ
+        });
+        
+        convertBtn.addEventListener('click', convertAllFiles);
 
     </script>
 </body>
