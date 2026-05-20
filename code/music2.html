@@ -66,7 +66,7 @@
         </button>
         
         <!-- Version Indicator -->
-        <p class="text-center text-xs text-gray-400 mt-4">Version 1.2.0</p>
+        <p class="text-center text-xs text-gray-400 mt-4">Version 1.2.1</p>
     </div>
 
     <!-- Toast Container -->
@@ -220,8 +220,9 @@
                         </button>
                     `;
                 } else if (item.status === 'done') {
+                    // เพิ่ม target="_blank" ให้มันโหลดในแท็บใหม่ ป้องกันติดบั๊กหน้าเว็บเปลี่ยน
                     rightActionHTML = `
-                        <a href="${item.downloadUrl}" download="${item.name.replace(/\.[^/.]+$/, "") + '.mp3'}" class="text-white bg-green-500 hover:bg-green-600 p-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1 shadow-sm transition-colors">
+                        <a href="${item.downloadUrl}" target="_blank" download="${item.name.replace(/\.[^/.]+$/, "") + '.mp3'}" class="text-white bg-green-500 hover:bg-green-600 p-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1 shadow-sm transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                             โหลด MP3
                         </a>
@@ -390,41 +391,33 @@
                 });
                 
                 const data = await response.json();
+                
+                // ตรวจสอบว่า API แจ้งว่าต้องรอหรือไม่
+                if (data.msg === "in queue" || data.status === "processing") {
+                    showToast('เซิร์ฟเวอร์กำลังแปลงไฟล์ กรุณากดเพิ่มลิงก์อีกครั้งในอีก 10 วินาที', 'info');
+                    return;
+                }
+
                 const downloadUrl = data.link || data.url;
 
                 if (downloadUrl) {
-                    showToast('ได้ลิงก์แล้ว กำลังดึงไฟล์ลงระบบ...', 'info');
+                    // สร้างรายการที่ "สำเร็จแล้ว" โผล่ในหน้าเว็บเลย (ข้ามขั้นตอนการแปลงไฟล์ซ้ำ)
+                    const fileName = data.title ? `${data.title}.mp3` : `youtube_${videoId}.mp3`;
                     
-                    try {
-                        let fileResponse;
-                        // ลองโหลดไฟล์แบบตรงๆ ก่อน
-                        try {
-                            fileResponse = await fetch(downloadUrl);
-                            if (!fileResponse.ok) throw new Error("Direct fetch failed");
-                        } catch (corsError) {
-                            // หากติด CORS ให้ใช้ Proxy ดึงแทน (แก้ปัญหาบน GitHub Pages)
-                            console.log("CORS blocked direct fetch, using AllOrigins proxy...");
-                            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(downloadUrl)}`;
-                            fileResponse = await fetch(proxyUrl);
-                            if (!fileResponse.ok) throw new Error("Proxy fetch failed");
-                        }
-                        
-                        const blob = await fileResponse.blob();
-                        const fileName = data.title ? `${data.title}.mp3` : `youtube_${videoId}.mp3`;
-                        
-                        // สร้างไฟล์จำลองเพื่อโยนเข้าคิว
-                        const file = new File([blob], fileName, { type: "audio/mp3" });
-                        
-                        handleFileSelect([file]);
-                        youtubeInput.value = '';
-                        showToast('เพิ่มไฟล์จาก YouTube เข้าคิวสำเร็จ!', 'success');
-                        
-                    } catch (fetchError) {
-                        console.error("Error fetching file:", fetchError);
-                        showToast('ไฟล์ใหญ่เกินไป หรือติดบล็อก กำลังเปิดหน้าให้ดาวน์โหลดแทน...', 'error');
-                        // Fallback สุดท้าย หากโหลดเข้าเว็บไม่สำเร็จจริงๆ จะเปิดแท็บใหม่ให้ดาวน์โหลด
-                        window.open(downloadUrl, '_blank');
-                    }
+                    const fileObj = {
+                        id: 'yt_' + Date.now().toString(),
+                        file: null, 
+                        name: fileName,
+                        size: 'YouTube (MP3)',
+                        status: 'done', // ตั้งให้เสร็จเลย
+                        progress: 100,
+                        downloadUrl: downloadUrl // แปะลิงก์ตรงจาก API ให้ดาวน์โหลดเลย
+                    };
+                    
+                    fileQueue.unshift(fileObj); // ดันขึ้นบนสุดของรายการ
+                    renderFileList();
+                    youtubeInput.value = '';
+                    showToast('เพิ่มไฟล์จาก YouTube สำเร็จ! กดโหลด MP3 ได้เลย', 'success');
 
                 } else {
                     console.error("API Response:", data);
