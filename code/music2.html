@@ -1,28 +1,134 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Audio Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- โหลดไลบรารี FFmpeg ผ่าน jsDelivr (เสถียรกว่าและป้องกันปัญหา CORS) -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+    
+    <style>
+        .toast {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">แปลงไฟล์เสียงเป็น MP3</h1>
+        
+        <!-- Upload Area -->
+        <div id="dropZone" class="border-2 border-dashed border-blue-400 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-colors">
+            <svg class="mx-auto h-12 w-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <p class="text-sm text-gray-600 mb-1">คลิกหรือลากไฟล์มาวางที่นี่</p>
+            <p class="text-xs text-gray-400">รองรับ M4A, WAV, OGG, FLAC ฯลฯ</p>
+            <input type="file" id="fileInput" class="hidden" accept="audio/*">
+        </div>
+
+        <!-- File Info -->
+        <div id="fileInfo" class="hidden mt-6 bg-gray-50 p-4 rounded-lg">
+            <div class="flex items-center justify-between">
+                <div class="truncate mr-4">
+                    <p class="text-sm font-medium text-gray-800 truncate" id="fileName">filename.m4a</p>
+                    <p class="text-xs text-gray-500" id="fileSize">0 MB</p>
+                </div>
+                <button id="removeBtn" class="text-red-500 hover:text-red-700 p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div id="progressContainer" class="hidden mt-6">
+            <div class="flex justify-between text-xs font-medium text-gray-600 mb-1">
+                <span id="progressText">กำลังเตรียมการ...</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Convert Button -->
+        <button id="convertBtn" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden">
+            เริ่มแปลงไฟล์เป็น MP3
+        </button>
+
+        <!-- Download Button -->
+        <a id="downloadBtn" class="mt-4 w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-4 rounded-lg transition-colors text-center hidden cursor-pointer block">
+            ดาวน์โหลดไฟล์ MP3
+        </a>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 flex flex-col gap-2 z-50"></div>
+
+    <script>
+        // DOM Elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const removeBtn = document.getElementById('removeBtn');
+        const convertBtn = document.getElementById('convertBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const toastContainer = document.getElementById('toastContainer');
+
         // State
         let currentFile = null;
         let isConverting = false;
         let ffmpegLoaded = false;
-
-        // FFmpeg Instances
         let ffmpeg = null;
         let fetchFile = null;
 
         // Custom Toast Notification System
         function showToast(message, type = 'info') {
-<!-- ... existing code ... -->
-            setTimeout(() => toast.remove(), 3000);
+            const toast = document.createElement('div');
+            const colors = {
+                info: 'bg-blue-500',
+                success: 'bg-green-500',
+                error: 'bg-red-500'
+            };
+            
+            toast.className = `${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg text-sm font-medium toast`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
         }
 
         async function loadFFmpeg() {
-            if (ffmpegLoaded) return;
+            if (ffmpegLoaded) return true;
             
             try {
-                showToast('Initializing FFmpeg engine... (Downloading core files)', 'info');
+                showToast('กำลังดาวน์โหลดเครื่องมือแปลงไฟล์ (ใช้เวลาสักครู่)...', 'info');
+                convertBtn.disabled = true;
+                convertBtn.textContent = 'กำลังโหลดเครื่องมือ...';
                 
-                // Ensure CDN scripts are fully loaded before destructuring
-                if (!window.FFmpegWASM || !window.FFmpegUtil) {
-                    throw new Error("FFmpeg libraries not loaded. Check internet connection or CDN.");
+                // Check if CDN libraries are successfully loaded
+                if (typeof window.FFmpegWASM === 'undefined' || typeof window.FFmpegUtil === 'undefined') {
+                    throw new Error("ระบบไม่สามารถดึงไลบรารีได้ (อาจติดปัญหาเครือข่าย) กรุณารีเฟรชหน้าเว็บ");
                 }
 
                 const { FFmpeg } = window.FFmpegWASM;
@@ -31,31 +137,151 @@
                 ffmpeg = new FFmpeg();
                 fetchFile = _fetchFile;
                 
-                ffmpeg.on('progress', ({ progress, time }) => {
+                ffmpeg.on('progress', ({ progress }) => {
                     const percent = Math.round(progress * 100);
-                    // Prevent showing NaN or infinity
                     if(percent >= 0 && percent <= 100) {
-                        progressText.textContent = `Converting: ${percent}%`;
+                        progressText.textContent = `กำลังแปลงไฟล์: ${percent}%`;
                         progressBar.style.width = `${percent}%`;
                     }
                 });
 
-                // Load single-thread core using jsDelivr for better reliability in Asia
+                // ใช้เวอร์ชัน Core มาตรฐาน ป้องกันปัญหา SharedArrayBuffer บล็อคการทำงานบน GitHub Pages
                 const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+                
                 await ffmpeg.load({
                     coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
                     wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
                 });
 
                 ffmpegLoaded = true;
+                convertBtn.disabled = false;
+                convertBtn.textContent = 'เริ่มแปลงไฟล์เป็น MP3';
+                return true;
                 
             } catch (error) {
                 console.error('Error loading FFmpeg:', error);
-                showToast('Load Error: ' + error.message, 'error');
-                resetUI();
-                throw error; // Stop execution if load fails
+                showToast('โหลดไม่สำเร็จ: ' + error.message, 'error');
+                convertBtn.textContent = 'โหลดเครื่องมือล้มเหลว';
+                return false;
             }
         }
 
-        // Event Listeners
-<!-- ... existing code ... -->
+        function handleFileSelect(file) {
+            if (!file) return;
+            
+            if (!file.type.startsWith('audio/') && !file.name.match(/\.(m4a|mp3|wav|ogg|flac|aac|wma)$/i)) {
+                showToast('กรุณาเลือกไฟล์เสียงที่รองรับ', 'error');
+                return;
+            }
+
+            currentFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            
+            dropZone.classList.add('hidden');
+            fileInfo.classList.remove('hidden');
+            convertBtn.classList.remove('hidden');
+            downloadBtn.classList.add('hidden');
+            progressContainer.classList.add('hidden');
+            
+            if (!ffmpegLoaded) {
+                loadFFmpeg();
+            }
+        }
+
+        function resetUI() {
+            currentFile = null;
+            isConverting = false;
+            fileInput.value = '';
+            
+            dropZone.classList.remove('hidden');
+            fileInfo.classList.add('hidden');
+            convertBtn.classList.add('hidden');
+            downloadBtn.classList.add('hidden');
+            progressContainer.classList.add('hidden');
+            
+            progressBar.style.width = '0%';
+            progressText.textContent = 'กำลังเตรียมการ...';
+            
+            if (ffmpegLoaded) {
+                convertBtn.disabled = false;
+                convertBtn.textContent = 'เริ่มแปลงไฟล์เป็น MP3';
+            }
+        }
+
+        async function convertAudio() {
+            if (!currentFile || isConverting) return;
+            
+            if (!ffmpegLoaded) {
+                const loaded = await loadFFmpeg();
+                if (!loaded) return;
+            }
+            
+            isConverting = true;
+            convertBtn.disabled = true;
+            removeBtn.disabled = true;
+            downloadBtn.classList.add('hidden');
+            progressContainer.classList.remove('hidden');
+            progressText.textContent = 'กำลังอ่านไฟล์...';
+            progressBar.style.width = '0%';
+
+            try {
+                const inputName = 'input_audio' + currentFile.name.substring(currentFile.name.lastIndexOf('.'));
+                const outputName = 'output_audio.mp3';
+
+                await ffmpeg.writeFile(inputName, await fetchFile(currentFile));
+                
+                progressText.textContent = 'กำลังแปลงไฟล์ (ขั้นตอนนี้อาจใช้เวลา)...';
+                // อัปเดตใช้คำสั่ง .exec() แทน .run() สำหรับ FFmpeg v0.12+
+                await ffmpeg.exec(['-i', inputName, '-b:a', '192k', outputName]);
+                
+                progressText.textContent = 'กำลังสร้างไฟล์ MP3...';
+                const data = await ffmpeg.readFile(outputName);
+                
+                const blob = new Blob([data.buffer], { type: 'audio/mp3' });
+                const url = URL.createObjectURL(blob);
+                
+                downloadBtn.href = url;
+                downloadBtn.download = currentFile.name.replace(/\.[^/.]+$/, "") + '.mp3';
+                downloadBtn.classList.remove('hidden');
+                
+                showToast('แปลงไฟล์สำเร็จ!', 'success');
+                progressText.textContent = 'เสร็จสมบูรณ์ 100%';
+                
+            } catch (error) {
+                console.error('Conversion error:', error);
+                showToast('เกิดข้อผิดพลาดขณะแปลงไฟล์', 'error');
+            } finally {
+                isConverting = false;
+                convertBtn.disabled = false;
+                removeBtn.disabled = false;
+                convertBtn.textContent = 'แปลงไฟล์อื่นต่อ';
+            }
+        }
+
+        // Drag and Drop Events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-600', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-600', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-600', 'bg-blue-50');
+            if (e.dataTransfer.files.length) {
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+        removeBtn.addEventListener('click', resetUI);
+        convertBtn.addEventListener('click', convertAudio);
+
+    </script>
+</body>
+</html>
