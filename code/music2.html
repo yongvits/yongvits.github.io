@@ -46,9 +46,9 @@
             <input type="file" id="fileInput" class="hidden" accept="audio/*,video/mp4,.mp4" multiple>
         </div>
 
-        <!-- YouTube Link Area -->
+        <!-- YouTube / YouTube Music Link Area -->
         <div class="mb-6 flex gap-2">
-            <input type="text" id="youtubeInput" placeholder="วางลิงก์ YouTube ที่นี่..." class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <input type="text" id="youtubeInput" placeholder="วางลิงก์ YouTube (เดี่ยว/Playlist)..." class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
             <button id="addYoutubeBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
                 เพิ่มลิงก์
@@ -66,7 +66,7 @@
         </button>
         
         <!-- Version Indicator -->
-        <p class="text-center text-xs text-gray-400 mt-4">Version 1.2.1</p>
+        <p class="text-center text-xs text-gray-400 mt-4">Version 1.3.0 (Playlist Supported)</p>
     </div>
 
     <!-- Toast Container -->
@@ -121,7 +121,6 @@
                 ffmpeg = new FFmpeg();
                 fetchFile = _fetchFile;
                 
-                // ติดตั้ง Event Progress
                 ffmpeg.on('progress', ({ progress }) => {
                     if (currentProcessingId !== null) {
                         const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
@@ -220,7 +219,6 @@
                         </button>
                     `;
                 } else if (item.status === 'done') {
-                    // เพิ่ม target="_blank" ให้มันโหลดในแท็บใหม่ ป้องกันติดบั๊กหน้าเว็บเปลี่ยน
                     rightActionHTML = `
                         <a href="${item.downloadUrl}" target="_blank" download="${item.name.replace(/\.[^/.]+$/, "") + '.mp3'}" class="text-white bg-green-500 hover:bg-green-600 p-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1 shadow-sm transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
@@ -229,6 +227,9 @@
                     `;
                 } else if (item.status === 'error') {
                      rightActionHTML = `<span class="text-xs text-red-500 font-medium">ล้มเหลว</span>`;
+                } else if (item.status === 'fetching_link') {
+                    // สถานะพิเศษตอนกำลังไปกวาดลิงก์จาก Playlist
+                    rightActionHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>`;
                 }
 
                 if (item.status === 'converting' || item.progress > 0) {
@@ -240,7 +241,9 @@
                     `;
                 }
 
-                let statusText = item.status === 'converting' ? `กำลังแปลง... ${item.progress}%` : item.size;
+                let statusText = item.size;
+                if (item.status === 'converting') statusText = `กำลังแปลง... ${item.progress}%`;
+                if (item.status === 'fetching_link') statusText = `กำลังเตรียมลิงก์ MP3...`;
 
                 itemDiv.innerHTML = `
                     <div class="flex items-center justify-between">
@@ -350,38 +353,31 @@
         convertBtn.addEventListener('click', convertAllFiles);
 
         // ==========================================
-        // ส่วนจัดการ YouTube (เชื่อมกับ RapidAPI - ytjar)
+        // ส่วนจัดการ YouTube & Playlist
         // ==========================================
         
-        function extractVideoID(url) {
-            const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-            const match = url.match(regExp);
-            return (match && match[7].length == 11) ? match[7] : false;
+        // --- ส่วนตั้งค่า API KEY ---
+        const RAPID_API_KEY = "6308b8aaadmsh6b43bbc19936347p1bafb8jsn980be223bcb0"; 
+        // อัปเดต Google API Key ให้แล้วตามที่คุณให้มา
+        const GOOGLE_YOUTUBE_API_KEY = "AIzaSyBL1o8JxQe_5N7_Ac7rooyvs3C-R1sdYlM"; 
+        
+        function extractVideoOrPlaylistID(url) {
+            const result = { videoId: null, playlistId: null };
+            try {
+                const urlObj = new URL(url);
+                result.videoId = urlObj.searchParams.get("v");
+                result.playlistId = urlObj.searchParams.get("list");
+            } catch (e) {
+                if (url.includes('youtu.be/')) {
+                    result.videoId = url.split('youtu.be/')[1].split(/[?#&]/)[0];
+                }
+            }
+            return result;
         }
 
-        addYoutubeBtn.addEventListener('click', async () => {
-            const url = youtubeInput.value.trim();
-            if (!url) {
-                showToast('กรุณาวางลิงก์ YouTube ก่อน', 'error');
-                return;
-            }
-
-            const videoId = extractVideoID(url);
-            if (!videoId) {
-                showToast('รูปแบบลิงก์ YouTube ไม่ถูกต้อง', 'error');
-                return;
-            }
-
-            // API KEY ของคุณ
-            const RAPID_API_KEY = "6308b8aaadmsh6b43bbc19936347p1bafb8jsn980be223bcb0"; 
-            
-            showToast('กำลังขอดึงไฟล์จากเซิร์ฟเวอร์...', 'info');
-            addYoutubeBtn.disabled = true;
-            addYoutubeBtn.innerHTML = 'กำลังโหลด...';
-            
+        async function fetchRapidApiMp3(videoId, itemId) {
             try {
                 const apiUrl = `https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`;
-                
                 const response = await fetch(apiUrl, {
                     method: 'GET',
                     headers: {
@@ -391,42 +387,133 @@
                 });
                 
                 const data = await response.json();
-                
-                // ตรวจสอบว่า API แจ้งว่าต้องรอหรือไม่
-                if (data.msg === "in queue" || data.status === "processing") {
-                    showToast('เซิร์ฟเวอร์กำลังแปลงไฟล์ กรุณากดเพิ่มลิงก์อีกครั้งในอีก 10 วินาที', 'info');
-                    return;
-                }
-
                 const downloadUrl = data.link || data.url;
 
                 if (downloadUrl) {
-                    // สร้างรายการที่ "สำเร็จแล้ว" โผล่ในหน้าเว็บเลย (ข้ามขั้นตอนการแปลงไฟล์ซ้ำ)
-                    const fileName = data.title ? `${data.title}.mp3` : `youtube_${videoId}.mp3`;
+                    updateFileStatus(itemId, 'done', downloadUrl);
+                } else {
+                    updateFileStatus(itemId, 'error');
+                }
+            } catch (err) {
+                updateFileStatus(itemId, 'error');
+            }
+        }
+
+        // ระบบคิวในการดึงลิงก์ Playlist แบบทยอยดึง (ป้องกัน RapidAPI แบนถ้าส่งไปรัวๆ ทีเดียว 50 เพลง)
+        async function processPlaylistLinkQueue() {
+            const itemsToFetch = fileQueue.filter(f => f.status === 'fetching_link');
+            for(let item of itemsToFetch) {
+                await fetchRapidApiMp3(item.ytVideoId, item.id);
+                // หน่วงเวลา 1 วินาทีต่อเพลง ป้องกัน API Rate Limit
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        addYoutubeBtn.addEventListener('click', async () => {
+            const url = youtubeInput.value.trim();
+            if (!url) {
+                showToast('กรุณาวางลิงก์ก่อน', 'error');
+                return;
+            }
+
+            const ids = extractVideoOrPlaylistID(url);
+            
+            if (!ids.videoId && !ids.playlistId) {
+                showToast('รูปแบบลิงก์ไม่ถูกต้อง', 'error');
+                return;
+            }
+
+            addYoutubeBtn.disabled = true;
+            addYoutubeBtn.innerHTML = 'กำลังโหลด...';
+            
+            try {
+                // กรณีเป็น Playlist
+                if (ids.playlistId && GOOGLE_YOUTUBE_API_KEY) {
+                    showToast('ตรวจพบ Playlist! กำลังกวาดรายชื่อเพลง...', 'info');
                     
-                    const fileObj = {
-                        id: 'yt_' + Date.now().toString(),
-                        file: null, 
-                        name: fileName,
-                        size: 'YouTube (MP3)',
-                        status: 'done', // ตั้งให้เสร็จเลย
-                        progress: 100,
-                        downloadUrl: downloadUrl // แปะลิงก์ตรงจาก API ให้ดาวน์โหลดเลย
-                    };
+                    const googleApiUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${ids.playlistId}&key=${GOOGLE_YOUTUBE_API_KEY}`;
+                    const res = await fetch(googleApiUrl);
+                    if (!res.ok) throw new Error("ดึงข้อมูล Playlist ไม่สำเร็จ (เช็ค Google API Key)");
                     
-                    fileQueue.unshift(fileObj); // ดันขึ้นบนสุดของรายการ
+                    const data = await res.json();
+                    if (!data.items || data.items.length === 0) {
+                        showToast('ไม่พบวิดีโอใน Playlist นี้ หรือเป็น Playlist ส่วนตัว', 'error');
+                        return;
+                    }
+
+                    // เอาเพลงใส่คิวบนหน้าเว็บ
+                    let added = 0;
+                    data.items.forEach(item => {
+                        const vid = item.snippet.resourceId.videoId;
+                        const title = item.snippet.title;
+                        
+                        if (title !== "Private video" && title !== "Deleted video") {
+                            const fileObj = {
+                                id: 'yt_' + Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                                ytVideoId: vid,
+                                file: null, 
+                                name: title + '.mp3',
+                                size: 'YT Music',
+                                status: 'fetching_link', // สร้างสถานะพิเศษเพื่อให้รอการดึงลิงก์
+                                progress: 0,
+                                downloadUrl: null 
+                            };
+                            fileQueue.push(fileObj);
+                            added++;
+                        }
+                    });
+
                     renderFileList();
                     youtubeInput.value = '';
-                    showToast('เพิ่มไฟล์จาก YouTube สำเร็จ! กดโหลด MP3 ได้เลย', 'success');
+                    showToast(`เพิ่ม ${added} เพลงเข้าคิว เริ่มดึงลิงก์อัตโนมัติ...`, 'success');
+                    
+                    // สั่งให้ทยอยดึงลิงก์ MP3 ทีละไฟล์เบื้องหลัง
+                    processPlaylistLinkQueue();
 
+                } 
+                // กรณีเป็นวิดีโอเดี่ยว หรือไม่ได้ใส่ Google API Key
+                else if (ids.videoId) {
+                    showToast('กำลังขอดึงไฟล์จากเซิร์ฟเวอร์...', 'info');
+                    
+                    const apiUrl = `https://youtube-mp36.p.rapidapi.com/dl?id=${ids.videoId}`;
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'x-rapidapi-key': RAPID_API_KEY,
+                            'x-rapidapi-host': 'youtube-mp36.p.rapidapi.com'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    const downloadUrl = data.link || data.url;
+
+                    if (downloadUrl) {
+                        const fileName = data.title ? `${data.title}.mp3` : `music_${ids.videoId}.mp3`;
+                        
+                        const fileObj = {
+                            id: 'yt_' + Date.now().toString(),
+                            file: null, 
+                            name: fileName,
+                            size: 'YT Music (MP3)',
+                            status: 'done', 
+                            progress: 100,
+                            downloadUrl: downloadUrl 
+                        };
+                        
+                        fileQueue.unshift(fileObj); 
+                        renderFileList();
+                        youtubeInput.value = '';
+                        showToast('ดึงเพลงสำเร็จ! สามารถกดโหลด MP3 ได้ทันที', 'success');
+                    } else {
+                        showToast(data.message || 'เซิร์ฟเวอร์ไม่ส่งลิงก์กลับมา', 'error');
+                    }
                 } else {
-                    console.error("API Response:", data);
-                    showToast(data.message || 'เซิร์ฟเวอร์ไม่ส่งลิงก์กลับมา (ดู Console)', 'error');
+                    showToast('เกิดข้อผิดพลาดในการอ่านลิงก์', 'error');
                 }
 
             } catch (err) {
                 console.error(err);
-                showToast('เชื่อมต่อ API ล้มเหลว', 'error');
+                showToast(err.message || 'เชื่อมต่อ API ล้มเหลว', 'error');
             } finally {
                 addYoutubeBtn.disabled = false;
                 addYoutubeBtn.innerHTML = `
