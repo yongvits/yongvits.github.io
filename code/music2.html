@@ -60,7 +60,7 @@
         
         <!-- Quota Display -->
         <div id="quotaInfo" class="hidden text-right text-xs text-gray-500 mb-4 pr-1">
-            โควต้า RapidAPI คงเหลือเดือนนี้: <span id="quotaText" class="font-medium text-blue-600">...</span>
+            โควต้า RapidAPI เดือนนี้: <span id="quotaText" class="font-medium text-blue-600">...</span>
         </div>
 
         <!-- File List Container -->
@@ -73,13 +73,23 @@
             เริ่มแปลงไฟล์ทั้งหมด (0 ไฟล์)
         </button>
 
-        <!-- Download All Button -->
-        <button id="downloadAllBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors mt-2 hidden">
-            <!-- Text injected by JS -->
-        </button>
+        <!-- Download Actions Container -->
+        <div id="downloadActions" class="flex flex-col gap-2 mt-2 hidden">
+            <!-- Download MP3s Button -->
+            <button id="downloadAllMp3Btn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                โหลด MP3 แยกทีละไฟล์ (<span id="mp3CountTxt">0</span>)
+            </button>
+            
+            <!-- Download ZIP Button -->
+            <button id="downloadAllZipBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                ดาวน์โหลดรวมเป็นไฟล์ ZIP
+            </button>
+        </div>
         
         <!-- Version Indicator -->
-        <p class="text-center text-xs text-gray-400 mt-4">Version 1.6.0 (Download as ZIP Supported)</p>
+        <p class="text-center text-xs text-gray-400 mt-4">Version 1.6.1 (Dual Download & Quota Check)</p>
     </div>
 
     <!-- Toast Container -->
@@ -91,7 +101,10 @@
         const fileInput = document.getElementById('fileInput');
         const fileListContainer = document.getElementById('fileListContainer');
         const convertBtn = document.getElementById('convertBtn');
-        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const downloadActions = document.getElementById('downloadActions');
+        const downloadAllMp3Btn = document.getElementById('downloadAllMp3Btn');
+        const downloadAllZipBtn = document.getElementById('downloadAllZipBtn');
+        const mp3CountTxt = document.getElementById('mp3CountTxt');
         const toastContainer = document.getElementById('toastContainer');
         const youtubeInput = document.getElementById('youtubeInput');
         const addYoutubeBtn = document.getElementById('addYoutubeBtn');
@@ -219,27 +232,47 @@
                 convertBtn.classList.add('hidden');
             }
 
-            // จัดการปุ่ม "ดาวน์โหลดทั้งหมด"
+            // จัดการแสดงผลกลุ่มปุ่ม "ดาวน์โหลด" ทั้งสองแบบ
             if (doneCount > 0) {
-                downloadAllBtn.classList.remove('hidden');
-                downloadAllBtn.innerHTML = `
-                    <div class="flex justify-center items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        ดาวน์โหลดเป็น ZIP ทั้งหมด (${doneCount} ไฟล์)
-                    </div>
-                `;
+                downloadActions.classList.remove('hidden');
+                mp3CountTxt.textContent = doneCount;
             } else {
-                downloadAllBtn.classList.add('hidden');
+                downloadActions.classList.add('hidden');
             }
         }
 
-        // ฟังก์ชันเมื่อกดปุ่ม ดาวน์โหลดทั้งหมด
-        downloadAllBtn.addEventListener('click', async () => {
+        // ==========================================
+        // ฟังก์ชันดาวน์โหลด MP3 แยกทีละไฟล์
+        // ==========================================
+        downloadAllMp3Btn.addEventListener('click', async () => {
+            const doneFiles = fileQueue.filter(f => f.status === 'done' && f.downloadUrl);
+            if (doneFiles.length === 0) return;
+
+            showToast(`กำลังเริ่มดาวน์โหลด ${doneFiles.length} ไฟล์... (หากมี Popup ขึ้นให้กดอนุญาต/Allow)`, 'info');
+
+            for (let i = 0; i < doneFiles.length; i++) {
+                const item = doneFiles[i];
+                const a = document.createElement('a');
+                a.href = item.downloadUrl;
+                a.download = item.name.replace(/\.[^/.]+$/, "") + '.mp3';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                await new Promise(resolve => setTimeout(resolve, 800)); // หน่วงเวลาป้องกันเบราว์เซอร์บล็อกรัวๆ
+            }
+        });
+
+        // ==========================================
+        // ฟังก์ชันดาวน์โหลดรวมเป็นไฟล์ ZIP
+        // ==========================================
+        downloadAllZipBtn.addEventListener('click', async () => {
             const doneFiles = fileQueue.filter(f => f.status === 'done' && f.downloadUrl);
             if (doneFiles.length === 0) return;
 
             showToast(`กำลังเตรียมไฟล์ ZIP (${doneFiles.length} ไฟล์)... กรุณารอสักครู่`, 'info');
-            downloadAllBtn.disabled = true;
+            downloadAllZipBtn.disabled = true;
+            downloadAllMp3Btn.disabled = true;
             
             try {
                 const zip = new JSZip();
@@ -247,17 +280,14 @@
                 for (let i = 0; i < doneFiles.length; i++) {
                     const item = doneFiles[i];
                     
-                    // อัปเดตข้อความบนปุ่มให้รู้ว่าถึงไฟล์ไหนแล้ว
-                    downloadAllBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block align-middle mr-2"></div> ดึงข้อมูลไฟล์ที่ ${i + 1}/${doneFiles.length}...`;
+                    downloadAllZipBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block align-middle mr-2"></div> ดึงข้อมูลไฟล์ที่ ${i + 1}/${doneFiles.length}...`;
                     
                     let blob = null;
                     try {
-                        // ลองดึงไฟล์ตรงๆ ก่อน
                         const response = await fetch(item.downloadUrl);
                         if (!response.ok) throw new Error("Fetch failed");
                         blob = await response.blob();
                     } catch (e) {
-                        // ถ้าติด CORS Block ให้ใช้ Proxy สำรองในการดึงข้อมูลมาทำ ZIP
                         console.warn("Direct fetch failed, trying proxy for", item.name);
                         try {
                             const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(item.downloadUrl)}`;
@@ -271,17 +301,15 @@
 
                     if (blob) {
                         const fileName = item.name.replace(/\.[^/.]+$/, "") + '.mp3';
-                        zip.file(fileName, blob); // ใส่ไฟล์ลงไปในกล่อง ZIP
+                        zip.file(fileName, blob);
                     }
                 }
 
-                downloadAllBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block align-middle mr-2"></div> กำลังบีบอัดเป็น ZIP...`;
+                downloadAllZipBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block align-middle mr-2"></div> กำลังบีบอัดเป็น ZIP...`;
                 
-                // สร้างไฟล์ ZIP
                 const zipContent = await zip.generateAsync({ type: 'blob' });
                 const zipUrl = URL.createObjectURL(zipContent);
 
-                // สั่งดาวน์โหลด
                 const a = document.createElement('a');
                 a.href = zipUrl;
                 a.download = `Audio_Playlist_${Date.now()}.zip`;
@@ -296,8 +324,14 @@
                 console.error(err);
                 showToast('เกิดข้อผิดพลาดในการสร้างไฟล์ ZIP', 'error');
             } finally {
-                downloadAllBtn.disabled = false;
-                updateButtons(); // รีเซ็ตปุ่มกลับสู่ปกติ
+                downloadAllZipBtn.disabled = false;
+                downloadAllMp3Btn.disabled = false;
+                
+                // รีเซ็ตข้อความปุ่มกลับมาเหมือนเดิม
+                downloadAllZipBtn.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    ดาวน์โหลดรวมเป็นไฟล์ ZIP
+                `;
             }
         });
 
@@ -477,15 +511,22 @@
         function updateQuotaDisplay(response) {
             const limit = response.headers.get('x-ratelimit-requests-limit');
             const remaining = response.headers.get('x-ratelimit-requests-remaining');
+            
+            quotaInfo.classList.remove('hidden');
+            
+            // เช็คว่าเบราว์เซอร์อนุญาตให้เข้าถึง Headers ส่วนนี้ได้ไหม (CORS Policy)
             if (limit !== null && remaining !== null) {
-                quotaInfo.classList.remove('hidden');
                 quotaText.textContent = `${remaining} / ${limit}`;
                 
-                // ถ้าน้อยกว่า 20 ให้เปลี่ยนเป็นสีแดงเตือน
                 if (parseInt(remaining) <= 20) {
                     quotaText.classList.remove('text-blue-600');
                     quotaText.classList.add('text-red-500');
                 }
+            } else {
+                // หากถูกเบราว์เซอร์ซ่อนไว้ จะแสดงข้อความอธิบายให้ทราบ
+                quotaText.textContent = "เบราว์เซอร์ซ่อนข้อมูล (เช็คผ่านเว็บ RapidAPI แทน)";
+                quotaText.classList.remove('text-blue-600', 'font-medium');
+                quotaText.classList.add('text-gray-400');
             }
         }
 
