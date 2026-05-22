@@ -10,6 +10,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     
+    <!-- โหลดไลบรารี JSZip สำหรับสร้างไฟล์ ZIP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
     <style>
         .toast {
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
@@ -47,12 +50,17 @@
         </div>
 
         <!-- YouTube / YouTube Music Link Area -->
-        <div class="mb-6 flex gap-2">
+        <div class="mb-2 flex gap-2">
             <input type="text" id="youtubeInput" placeholder="วางลิงก์ YouTube (เดี่ยว/Playlist)..." class="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
             <button id="addYoutubeBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
                 เพิ่มลิงก์
             </button>
+        </div>
+        
+        <!-- Quota Display -->
+        <div id="quotaInfo" class="hidden text-right text-xs text-gray-500 mb-4 pr-1">
+            โควต้า RapidAPI คงเหลือเดือนนี้: <span id="quotaText" class="font-medium text-blue-600">...</span>
         </div>
 
         <!-- File List Container -->
@@ -71,7 +79,7 @@
         </button>
         
         <!-- Version Indicator -->
-        <p class="text-center text-xs text-gray-400 mt-4">Version 1.4.0 (Download All feature)</p>
+        <p class="text-center text-xs text-gray-400 mt-4">Version 1.6.0 (Download as ZIP Supported)</p>
     </div>
 
     <!-- Toast Container -->
@@ -87,6 +95,8 @@
         const toastContainer = document.getElementById('toastContainer');
         const youtubeInput = document.getElementById('youtubeInput');
         const addYoutubeBtn = document.getElementById('addYoutubeBtn');
+        const quotaInfo = document.getElementById('quotaInfo');
+        const quotaText = document.getElementById('quotaText');
 
         // State Variables สำหรับระบบ Queue
         let fileQueue = []; 
@@ -215,7 +225,7 @@
                 downloadAllBtn.innerHTML = `
                     <div class="flex justify-center items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        ดาวน์โหลด MP3 ที่เสร็จแล้วทั้งหมด (${doneCount} ไฟล์)
+                        ดาวน์โหลดเป็น ZIP ทั้งหมด (${doneCount} ไฟล์)
                     </div>
                 `;
             } else {
@@ -228,20 +238,66 @@
             const doneFiles = fileQueue.filter(f => f.status === 'done' && f.downloadUrl);
             if (doneFiles.length === 0) return;
 
-            showToast(`กำลังเริ่มดาวน์โหลด ${doneFiles.length} ไฟล์... (หากมี Popup ขึ้นให้กดอนุญาต/Allow)`, 'info');
+            showToast(`กำลังเตรียมไฟล์ ZIP (${doneFiles.length} ไฟล์)... กรุณารอสักครู่`, 'info');
+            downloadAllBtn.disabled = true;
+            
+            try {
+                const zip = new JSZip();
+                
+                for (let i = 0; i < doneFiles.length; i++) {
+                    const item = doneFiles[i];
+                    
+                    // อัปเดตข้อความบนปุ่มให้รู้ว่าถึงไฟล์ไหนแล้ว
+                    downloadAllBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block align-middle mr-2"></div> ดึงข้อมูลไฟล์ที่ ${i + 1}/${doneFiles.length}...`;
+                    
+                    let blob = null;
+                    try {
+                        // ลองดึงไฟล์ตรงๆ ก่อน
+                        const response = await fetch(item.downloadUrl);
+                        if (!response.ok) throw new Error("Fetch failed");
+                        blob = await response.blob();
+                    } catch (e) {
+                        // ถ้าติด CORS Block ให้ใช้ Proxy สำรองในการดึงข้อมูลมาทำ ZIP
+                        console.warn("Direct fetch failed, trying proxy for", item.name);
+                        try {
+                            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(item.downloadUrl)}`;
+                            const response = await fetch(proxyUrl);
+                            if (response.ok) blob = await response.blob();
+                        } catch (proxyError) {
+                            console.error("Failed to fetch file for zip:", item.name);
+                            showToast(`ข้ามไฟล์ ${item.name} เนื่องจากดึงข้อมูลไม่สำเร็จ`, 'error');
+                        }
+                    }
 
-            for (let i = 0; i < doneFiles.length; i++) {
-                const item = doneFiles[i];
+                    if (blob) {
+                        const fileName = item.name.replace(/\.[^/.]+$/, "") + '.mp3';
+                        zip.file(fileName, blob); // ใส่ไฟล์ลงไปในกล่อง ZIP
+                    }
+                }
+
+                downloadAllBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block align-middle mr-2"></div> กำลังบีบอัดเป็น ZIP...`;
+                
+                // สร้างไฟล์ ZIP
+                const zipContent = await zip.generateAsync({ type: 'blob' });
+                const zipUrl = URL.createObjectURL(zipContent);
+
+                // สั่งดาวน์โหลด
                 const a = document.createElement('a');
-                a.href = item.downloadUrl;
-                // a.target = '_blank'; (เอาออกเพื่อให้โหลดเบื้องหลังแบบเงียบๆ ไม่เด้งแท็บใหม่น่ารำคาญ)
-                a.download = item.name.replace(/\.[^/.]+$/, "") + '.mp3';
+                a.href = zipUrl;
+                a.download = `Audio_Playlist_${Date.now()}.zip`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 
-                // หน่วงเวลา 800ms ก่อนโหลดไฟล์ถัดไป เพื่อป้องกันเบราว์เซอร์บล็อก
-                await new Promise(resolve => setTimeout(resolve, 800));
+                URL.revokeObjectURL(zipUrl);
+                showToast('ดาวน์โหลดไฟล์ ZIP สำเร็จ!', 'success');
+
+            } catch (err) {
+                console.error(err);
+                showToast('เกิดข้อผิดพลาดในการสร้างไฟล์ ZIP', 'error');
+            } finally {
+                downloadAllBtn.disabled = false;
+                updateButtons(); // รีเซ็ตปุ่มกลับสู่ปกติ
             }
         });
 
@@ -319,7 +375,7 @@
                 if (url) fileItem.downloadUrl = url;
                 if (status === 'done') fileItem.progress = 100;
                 renderFileList();
-                updateButtons(); // อัปเดตปุ่มทุกครั้งที่สถานะเปลี่ยน (เช่น โหลดเสร็จให้ปุ่ม Download All โผล่)
+                updateButtons(); 
             }
         }
 
@@ -417,6 +473,22 @@
             return result;
         }
 
+        // อัปเดตข้อมูลโควต้าลง UI
+        function updateQuotaDisplay(response) {
+            const limit = response.headers.get('x-ratelimit-requests-limit');
+            const remaining = response.headers.get('x-ratelimit-requests-remaining');
+            if (limit !== null && remaining !== null) {
+                quotaInfo.classList.remove('hidden');
+                quotaText.textContent = `${remaining} / ${limit}`;
+                
+                // ถ้าน้อยกว่า 20 ให้เปลี่ยนเป็นสีแดงเตือน
+                if (parseInt(remaining) <= 20) {
+                    quotaText.classList.remove('text-blue-600');
+                    quotaText.classList.add('text-red-500');
+                }
+            }
+        }
+
         async function fetchRapidApiMp3(videoId, itemId, retryCount = 0) {
             try {
                 const apiUrl = `https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`;
@@ -427,6 +499,9 @@
                         'x-rapidapi-host': 'youtube-mp36.p.rapidapi.com'
                     }
                 });
+                
+                // สั่งให้อัปเดต UI โควต้าทันทีที่ดึงข้อมูลเสร็จ
+                updateQuotaDisplay(response);
                 
                 if (response.status === 429) {
                     if (retryCount < 4) {
