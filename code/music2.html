@@ -64,9 +64,14 @@
         <button id="convertBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden">
             เริ่มแปลงไฟล์ทั้งหมด (0 ไฟล์)
         </button>
+
+        <!-- Download All Button -->
+        <button id="downloadAllBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors mt-2 hidden">
+            <!-- Text injected by JS -->
+        </button>
         
         <!-- Version Indicator -->
-        <p class="text-center text-xs text-gray-400 mt-4">Version 1.3.1 (Playlist Fix)</p>
+        <p class="text-center text-xs text-gray-400 mt-4">Version 1.4.0 (Download All feature)</p>
     </div>
 
     <!-- Toast Container -->
@@ -78,6 +83,7 @@
         const fileInput = document.getElementById('fileInput');
         const fileListContainer = document.getElementById('fileListContainer');
         const convertBtn = document.getElementById('convertBtn');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
         const toastContainer = document.getElementById('toastContainer');
         const youtubeInput = document.getElementById('youtubeInput');
         const addYoutubeBtn = document.getElementById('addYoutubeBtn');
@@ -135,7 +141,7 @@
                 });
 
                 ffmpegLoaded = true;
-                updateConvertButton();
+                updateButtons();
                 return true;
             } catch (error) {
                 console.error(error);
@@ -166,7 +172,7 @@
 
             if (addedCount > 0) {
                 renderFileList();
-                updateConvertButton();
+                updateButtons();
                 if (!ffmpegLoaded) loadFFmpeg();
             } else {
                 showToast('ไม่พบไฟล์เสียงที่รองรับ', 'error');
@@ -180,11 +186,14 @@
             }
             fileQueue = fileQueue.filter(f => f.id !== id);
             renderFileList();
-            updateConvertButton();
+            updateButtons();
         }
 
-        function updateConvertButton() {
+        function updateButtons() {
             const pendingCount = fileQueue.filter(f => f.status === 'pending').length;
+            const doneCount = fileQueue.filter(f => f.status === 'done' && f.downloadUrl).length;
+
+            // จัดการปุ่ม "เริ่มแปลงไฟล์"
             if (fileQueue.length > 0) {
                 convertBtn.classList.remove('hidden');
                 convertBtn.disabled = pendingCount === 0 || isConverting || !ffmpegLoaded;
@@ -192,14 +201,49 @@
                 if (isConverting) {
                     convertBtn.textContent = 'กำลังแปลงไฟล์...';
                 } else if (pendingCount === 0) {
-                    convertBtn.textContent = 'แปลงไฟล์เสร็จสิ้นทั้งหมด';
+                    convertBtn.textContent = 'ไม่มีไฟล์รอแปลง (แปลงเสร็จหมดแล้ว)';
                 } else {
                     convertBtn.textContent = `เริ่มแปลงไฟล์ทั้งหมด (${pendingCount} ไฟล์)`;
                 }
             } else {
                 convertBtn.classList.add('hidden');
             }
+
+            // จัดการปุ่ม "ดาวน์โหลดทั้งหมด"
+            if (doneCount > 0) {
+                downloadAllBtn.classList.remove('hidden');
+                downloadAllBtn.innerHTML = `
+                    <div class="flex justify-center items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        ดาวน์โหลด MP3 ที่เสร็จแล้วทั้งหมด (${doneCount} ไฟล์)
+                    </div>
+                `;
+            } else {
+                downloadAllBtn.classList.add('hidden');
+            }
         }
+
+        // ฟังก์ชันเมื่อกดปุ่ม ดาวน์โหลดทั้งหมด
+        downloadAllBtn.addEventListener('click', async () => {
+            const doneFiles = fileQueue.filter(f => f.status === 'done' && f.downloadUrl);
+            if (doneFiles.length === 0) return;
+
+            showToast(`กำลังเริ่มดาวน์โหลด ${doneFiles.length} ไฟล์... (หากมี Popup ขึ้นให้กดอนุญาต/Allow)`, 'info');
+
+            for (let i = 0; i < doneFiles.length; i++) {
+                const item = doneFiles[i];
+                const a = document.createElement('a');
+                a.href = item.downloadUrl;
+                // a.target = '_blank'; (เอาออกเพื่อให้โหลดเบื้องหลังแบบเงียบๆ ไม่เด้งแท็บใหม่น่ารำคาญ)
+                a.download = item.name.replace(/\.[^/.]+$/, "") + '.mp3';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                // หน่วงเวลา 800ms ก่อนโหลดไฟล์ถัดไป เพื่อป้องกันเบราว์เซอร์บล็อก
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+        });
 
         function renderFileList() {
             fileListContainer.innerHTML = ''; 
@@ -275,6 +319,7 @@
                 if (url) fileItem.downloadUrl = url;
                 if (status === 'done') fileItem.progress = 100;
                 renderFileList();
+                updateButtons(); // อัปเดตปุ่มทุกครั้งที่สถานะเปลี่ยน (เช่น โหลดเสร็จให้ปุ่ม Download All โผล่)
             }
         }
 
@@ -290,7 +335,7 @@
             if (pendingFiles.length === 0) return;
 
             isConverting = true;
-            updateConvertButton();
+            updateButtons();
             showToast('เริ่มกระบวนการแปลงไฟล์...', 'info');
 
             for (const item of pendingFiles) {
@@ -322,7 +367,7 @@
 
             isConverting = false;
             currentProcessingId = null;
-            updateConvertButton();
+            updateButtons();
             showToast('แปลงไฟล์ทั้งหมดเสร็จสมบูรณ์!', 'success');
         }
 
@@ -355,7 +400,6 @@
         // ส่วนจัดการ YouTube & Playlist
         // ==========================================
         
-        // --- ส่วนตั้งค่า API KEY ---
         const RAPID_API_KEY = "6308b8aaadmsh6b43bbc19936347p1bafb8jsn980be223bcb0"; 
         const GOOGLE_YOUTUBE_API_KEY = "AIzaSyBL1o8JxQe_5N7_Ac7rooyvs3C-R1sdYlM"; 
         
@@ -373,7 +417,6 @@
             return result;
         }
 
-        // ฟังก์ชันดึงลิงก์ MP3 พร้อมระบบลองใหม่ (Retry) อัตโนมัติถ้าระบบเข้าคิว
         async function fetchRapidApiMp3(videoId, itemId, retryCount = 0) {
             try {
                 const apiUrl = `https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`;
@@ -385,7 +428,6 @@
                     }
                 });
                 
-                // ถ้ายิง API เร็วเกินไปจนโดน Rate Limit บล็อก
                 if (response.status === 429) {
                     if (retryCount < 4) {
                         await new Promise(resolve => setTimeout(resolve, 5000));
@@ -396,9 +438,8 @@
 
                 const data = await response.json();
                 
-                // ถ้าระบบยังไม่พร้อมจ่ายลิงก์ และสั่งให้รอในคิว
                 if (data.msg === "in queue" || data.status === "processing") {
-                    if (retryCount < 6) { // ลองทวงถามใหม่สูงสุด 6 ครั้ง (รอครั้งละ 5 วินาที)
+                    if (retryCount < 6) { 
                         await new Promise(resolve => setTimeout(resolve, 5000));
                         return fetchRapidApiMp3(videoId, itemId, retryCount + 1);
                     } else {
@@ -419,12 +460,10 @@
             }
         }
 
-        // ระบบคิวในการดึงลิงก์ Playlist แบบทยอยดึง
         async function processPlaylistLinkQueue() {
             const itemsToFetch = fileQueue.filter(f => f.status === 'fetching_link');
             for(let item of itemsToFetch) {
                 await fetchRapidApiMp3(item.ytVideoId, item.id);
-                // เพิ่มการหน่วงเวลาเป็น 3 วินาที ป้องกัน API แบนจากการดึงรัวๆ
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
         }
@@ -447,7 +486,6 @@
             addYoutubeBtn.innerHTML = 'กำลังโหลด...';
             
             try {
-                // กรณีเป็น Playlist
                 if (ids.playlistId && GOOGLE_YOUTUBE_API_KEY) {
                     showToast('ตรวจพบ Playlist! กำลังกวาดรายชื่อเพลง...', 'info');
                     
@@ -486,20 +524,17 @@
                     youtubeInput.value = '';
                     showToast(`เพิ่ม ${added} เพลงเข้าคิว เริ่มดึงลิงก์อัตโนมัติ...`, 'success');
                     
-                    // สั่งให้ทยอยดึงลิงก์ MP3
                     processPlaylistLinkQueue();
 
                 } 
-                // กรณีเป็นวิดีโอเดี่ยว
                 else if (ids.videoId) {
                     showToast('กำลังขอดึงไฟล์จากเซิร์ฟเวอร์...', 'info');
                     
-                    // เรียกใช้ฟังก์ชัน fetch ที่มีระบบ Retry เหมือนกัน
                     const fileObj = {
                         id: 'yt_' + Date.now().toString(),
                         ytVideoId: ids.videoId,
                         file: null, 
-                        name: `music_${ids.videoId}.mp3`, // ชื่อชั่วคราวก่อนโหลด
+                        name: `music_${ids.videoId}.mp3`, 
                         size: 'YT Music (MP3)',
                         status: 'fetching_link', 
                         progress: 0,
