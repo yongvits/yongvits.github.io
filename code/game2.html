@@ -2,254 +2,1339 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Sea Descent - เกมดำดิ่งลึกสมุทร</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Deep Sea Descent - ผจญภัยดำดิ่งลึกสมุทร (เวอร์ชันเอียงหน้าจอเล่น)</title>
+    <!-- Tailwind CSS for rich UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap');
         body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #111;
-            font-family: 'Arial', sans-serif;
+            font-family: 'Prompt', sans-serif;
+            background-color: #030712;
             overflow: hidden;
-            color: white;
+            touch-action: none;
         }
-        #game-container {
-            position: relative;
-            width: 400px;
-            height: 600px;
-            border: 4px solid #333;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        canvas {
-            display: block;
-            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+        /* Custom scrollbar for shop */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
         }
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            pointer-events: none;
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
         }
-        #depth-display {
-            font-size: 20px;
-            font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        #game-over {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            display: none;
-            background: rgba(0,0,0,0.8);
-            padding: 20px;
-            border-radius: 15px;
-            width: 80%;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 18px;
-            cursor: pointer;
-            background: #ffcc00;
-            border: none;
-            border-radius: 5px;
-            margin-top: 10px;
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(234, 179, 8, 0.5);
+            border-radius: 3px;
         }
     </style>
 </head>
-<body>
+<body class="h-screen w-screen flex flex-col justify-center items-center select-none text-white p-2">
 
-    <div id="game-container">
-        <canvas id="gameCanvas" width="400" height="600"></canvas>
-        <div id="ui">
-            <div id="depth-display">ความลึก: 0 ม.</div>
-        </div>
-        <div id="game-over">
-            <h2>อับปางเสียแล้ว!</h2>
-            <p id="final-depth"></p>
-            <button onclick="resetGame()">เริ่มใหม่</button>
+    <!-- Ambient background animations (Bubbles) -->
+    <div class="absolute inset-0 pointer-events-none z-0 overflow-hidden opacity-30" id="ambient-bubbles"></div>
+
+    <div class="relative w-full max-w-[420px] h-[92vh] max-h-[780px] rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl flex flex-col z-10 bg-slate-950">
+        
+        <!-- ================= MAIN GAME CANVAS ================= -->
+        <div class="relative flex-1 w-full bg-slate-900 overflow-hidden" id="canvas-container">
+            <canvas id="gameCanvas" class="block w-full h-full"></canvas>
+
+            <!-- Head-Up Display (HUD) -->
+            <div class="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none z-10">
+                <!-- Status Indicators -->
+                <div class="flex flex-col gap-1.5 w-[55%]">
+                    <!-- HP Bar -->
+                    <div class="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
+                        <span class="text-xs font-semibold text-red-400">โครงเรือ (HP)</span>
+                        <div class="flex-1 bg-slate-800 h-2.5 rounded-full overflow-hidden border border-red-950">
+                            <div id="hud-hp-bar" class="bg-gradient-to-r from-red-600 to-red-400 h-full w-full transition-all duration-150"></div>
+                        </div>
+                    </div>
+                    <!-- Oxygen Bar -->
+                    <div id="oxygen-hud-container" class="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm">
+                        <span class="text-xs font-semibold text-emerald-400">อากาศ (O2)</span>
+                        <div class="flex-1 bg-slate-800 h-2.5 rounded-full overflow-hidden border border-emerald-950">
+                            <div id="hud-oxygen-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-full transition-all duration-150"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Score and Coins -->
+                <div class="flex flex-col items-end gap-1 bg-black/40 px-3 py-1.5 rounded-md backdrop-blur-sm text-right">
+                    <div class="text-sm font-semibold tracking-wide text-cyan-300" id="hud-depth">ความลึก: 0 ม.</div>
+                    <div class="text-xs text-yellow-400 flex items-center gap-1 font-bold">
+                        <span>🪙</span> <span id="hud-coins">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warning Flash Overlay -->
+            <div id="warning-overlay" class="absolute inset-0 border-4 border-red-500/0 pointer-events-none transition-all duration-300 z-20"></div>
+
+            <!-- Shield Active Indicator -->
+            <div id="shield-overlay" class="absolute inset-0 border-4 border-cyan-400/0 pointer-events-none transition-all duration-300 z-20"></div>
+
+            <!-- Touch Controls / Tilt Status Display Info -->
+            <div id="control-info-display" class="absolute bottom-4 left-0 right-0 flex justify-center px-6 pointer-events-none text-white/40 text-xs text-center z-10">
+                <div class="bg-black/30 px-3 py-1.5 rounded-full border border-white/5 flex items-center gap-1.5">
+                    <span id="active-control-icon">📱</span>
+                    <span id="active-control-text">แตะหน้าจอซ้าย/ขวาเพื่อบังคับ</span>
+                </div>
+            </div>
+
+            <!-- ================= SCREEN: MAIN MENU ================= -->
+            <div id="screen-menu" class="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-blue-900/90 via-slate-900/95 to-slate-950/100 z-30 transition-all duration-300 text-center">
+                <div class="my-auto space-y-4">
+                    <div class="inline-block p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-full text-4xl animate-bounce mb-2">
+                        🚢
+                    </div>
+                    <h1 class="text-3xl font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-yellow-300 to-amber-500">
+                        DEEP SEA DESCENT
+                    </h1>
+                    <p class="text-slate-300 text-sm max-w-xs mx-auto">
+                        ดำดิ่งลงสู่ก้นมหาสมุทรอันมืดมิด เอียงหน้าจอมือถือของคุณเพื่อโยกควบคุมทิศทางอย่างสมจริง!
+                    </p>
+                    <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1.5 max-w-xs mx-auto text-left">
+                        <div class="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                            <span>🎮</span> <span id="menu-control-desc">ระบบเอียงเครื่อง (Tilt): เอียงมือถือ ซ้าย/ขวา</span>
+                        </div>
+                        <div class="flex justify-between"><span class="text-emerald-400 font-semibold">🫧 ถังสีเขียว:</span> เติมออกซิเจน</div>
+                        <div class="flex justify-between"><span class="text-red-400 font-semibold">🔧 ประแจ:</span> ซ่อมแซมโครงเรือ</div>
+                        <div class="flex justify-between"><span class="text-cyan-400 font-semibold">🛡️ บาเรีย:</span> อมตะป้องกันชนชั่วคราว</div>
+                    </div>
+                    <div class="bg-cyan-950/40 p-2.5 rounded-lg border border-cyan-800/30 text-xs inline-block">
+                        🏆 สถิติความลึกสุดยอด: <span class="text-cyan-300 font-bold" id="menu-highscore">0 ม.</span>
+                    </div>
+                </div>
+
+                <div class="space-y-3 mt-auto">
+                    <button onclick="startGame()" class="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold rounded-xl text-lg shadow-lg shadow-cyan-500/20 active:scale-95 transition transform">
+                        เริ่มภารกิจสำรวจ
+                    </button>
+                    
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <button onclick="toggleTiltControl()" id="tilt-btn" class="py-2.5 bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 font-semibold rounded-lg text-sm border border-cyan-800/50 flex items-center justify-center gap-1">
+                            📳 เอียงเครื่อง: ปิด
+                        </button>
+                        <button onclick="toggleSound()" id="sound-btn" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-sm border border-slate-700/60 flex items-center justify-center gap-1">
+                            🔊 เสียง: เปิด
+                        </button>
+                    </div>
+
+                    <button onclick="openShop()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-yellow-400 font-semibold rounded-lg text-sm border border-slate-700/60 flex items-center justify-center gap-1">
+                        🪙 เข้าสู่อู่และร้านค้าอัปเกรดเรือ
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= SCREEN: UPGRADE SHOP ================= -->
+            <div id="screen-shop" class="absolute inset-0 flex flex-col justify-between p-5 bg-slate-950/95 border-t border-slate-800 z-35 hidden transition-all duration-300">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h2 class="text-xl font-bold text-yellow-400 flex items-center gap-1.5">
+                        <span>🔧</span> อู่ซ่อมและอัปเกรดเรือ
+                    </h2>
+                    <div class="text-sm font-bold bg-yellow-950/50 border border-yellow-700/30 px-2.5 py-1 rounded text-yellow-400">
+                        🪙 <span id="shop-coins">0</span>
+                    </div>
+                </div>
+
+                <!-- Upgrade List -->
+                <div class="flex-1 my-3 overflow-y-auto pr-1 space-y-3 custom-scroll">
+                    <!-- Upgrade 1: Hull -->
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex flex-col gap-2">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-slate-100 text-sm">เกราะเรือดำน้ำ (Hull Armor)</h3>
+                                <p class="text-xs text-slate-400">เพิ่มพลังชีวิตสูงสุดของเรือ</p>
+                            </div>
+                            <span class="text-xs px-2 py-0.5 bg-red-950 text-red-400 font-bold rounded" id="level-hull">Lv.1</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4 mt-1">
+                            <div class="flex-1 bg-slate-950 h-2 rounded-full overflow-hidden">
+                                <div id="bar-hull" class="bg-red-500 h-full w-1/5"></div>
+                            </div>
+                            <button onclick="buyUpgrade('hull')" id="btn-upgrade-hull" class="px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold rounded-lg transition shrink-0">
+                                🪙 100
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Upgrade 2: Engine -->
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex flex-col gap-2">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-slate-100 text-sm">กำลังเครื่องยนต์ (Engine Power)</h3>
+                                <p class="text-xs text-slate-400">เร่งการเลี้ยวและแรงโค้งเอียงที่ดีขึ้น</p>
+                            </div>
+                            <span class="text-xs px-2 py-0.5 bg-cyan-950 text-cyan-400 font-bold rounded" id="level-engine">Lv.1</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4 mt-1">
+                            <div class="flex-1 bg-slate-950 h-2 rounded-full overflow-hidden">
+                                <div id="bar-engine" class="bg-cyan-500 h-full w-1/5"></div>
+                            </div>
+                            <button onclick="buyUpgrade('engine')" id="btn-upgrade-engine" class="px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold rounded-lg transition shrink-0">
+                                🪙 100
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Upgrade 3: Oxygen Tank -->
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex flex-col gap-2">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-slate-100 text-sm">ถังออกซิเจนสำรอง (Oxygen Tank)</h3>
+                                <p class="text-xs text-slate-400">ลดความเร็วในการสูญเสียออกซิเจน</p>
+                            </div>
+                            <span class="text-xs px-2 py-0.5 bg-emerald-950 text-emerald-400 font-bold rounded" id="level-oxygen">Lv.1</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4 mt-1">
+                            <div class="flex-1 bg-slate-950 h-2 rounded-full overflow-hidden">
+                                <div id="bar-oxygen" class="bg-emerald-500 h-full w-1/5"></div>
+                            </div>
+                            <button onclick="buyUpgrade('oxygen')" id="btn-upgrade-oxygen" class="px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold rounded-lg transition shrink-0">
+                                🪙 100
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Upgrade 4: Super Headlight -->
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 flex flex-col gap-2">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-slate-100 text-sm">สปอตไลท์หน้ารถ (Super Headlight)</h3>
+                                <p class="text-xs text-slate-400">เพิ่มระยะความกว้างสว่างของไฟในน้ำลึก</p>
+                            </div>
+                            <span class="text-xs px-2 py-0.5 bg-amber-950 text-amber-400 font-bold rounded" id="level-light">Lv.1</span>
+                        </div>
+                        <div class="flex items-center justify-between gap-4 mt-1">
+                            <div class="flex-1 bg-slate-950 h-2 rounded-full overflow-hidden">
+                                <div id="bar-light" class="bg-amber-500 h-full w-1/5"></div>
+                            </div>
+                            <button onclick="buyUpgrade('light')" id="btn-upgrade-light" class="px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold rounded-lg transition shrink-0">
+                                🪙 100
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button onclick="closeShop()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-sm border border-slate-700">
+                        กลับหน้าหลัก
+                    </button>
+                    <button onclick="resetUpgrades()" class="py-3 px-4 bg-red-950/60 hover:bg-red-900/60 text-red-300 font-semibold rounded-xl text-xs border border-red-800/30">
+                        รีเซ็ตทั้งหมด
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= SCREEN: GAME OVER ================= -->
+            <div id="screen-gameover" class="absolute inset-0 flex flex-col justify-between p-6 bg-slate-950/95 z-40 hidden transition-all duration-300 text-center">
+                <div class="my-auto space-y-4">
+                    <div class="inline-block p-4 bg-red-500/10 border border-red-500/20 rounded-full text-5xl animate-pulse mb-2">
+                        💥
+                    </div>
+                    <h2 class="text-2xl font-black text-red-500 tracking-wider" id="gameover-title">
+                        อับปางเสียแล้ว!
+                    </h2>
+                    <p class="text-slate-400 text-sm max-w-xs mx-auto" id="gameover-cause">
+                        ตัวเรือพังทลายจากการกระแทกหรือแรงดันใต้น้ำ
+                    </p>
+
+                    <div class="bg-slate-900/80 max-w-xs mx-auto p-4 rounded-xl border border-slate-800 grid grid-cols-2 gap-y-3 gap-x-1 text-center divide-x divide-slate-800">
+                        <div>
+                            <span class="block text-xs text-slate-400">ความลึกที่ลงไปได้</span>
+                            <span class="text-lg font-bold text-cyan-400" id="gameover-depth">0 ม.</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs text-slate-400">ไข่มุกทองคำที่เก็บได้</span>
+                            <span class="text-lg font-bold text-yellow-400" id="gameover-coins">🪙 0</span>
+                        </div>
+                    </div>
+
+                    <div id="new-highscore-badge" class="inline-block px-3 py-1 bg-yellow-500/20 border border-yellow-500/40 text-yellow-400 text-xs font-bold rounded-full uppercase tracking-wider animate-bounce hidden">
+                        🏆 บันทึกสถิติใหม่!
+                    </div>
+                </div>
+
+                <div class="space-y-3 mt-auto">
+                    <button onclick="startGame()" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-lg shadow-lg active:scale-95 transition transform">
+                        ออกเดินทางอีกครั้ง
+                    </button>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="openShopFromGameOver()" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-yellow-400 font-semibold rounded-lg text-sm border border-slate-700/60">
+                            🪙 อัปเกรดเรือก่อน
+                        </button>
+                        <button onclick="goToMenu()" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg text-sm border border-slate-700/60">
+                            หน้าหลัก
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= CUSTOM MODAL SYSTEM ================= -->
+            <div id="custom-modal" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 z-50 hidden transition-all duration-300">
+                <div class="bg-slate-900 border-2 border-cyan-800 p-5 rounded-2xl max-w-xs w-full text-center space-y-4 shadow-2xl animate-scaleIn">
+                    <div class="text-4xl text-cyan-400" id="modal-icon">ℹ️</div>
+                    <h3 class="font-bold text-lg text-slate-100" id="modal-title">ระบบแจ้งเตือน</h3>
+                    <p class="text-xs text-slate-300 leading-relaxed" id="modal-desc">ข้อความรายละเอียดของการแจ้งเตือน</p>
+                    <button onclick="closeModal()" class="w-full py-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold rounded-lg text-sm transition active:scale-95">
+                        รับทราบ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ambient Water Effects overlay -->
+            <div class="absolute inset-0 bg-gradient-to-t from-blue-950/20 to-transparent pointer-events-none z-5"></div>
         </div>
     </div>
 
+    <!-- ====================================================================== -->
+    <!-- GAME LOGIC & ENGINE -->
+    <!-- ====================================================================== -->
     <script>
+        // --- Web Audio API Synthesizer (Retro Sounds in a single file) ---
+        class RetroAudioController {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (this.ctx) return;
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.error("AudioContext not supported");
+                }
+            }
+
+            playCoin() {
+                if (!this.enabled || !this.ctx) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, now); // D5
+                osc.frequency.setValueAtTime(880, now + 0.08); // A5
+                
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playPowerup() {
+                if (!this.enabled || !this.ctx) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+                osc.frequency.exponentialRampToValueAtTime(1320, now + 0.3);
+                
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            }
+
+            playHit() {
+                if (!this.enabled || !this.ctx) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(60, now + 0.2);
+                
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playExplosion() {
+                if (!this.enabled || !this.ctx) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.linearRampToValueAtTime(10, now + 0.5);
+                
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            }
+
+            playGameOver() {
+                if (!this.enabled || !this.ctx) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(330, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.8);
+                
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.9);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.9);
+            }
+
+            playAlert() {
+                if (!this.enabled || !this.ctx) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.setValueAtTime(700, now + 0.1);
+                
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+        }
+
+        const audio = new RetroAudioController();
+
+        // Canvas Setup & Scaling
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const depthDisplay = document.getElementById('depth-display');
-        const gameOverScreen = document.getElementById('game-over');
-        const finalDepthDisplay = document.getElementById('final-depth');
+        const container = document.getElementById('canvas-container');
 
-        let gameActive = true;
+        // Dynamic Resize for Canvas while keeping coordinate integrity
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game Configuration
+        const CONFIG = {
+            baseScrollSpeed: 2.2,
+            playerHeightPercent: 0.25,
+        };
+
+        // Persistent State
+        let state = {
+            coins: 0,
+            highscore: 0,
+            upgrades: {
+                hull: 1,      // Levels 1 - 5
+                engine: 1,    // Levels 1 - 5
+                oxygen: 1,    // Levels 1 - 5
+                light: 1      // Levels 1 - 5
+            },
+            tiltEnabled: false // Gyroscope Control Config
+        };
+
+        // Tilt Device Parameters
+        let deviceTiltGamma = 0; // -90 to 90 degrees left-right tilt
+
+        // Load State from LocalStorage
+        function loadSaveData() {
+            const savedState = localStorage.getItem('deep_sea_descent_save_v3');
+            if (savedState) {
+                try {
+                    const parsed = JSON.parse(savedState);
+                    state.coins = parsed.coins || 0;
+                    state.highscore = parsed.highscore || 0;
+                    if (parsed.upgrades) {
+                        state.upgrades = { ...state.upgrades, ...parsed.upgrades };
+                    }
+                    state.tiltEnabled = parsed.tiltEnabled || false;
+                } catch (e) {
+                    console.error("Error loading save game", e);
+                }
+            }
+            updateMenuUI();
+            syncTiltButtonUI();
+        }
+
+        function saveGame() {
+            localStorage.setItem('deep_sea_descent_save_v3', JSON.stringify(state));
+        }
+
+        function updateMenuUI() {
+            document.getElementById('menu-highscore').innerText = `${Math.floor(state.highscore)} ม.`;
+            document.getElementById('hud-coins').innerText = state.coins;
+            document.getElementById('shop-coins').innerText = state.coins;
+        }
+
+        function syncTiltButtonUI() {
+            const tiltBtn = document.getElementById('tilt-btn');
+            const desc = document.getElementById('menu-control-desc');
+            const hudIcon = document.getElementById('active-control-icon');
+            const hudText = document.getElementById('active-control-text');
+
+            if (state.tiltEnabled) {
+                tiltBtn.innerText = "📳 เอียงเครื่อง: เปิด";
+                tiltBtn.classList.remove('bg-cyan-950/60', 'border-cyan-800/50', 'text-cyan-300');
+                tiltBtn.classList.add('bg-yellow-500', 'border-yellow-400', 'text-slate-950');
+                desc.innerHTML = "ระบบเอียงเครื่อง (Tilt): เอียงมือถือซ้าย-ขวาเพื่อบังคับ";
+                hudIcon.innerText = "📳";
+                hudText.innerText = "เอียงมือถือ ซ้าย/ขวา เพื่อบังคับเรือ";
+            } else {
+                tiltBtn.innerText = "📳 เอียงเครื่อง: ปิด";
+                tiltBtn.classList.remove('bg-yellow-500', 'border-yellow-400', 'text-slate-950');
+                tiltBtn.classList.add('bg-cyan-950/60', 'border-cyan-800/50', 'text-cyan-300');
+                desc.innerHTML = "ระบบแตะสัมผัส (Touch): แตะฝั่งซ้าย/ขวาเพื่อเลี้ยว";
+                hudIcon.innerText = "📱";
+                hudText.innerText = "แตะหน้าจอซ้าย/ขวาเพื่อบังคับเลี้ยว";
+            }
+        }
+
+        // Custom Modal UI Handler instead of forbidden window.alert()
+        function showAlertModal(title, desc, icon = "ℹ️") {
+            document.getElementById('modal-icon').innerText = icon;
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            audio.playCoin();
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        // DEVICE ORIENTATION (TILT) PERMISSIONS AND IMPLEMENTATION
+        async function toggleTiltControl() {
+            audio.init();
+            
+            if (state.tiltEnabled) {
+                // If turning off
+                state.tiltEnabled = false;
+                window.removeEventListener('deviceorientation', handleOrientation);
+                saveGame();
+                syncTiltButtonUI();
+                audio.playHit();
+                return;
+            }
+
+            // iOS 13+ devices require explicit sensor user permission flow
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                
+                try {
+                    const permissionState = await DeviceOrientationEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        activateTiltSensor();
+                    } else {
+                        showAlertModal(
+                            "ไม่สามารถเข้าถึงเซนเซอร์", 
+                            "กรุณาอนุญาตการเข้าถึงเซนเซอร์จับทิศทาง เพื่อเล่นเกมโดยการขยับเอียงเครื่องหน้าจอ", 
+                            "⚠️"
+                        );
+                    }
+                } catch (error) {
+                    console.error("Device orientation request error", error);
+                    showAlertModal(
+                        "ไม่สามารถเปิดการเอียงได้", 
+                        "บราวเซอร์ของคุณไม่ตอบสนองระบบเซนเซอร์วัดมุมเอียง โปรดใช้ระบบแตะสัมผัสหน้าจอแทน", 
+                        "❌"
+                    );
+                }
+            } else {
+                // Non-iOS or Android devices without permission request API
+                activateTiltSensor();
+            }
+        }
+
+        function activateTiltSensor() {
+            window.addEventListener('deviceorientation', handleOrientation);
+            state.tiltEnabled = true;
+            saveGame();
+            syncTiltButtonUI();
+            audio.playPowerup();
+            
+            // Spawn temporary float text
+            spawnTextPopup("📳 เปิดโหมดเอียงควบคุมแล้ว!", canvas.width / 2, player.y - 20, "#eab308");
+        }
+
+        function handleOrientation(event) {
+            if (event.gamma !== null) {
+                // gamma: left-to-right tilt in degrees [-90, 90]
+                deviceTiltGamma = event.gamma;
+            }
+        }
+
+        // Reactivating sensor on game load if enabled
+        function autoEnableSensorOnLoad() {
+            if (state.tiltEnabled) {
+                // For Android we can usually auto-bind immediately
+                if (typeof DeviceOrientationEvent !== 'undefined' && 
+                    typeof DeviceOrientationEvent.requestPermission !== 'function') {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                } else {
+                    // iOS will force user gesture, so we fallback state back to false to let them click
+                    state.tiltEnabled = false;
+                    syncTiltButtonUI();
+                }
+            }
+        }
+
+        // Upgrade Configurations
+        const UPGRADES_CONF = {
+            hull: {
+                maxLevel: 5,
+                costMultiplier: 120,
+                values: [100, 130, 170, 220, 300] // Max HP values
+            },
+            engine: {
+                maxLevel: 5,
+                costMultiplier: 100,
+                values: [0.15, 0.18, 0.22, 0.26, 0.32] // Interpolation ease speed (for keys/touch) and Tilt sensitiviy modifier
+            },
+            oxygen: {
+                maxLevel: 5,
+                costMultiplier: 110,
+                values: [0.12, 0.10, 0.08, 0.06, 0.045] // Oxygen depletion rate per frame (approx. 60fps)
+            },
+            light: {
+                maxLevel: 5,
+                costMultiplier: 90,
+                values: [
+                    { length: 180, width: 45 },
+                    { length: 220, width: 55 },
+                    { length: 260, width: 65 },
+                    { length: 300, width: 75 },
+                    { length: 350, width: 90 }
+                ]
+            }
+        };
+
+        function getUpgradeCost(type, currentLevel) {
+            if (currentLevel >= UPGRADES_CONF[type].maxLevel) return Infinity;
+            return currentLevel * UPGRADES_CONF[type].costMultiplier;
+        }
+
+        // Active Game Variables
+        let gameActive = false;
         let depth = 0;
-        let score = 0;
-        let obstacles = [];
-        let particles = [];
-        
+        let sessionCoins = 0;
+        let currentZoneIndex = 0;
+        let alertTimer = 0;
+        let screenShakeAmount = 0;
+
+        // Player (Submarine)
         const player = {
             x: 200,
             y: 150,
-            width: 40,
-            height: 30,
+            width: 48,
+            height: 32,
             targetX: 200,
-            speed: 0.15
+            hp: 100,
+            maxHp: 100,
+            oxygen: 100,
+            maxOxygen: 100,
+            shieldTime: 0, // In frames
+            speedCoeff: 0.15,
+            lightRange: 180,
+            lightWidth: 45,
+            propellerAngle: 0
         };
 
-        // ตรวจสอบการเคลื่อนที่ (เม้าส์/ทัช)
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            player.targetX = e.clientX - rect.left;
-        });
+        // Lists
+        let obstacles = [];
+        let items = [];
+        let particles = [];
+        let textPopups = [];
 
-        canvas.addEventListener('touchstart', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            player.targetX = e.touches[0].clientX - rect.left;
-            e.preventDefault();
-        }, {passive: false});
+        // Zone Info
+        const ZONES = [
+            {
+                name: "เขตแสงส่องถึง (Sunlight Zone)",
+                startDepth: 0,
+                colorTop: [14, 116, 144], // Cyan 700
+                colorBot: [3, 105, 120],  // Cyan 800
+                spawnChance: 0.02,
+                titleColor: "text-cyan-400"
+            },
+            {
+                name: "เขตแดนสนธยา (Twilight Zone)",
+                startDepth: 1000,
+                colorTop: [3, 105, 120],
+                colorBot: [30, 41, 59],   // Slate 800
+                spawnChance: 0.03,
+                titleColor: "text-indigo-400"
+            },
+            {
+                name: "เขตเที่ยงคืน (Midnight Zone)",
+                startDepth: 2500,
+                colorTop: [30, 41, 59],
+                colorBot: [15, 23, 42],   // Slate 900
+                spawnChance: 0.04,
+                titleColor: "text-purple-400"
+            },
+            {
+                name: "ห้วงอเวจีลึกลับ (The Abyss)",
+                startDepth: 5000,
+                colorTop: [15, 23, 42],
+                colorBot: [2, 6, 23],     // Slate 950
+                spawnChance: 0.05,
+                titleColor: "text-red-500"
+            }
+        ];
 
-        canvas.addEventListener('touchmove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            player.targetX = e.touches[0].clientX - rect.left;
-            e.preventDefault();
-        }, {passive: false});
+        // Entity Types definitions
+        const OBSTACLE_TYPES = [
+            { emoji: "🐟", name: "ปลาเล็กทั่วไป", size: 24, speedX: 2.5, minDepth: 0, maxDepth: 1500, dmg: 15, bounce: false },
+            { emoji: "🦑", name: "หมึกว่ายน้ำ", size: 30, speedX: 3.2, minDepth: 800, maxDepth: 3500, dmg: 20, bounce: true },
+            { emoji: "🦈", name: "ฉลามนักล่า", size: 40, speedX: 4.5, minDepth: 1800, maxDepth: 6000, dmg: 35, bounce: false },
+            { emoji: "🐡", name: "ปลาปักเป้าหนาม", size: 28, speedX: 1.5, minDepth: 400, maxDepth: 3000, dmg: 25, bounce: true },
+            { emoji: "🐙", name: "หมึกยักษ์", size: 44, speedX: 2.0, minDepth: 3500, maxDepth: 100000, dmg: 40, bounce: false },
+            { emoji: "👹", name: "สัตว์ประหลาดก้นทะเล", size: 48, speedX: 5.0, minDepth: 5500, maxDepth: 100000, dmg: 50, bounce: true },
+            { emoji: "💣", name: "ทุ่นระเบิดเก่า", size: 30, speedX: 0, minDepth: 1500, maxDepth: 100000, dmg: 35, explosive: true }
+        ];
 
+        const ITEM_TYPES = [
+            { emoji: "🪙", type: "coin", val: 10, prob: 0.7 },
+            { emoji: "🫧", type: "oxygen", val: 35, prob: 0.5 },
+            { emoji: "🔧", type: "repair", val: 30, prob: 0.25 },
+            { emoji: "🛡️", type: "shield", val: 300, prob: 0.1 }
+        ];
+
+        // Class representing an Obstacle / Sea Creature
         class Obstacle {
-            constructor(depth) {
-                this.width = 40 + Math.random() * 30;
-                this.height = 25;
+            constructor(spawnDepth) {
+                const validTypes = OBSTACLE_TYPES.filter(t => spawnDepth >= t.minDepth && spawnDepth <= t.maxDepth);
+                const type = validTypes.length > 0 ? validTypes[Math.floor(Math.random() * validTypes.length)] : OBSTACLE_TYPES[0];
                 
-                // สุ่มว่ามาซ้ายหรือขวา
-                this.side = Math.random() > 0.5 ? 'left' : 'right';
-                this.x = this.side === 'left' ? -this.width : canvas.width + this.width;
-                this.y = canvas.height + Math.random() * 100;
+                this.emoji = type.emoji;
+                this.name = type.name;
+                this.size = type.size + Math.random() * 8;
+                this.damage = type.dmg;
+                this.explosive = type.explosive || false;
+                this.y = canvas.height + 50;
                 
-                // ความเร็วปลาตามความลึก
-                const speedMult = 1 + (depth / 5000);
-                this.speed = (2 + Math.random() * 3) * speedMult;
-                if (this.side === 'right') this.speed *= -1;
-
-                // เลือกชนิดปลาตามความลึก
-                if (depth < 1000) {
-                    this.emoji = "🐟"; // ปลาทั่วไป
-                    this.color = "#ff6b6b";
-                } else if (depth < 3000) {
-                    this.emoji = "🦑"; // ปลาหมึก
-                    this.color = "#a29bfe";
-                } else if (depth < 6000) {
-                    this.emoji = "🦈"; // ฉลาม
-                    this.color = "#74b9ff";
+                if (type.speedX === 0) {
+                    this.x = 30 + Math.random() * (canvas.width - 60);
+                    this.speedX = 0;
                 } else {
-                    this.emoji = "🐙"; // สัตว์ประหลาดน้ำลึก
-                    this.color = "#fab1a0";
+                    this.side = Math.random() > 0.5 ? 'left' : 'right';
+                    this.x = this.side === 'left' ? -this.size : canvas.width + this.size;
+                    this.speedX = type.speedX * (1 + (spawnDepth / 8000));
+                    if (this.side === 'right') this.speedX *= -1;
                 }
+
+                this.bounce = type.bounce || false;
+                this.oscillationSpeed = 0.02 + Math.random() * 0.03;
+                this.oscillationTimer = Math.random() * Math.PI;
+                this.oscillationRange = this.speedX === 0 ? 0 : 1 + Math.random() * 2;
+                this.isGlow = spawnDepth > 2500;
             }
 
             update() {
-                this.x += this.speed;
-                this.y -= 3; // เลื่อนขึ้น (เหมือนผู้เล่นจมลง)
+                this.x += this.speedX;
+                
+                if (this.bounce) {
+                    this.y -= (CONFIG.baseScrollSpeed + Math.sin(this.oscillationTimer) * this.oscillationRange);
+                    this.oscillationTimer += this.oscillationSpeed;
+                } else {
+                    this.y -= CONFIG.baseScrollSpeed;
+                }
+
+                if (this.bounce && this.speedX !== 0) {
+                    if (this.x < 10 || this.x > canvas.width - this.size - 10) {
+                        this.speedX *= -1;
+                    }
+                }
             }
 
             draw() {
-                ctx.font = `${this.width}px Arial`;
-                ctx.fillText(this.emoji, this.x, this.y);
+                ctx.save();
+                if (this.isGlow) {
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = 'rgba(14, 165, 233, 0.6)';
+                }
+                ctx.font = `${this.size}px 'Arial'`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                
+                if (this.speedX < 0) {
+                    ctx.translate(this.x, this.y);
+                    ctx.scale(-1, 1);
+                    ctx.fillText(this.emoji, 0, 0);
+                } else {
+                    ctx.fillText(this.emoji, this.x, this.y);
+                }
+                ctx.restore();
             }
         }
 
-        function createBackground() {
-            // ปรับสีพื้นหลังตามความลึก
-            let darken = Math.min(depth / 100, 90); 
-            let r = Math.max(79 - (depth/50), 5);
-            let g = Math.max(172 - (depth/30), 5);
-            let b = Math.max(254 - (depth/20), 20);
-            
-            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Class representing Items
+        class SeaItem {
+            constructor(spawnDepth) {
+                const candidate = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+                this.emoji = candidate.emoji;
+                this.type = candidate.type;
+                this.val = candidate.val;
+                
+                this.size = 28;
+                this.x = 20 + Math.random() * (canvas.width - 40);
+                this.y = canvas.height + 50;
+                this.angle = 0;
+                this.pulseFactor = 0;
+            }
 
-            // วาดฟองอากาศเล็กๆ
-            if (Math.random() < 0.1) {
+            update() {
+                this.y -= CONFIG.baseScrollSpeed;
+                this.angle += 0.03;
+                this.pulseFactor = Math.sin(this.angle * 2) * 2;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                ctx.shadowBlur = 10;
+                if (this.type === 'coin') ctx.shadowColor = 'rgba(234, 179, 8, 0.7)';
+                else if (this.type === 'oxygen') ctx.shadowColor = 'rgba(16, 185, 129, 0.7)';
+                else if (this.type === 'repair') ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
+                else if (this.type === 'shield') ctx.shadowColor = 'rgba(6, 182, 212, 0.7)';
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size / 1.5 + this.pulseFactor / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(this.emoji, 0, 0);
+                ctx.restore();
+            }
+        }
+
+        // Floating Text Indicators
+        class FloatingText {
+            constructor(text, x, y, color) {
+                this.text = text;
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.alpha = 1.0;
+                this.velY = -1.2;
+            }
+
+            update() {
+                this.y += this.velY;
+                this.alpha -= 0.02;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.font = "bold 15px 'Prompt', Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        // Particle Generators
+        function createParticles(x, y, color, count = 8, maxRadius = 4) {
+            for (let i = 0; i < count; i++) {
                 particles.push({
-                    x: Math.random() * canvas.width,
-                    y: canvas.height,
-                    size: Math.random() * 5,
-                    speed: 2 + Math.random() * 2
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4 - 1,
+                    radius: Math.random() * maxRadius + 1,
+                    color: color,
+                    alpha: 1,
+                    decay: 0.02 + Math.random() * 0.02
                 });
             }
-
-            ctx.fillStyle = "rgba(255,255,255,0.3)";
-            particles.forEach((p, index) => {
-                p.y -= p.speed;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
-                if (p.y < -10) particles.splice(index, 1);
-            });
         }
 
-        function update() {
-            if (!gameActive) return;
-
-            depth += 2;
-            depthDisplay.innerText = `ความลึก: ${Math.floor(depth)} ม.`;
-
-            // ขยับเรือดำน้ำ (Smooth Follow)
-            player.x += (player.targetX - player.x) * player.speed;
-            
-            // ขอบเขตหน้าจอ
-            if (player.x < 20) player.x = 20;
-            if (player.x > canvas.width - 20) player.x = canvas.width - 20;
-
-            // สร้างอุปสรรค
-            if (Math.random() < 0.03 + (depth/100000)) {
-                obstacles.push(new Obstacle(depth));
+        function createAmbientBubble() {
+            if (Math.random() < 0.12) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: canvas.height + 20,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: -(1.5 + Math.random() * 2),
+                    radius: Math.random() * 3 + 1,
+                    color: 'rgba(255, 255, 255, 0.45)',
+                    alpha: 0.6,
+                    decay: 0.002
+                });
             }
-
-            obstacles.forEach((obs, index) => {
-                obs.update();
-                
-                // ตรวจสอบการชน
-                const dx = player.x - obs.x;
-                const dy = player.y - obs.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < 30) {
-                    gameOver();
-                }
-
-                // ลบปลาที่พ้นจอ
-                if (obs.y < -50) obstacles.splice(index, 1);
-            });
         }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            createBackground();
+        function createPropellerBubbles() {
+            if (Math.random() < 0.3) {
+                particles.push({
+                    x: player.x - 22,
+                    y: player.y,
+                    vx: -1.5 - Math.random() * 2,
+                    vy: (Math.random() - 0.5) * 0.8,
+                    radius: Math.random() * 2.5 + 0.8,
+                    color: 'rgba(255, 255, 255, 0.4)',
+                    alpha: 0.5,
+                    decay: 0.015
+                });
+            }
+        }
 
-            // วาดเรือดำน้ำ
+        // --- SUBMARINE RENDERING ---
+        function drawSubmarine() {
             ctx.save();
             ctx.translate(player.x, player.y);
-            ctx.fillStyle = "#ffcc00"; // ตัวเรือสีเหลือง
+
+            if (screenShakeAmount > 0) {
+                ctx.translate((Math.random() - 0.5) * screenShakeAmount * 0.5, (Math.random() - 0.5) * screenShakeAmount * 0.5);
+            }
+
+            // Submarine Body Tilt based on motion trajectory
+            const tilt = (player.targetX - player.x) * 0.015;
+            ctx.rotate(Math.max(-0.25, Math.min(0.25, tilt)));
+
+            // 1. Headlight cone beam
+            const headlightGrad = ctx.createLinearGradient(15, 0, player.lightRange, 0);
+            headlightGrad.addColorStop(0, 'rgba(254, 240, 138, 0.5)');
+            headlightGrad.addColorStop(0.3, 'rgba(254, 240, 138, 0.2)');
+            headlightGrad.addColorStop(1, 'rgba(254, 240, 138, 0)');
+
+            ctx.fillStyle = headlightGrad;
             ctx.beginPath();
-            ctx.ellipse(0, 0, 25, 15, 0, 0, Math.PI * 2);
+            ctx.moveTo(15, -4);
+            ctx.lineTo(player.lightRange, -player.lightWidth);
+            ctx.lineTo(player.lightRange, player.lightWidth);
+            ctx.lineTo(15, 4);
+            ctx.closePath();
             ctx.fill();
-            ctx.fillStyle = "#333"; // หน้าต่าง
+
+            // 2. Propeller Spin
+            player.propellerAngle += 0.22;
+            ctx.strokeStyle = "#94a3b8";
+            ctx.lineWidth = 3;
+            ctx.save();
+            ctx.translate(-24, 0);
+            ctx.rotate(player.propellerAngle);
             ctx.beginPath();
-            ctx.arc(10, -2, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = "#ffcc00";
-            ctx.lineWidth = 4;
-            ctx.beginPath(); // กล้องส่องเหนือหน้าผิวน้ำ (Periscope)
-            ctx.moveTo(-5, -10);
-            ctx.lineTo(-5, -20);
-            ctx.lineTo(5, -20);
+            ctx.moveTo(0, -10);
+            ctx.lineTo(0, 10);
             ctx.stroke();
             ctx.restore();
 
-            // วาดอุปสรรค
+            ctx.fillStyle = "#475569";
+            ctx.fillRect(-26, -4, 4, 8);
+
+            // 3. Main Hull
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(234, 179, 8, 0.4)';
+            ctx.fillStyle = "#eab308";
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 24, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillRect(-12, -18, 20, 5);
+
+            // 4. Periscope
+            ctx.strokeStyle = "#eab308";
+            ctx.lineWidth = 4;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(2, -15);
+            ctx.lineTo(2, -26);
+            ctx.lineTo(10, -26);
+            ctx.stroke();
+            
+            ctx.fillStyle = "#22d3ee";
+            ctx.beginPath();
+            ctx.arc(9, -26, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 5. Port-Hole Windows
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#1e293b";
+            ctx.beginPath();
+            ctx.arc(-4, -1, 7, 0, Math.PI * 2);
+            ctx.arc(8, -1, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = player.hp < 30 && Math.floor(Date.now() / 250) % 2 === 0 ? "#ef4444" : "#22d3ee";
+            ctx.beginPath();
+            ctx.arc(-4, -1, 5, 0, Math.PI * 2);
+            ctx.arc(8, -1, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.beginPath();
+            ctx.arc(-5, -2, 2, 0, Math.PI * 2);
+            ctx.arc(7, -2, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 6. Front Headlight bulb
+            ctx.fillStyle = "#fef08a";
+            ctx.beginPath();
+            ctx.arc(22, 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 7. Active Shield Bubble Glow
+            if (player.shieldTime > 0) {
+                const shieldPulse = 1 + Math.sin(Date.now() * 0.015) * 0.06;
+                ctx.strokeStyle = "rgba(34, 211, 238, 0.8)";
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'rgba(34, 211, 238, 0.8)';
+                ctx.beginPath();
+                ctx.arc(0, 0, 34 * shieldPulse, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = "rgba(34, 211, 238, 0.06)";
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // --- ENVIRONMENT BACKGROUND RENDER ---
+        function drawDynamicBackground() {
+            let topColor = ZONES[0].colorTop;
+            let botColor = ZONES[0].colorBot;
+
+            for (let i = 0; i < ZONES.length; i++) {
+                if (depth >= ZONES[i].startDepth) {
+                    currentZoneIndex = i;
+                    topColor = ZONES[i].colorTop;
+                    botColor = ZONES[i].colorBot;
+                }
+            }
+
+            const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGradient.addColorStop(0, `rgb(${topColor[0]}, ${topColor[1]}, ${topColor[2]})`);
+            bgGradient.addColorStop(1, `rgb(${botColor[0]}, ${botColor[1]}, ${botColor[2]})`);
+
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            createAmbientBubble();
+        }
+
+        // --- ABYSS DARK OVERLAY (HEADLIGHT MASK) ---
+        function applyHeadlightDarknessMask() {
+            if (depth < 2500) return;
+
+            let maxDarkness = depth >= 4500 ? 0.95 : 0.7 + ((depth - 2500) / 2000) * 0.25;
+
+            ctx.save();
+            ctx.fillStyle = `rgba(3, 7, 18, ${maxDarkness})`;
+            ctx.beginPath();
+            
+            ctx.rect(0, 0, canvas.width, canvas.height);
+            
+            ctx.moveTo(player.x + 10, player.y);
+            ctx.lineTo(player.x + player.lightRange, player.y + player.lightWidth);
+            ctx.lineTo(player.x + player.lightRange, player.y - player.lightWidth);
+            ctx.closePath();
+
+            ctx.moveTo(player.x - 30, player.y);
+            ctx.arc(player.x, player.y, 35, Math.PI, -Math.PI, true);
+            ctx.closePath();
+            
+            ctx.fill('evenodd');
+            ctx.restore();
+        }
+
+        // --- COLLISION DETECTOR ---
+        function checkCollision(objA, objB, collisionRadius) {
+            const dx = objA.x - objB.x;
+            const dy = objA.y - objB.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < collisionRadius;
+        }
+
+        function triggerScreenShake(power) {
+            screenShakeAmount = power;
+        }
+
+        function spawnTextPopup(text, x, y, color) {
+            textPopups.push(new FloatingText(text, x, y, color));
+        }
+
+        function applyUpgradesToPlayer() {
+            player.maxHp = UPGRADES_CONF.hull.values[state.upgrades.hull - 1];
+            player.hp = player.maxHp;
+            
+            player.speedCoeff = UPGRADES_CONF.engine.values[state.upgrades.engine - 1];
+            
+            const lightVal = UPGRADES_CONF.light.values[state.upgrades.light - 1];
+            player.lightRange = lightVal.length;
+            player.lightWidth = lightVal.width;
+
+            player.oxygen = 100;
+        }
+
+        // --- GAME UPDATE TICK ---
+        function update() {
+            if (!gameActive) return;
+
+            // 1. Progress Depth
+            depth += (0.6 + (state.upgrades.engine * 0.1));
+            
+            let currentZone = ZONES[0];
+            for (let i = 0; i < ZONES.length; i++) {
+                if (depth >= ZONES[i].startDepth) {
+                    if (currentZoneIndex !== i) {
+                        currentZoneIndex = i;
+                        spawnTextPopup(`✨ เข้าสู่ ${ZONES[i].name}`, canvas.width / 2, player.y + 60, "#38bdf8");
+                        audio.playPowerup();
+                    }
+                    currentZone = ZONES[i];
+                }
+            }
+
+            document.getElementById('hud-depth').innerText = `ความลึก: ${Math.floor(depth)} ม.`;
+            document.getElementById('hud-coins').innerText = state.coins;
+
+            // 2. Oxygen Logic
+            const o2DepletionRate = UPGRADES_CONF.oxygen.values[state.upgrades.oxygen - 1];
+            player.oxygen -= o2DepletionRate;
+            
+            if (player.oxygen < 25) {
+                alertTimer++;
+                document.getElementById('oxygen-hud-container').classList.add('animate-pulse', 'bg-red-950/60');
+                if (alertTimer % 90 === 0) {
+                    audio.playAlert();
+                    spawnTextPopup("⚠️ ออกซิเจนต่ำกระชั้นชิด!", player.x, player.y - 30, "#f87171");
+                }
+                document.getElementById('warning-overlay').style.borderColor = `rgba(239, 68, 68, ${0.15 + Math.sin(alertTimer*0.1) * 0.15})`;
+            } else {
+                document.getElementById('oxygen-hud-container').classList.remove('animate-pulse', 'bg-red-950/60');
+                document.getElementById('warning-overlay').style.borderColor = "rgba(239, 68, 68, 0)";
+            }
+
+            if (player.shieldTime > 0) {
+                player.shieldTime--;
+                document.getElementById('shield-overlay').style.borderColor = `rgba(34, 211, 238, ${0.15 + Math.sin(player.shieldTime*0.05) * 0.15})`;
+                if (player.shieldTime === 0) {
+                    spawnTextPopup("🛡️ โล่พลังงานหมดลง!", player.x, player.y - 30, "#60a5fa");
+                    document.getElementById('shield-overlay').style.borderColor = "rgba(34, 211, 238, 0)";
+                }
+            }
+
+            if (player.oxygen <= 0) {
+                player.oxygen = 0;
+                player.hp -= 0.25;
+                triggerScreenShake(4);
+                if (Math.floor(Date.now() / 300) % 2 === 0) {
+                    document.getElementById('warning-overlay').style.borderColor = "rgba(239, 68, 68, 0.4)";
+                }
+            }
+
+            document.getElementById('hud-hp-bar').style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+            document.getElementById('hud-oxygen-bar').style.width = `${player.oxygen}%`;
+
+            if (player.hp <= 0) {
+                player.hp = 0;
+                triggerGameOver("hull");
+                return;
+            }
+
+            // 3. MOTION INPUT: Gyroscope Tilt vs. Touch vs. Keyboard
+            if (state.tiltEnabled) {
+                // Deadzone filter: Ignore tilts between -3 and 3 degrees to keep it stable when held relatively still
+                if (Math.abs(deviceTiltGamma) > 3.0) {
+                    // Maximum tilt we map to full speed steering
+                    const maxTiltBoundary = 24; 
+                    let clampedTilt = Math.min(Math.max(deviceTiltGamma, -maxTiltBoundary), maxTiltBoundary);
+                    let normalizedTilt = clampedTilt / maxTiltBoundary; // From -1.0 to 1.0
+
+                    // Engine Power upgrade modifies sensitivity & speed response to tilt
+                    const tiltVelocityMultiplier = 8 + (state.upgrades.engine * 2.5);
+                    player.targetX = player.x + (normalizedTilt * tiltVelocityMultiplier);
+                }
+            }
+
+            // Smooth interpolation following the target
+            player.x += (player.targetX - player.x) * player.speedCoeff;
+            
+            if (player.x < 30) player.x = 30;
+            if (player.x > canvas.width - 30) player.x = canvas.width - 30;
+
+            createPropellerBubbles();
+
+            // 4. Update Particles
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                
+                if (p.alpha <= 0 || p.y < -30) {
+                    particles.splice(index, 1);
+                }
+            });
+
+            // 5. Spawn Logic
+            if (Math.random() < currentZone.spawnChance) {
+                obstacles.push(new Obstacle(depth));
+            }
+
+            if (Math.random() < 0.007) {
+                items.push(new SeaItem(depth));
+            }
+
+            // 6. Obstacles Loop
+            obstacles.forEach((obs, index) => {
+                obs.update();
+                
+                if (checkCollision(player, obs, 28)) {
+                    if (player.shieldTime > 0) {
+                        createParticles(obs.x, obs.y, "#22d3ee", 15, 3);
+                        obstacles.splice(index, 1);
+                        audio.playHit();
+                        spawnTextPopup("🛡️ ป้องกันสมบูรณ์แบบ!", player.x, player.y - 30, "#22d3ee");
+                    } else {
+                        player.hp -= obs.damage;
+                        triggerScreenShake(20);
+                        createParticles(obs.x, obs.y, "#ef4444", 12, 4);
+                        
+                        if (obs.explosive) {
+                            audio.playExplosion();
+                            createParticles(obs.x, obs.y, "#f59e0b", 25, 6);
+                        } else {
+                            audio.playHit();
+                        }
+
+                        spawnTextPopup(`-${obs.damage} HP`, player.x, player.y - 30, "#f87171");
+                        obstacles.splice(index, 1);
+                    }
+                }
+
+                if (obs.y < -50) {
+                    obstacles.splice(index, 1);
+                }
+            });
+
+            // 7. Items Loop
+            items.forEach((item, index) => {
+                item.update();
+                
+                if (checkCollision(player, item, 28)) {
+                    audio.playCoin();
+                    
+                    if (item.type === 'coin') {
+                        state.coins += item.val;
+                        sessionCoins += item.val;
+                        createParticles(item.x, item.y, "#fbbf24", 12, 3);
+                        spawnTextPopup(`+🪙 ${item.val}`, item.x, item.y - 15, "#fbbf24");
+                    } else if (item.type === 'oxygen') {
+                        player.oxygen = Math.min(100, player.oxygen + item.val);
+                        createParticles(item.x, item.y, "#34d399", 10, 3);
+                        spawnTextPopup(`+🫧 ${item.val}% O2`, item.x, item.y - 15, "#34d399");
+                    } else if (item.type === 'repair') {
+                        player.hp = Math.min(player.maxHp, player.hp + item.val);
+                        createParticles(item.x, item.y, "#f87171", 10, 3);
+                        spawnTextPopup(`+🔧 ซ่อมแซมเรือ`, item.x, item.y - 15, "#f87171");
+                    } else if (item.type === 'shield') {
+                        player.shieldTime = 300;
+                        createParticles(item.x, item.y, "#22d3ee", 15, 3);
+                        spawnTextPopup("🛡️ โล่บาเรียอมตะ!", item.x, item.y - 15, "#22d3ee");
+                    }
+
+                    saveGame();
+                    items.splice(index, 1);
+                }
+
+                if (item.y < -50) {
+                    items.splice(index, 1);
+                }
+            });
+
+            textPopups.forEach((popup, index) => {
+                popup.update();
+                if (popup.alpha <= 0) {
+                    textPopups.splice(index, 1);
+                }
+            });
+
+            if (screenShakeAmount > 0) {
+                screenShakeAmount *= 0.9;
+                if (screenShakeAmount < 0.5) screenShakeAmount = 0;
+            }
+        }
+
+        // --- DRAW TICK LOOP ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            if (screenShakeAmount > 0) {
+                const shakeX = (Math.random() - 0.5) * screenShakeAmount;
+                const shakeY = (Math.random() - 0.5) * screenShakeAmount;
+                ctx.translate(shakeX, shakeY);
+            }
+
+            drawDynamicBackground();
+
+            items.forEach(it => it.draw());
             obstacles.forEach(obs => obs.draw());
+
+            drawSubmarine();
+
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            applyHeadlightDarknessMask();
+            textPopups.forEach(p => p.draw());
+
+            ctx.restore();
 
             if (gameActive) {
                 requestAnimationFrame(() => {
@@ -259,25 +1344,310 @@
             }
         }
 
-        function gameOver() {
-            gameActive = false;
-            gameOverScreen.style.display = 'block';
-            finalDepthDisplay.innerText = `คุณลงไปได้ลึกถึง: ${Math.floor(depth)} เมตร`;
+        // --- CONTROLS INPUT LISTENERS ---
+        
+        // Mouse movement support (for desktop/fallback tests)
+        canvas.addEventListener('mousemove', (e) => {
+            // Only use touch/mouse targeting if tilt control is disabled
+            if (state.tiltEnabled) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const relativeX = e.clientX - rect.left;
+            player.targetX = (relativeX / rect.width) * canvas.width;
+        });
+
+        // Touch Control handling
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            audio.init(); // Warm audio
+            
+            if (state.tiltEnabled) return; // Ignore touch taps if Gyroscope is handling steering
+
+            const rect = canvas.getBoundingClientRect();
+            const touchX = e.touches[0].clientX - rect.left;
+            const mappedX = (touchX / rect.width) * canvas.width;
+
+            // Simple side-of-screen steering
+            if (mappedX < canvas.width * 0.4) {
+                player.targetX = Math.max(30, player.x - 65);
+            } else if (mappedX > canvas.width * 0.6) {
+                player.targetX = Math.min(canvas.width - 30, player.x + 65);
+            } else {
+                player.targetX = mappedX;
+            }
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (state.tiltEnabled) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const touchX = e.touches[0].clientX - rect.left;
+            player.targetX = (touchX / rect.width) * canvas.width;
+        }, {passive: false});
+
+        // Keyboard Controls
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            if (state.tiltEnabled) return; // Disable keys if tilt active (optional, fallback is good)
+
+            if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
+                player.targetX = Math.max(30, player.x - 45);
+            }
+            if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
+                player.targetX = Math.min(canvas.width - 30, player.x + 45);
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // Loop sub function for continuous keys
+        function checkKeyboardContinuous() {
+            if (state.tiltEnabled) return;
+
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+                player.targetX -= 4.5;
+            }
+            if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+                player.targetX += 4.5;
+            }
+        }
+        
+        // Wrap loop update
+        const originalUpdate = update;
+        update = function() {
+            checkKeyboardContinuous();
+            originalUpdate();
         }
 
-        function resetGame() {
+        // --- GAME ACTIONS & SCREEN NAVIGATORS ---
+
+        function startGame() {
+            audio.init();
+            audio.playPowerup();
+            
+            // Core resets
             gameActive = true;
             depth = 0;
+            sessionCoins = 0;
+            currentZoneIndex = 0;
+            alertTimer = 0;
+            screenShakeAmount = 0;
+            
             obstacles = [];
+            items = [];
             particles = [];
-            player.x = 200;
-            player.targetX = 200;
-            gameOverScreen.style.display = 'none';
+            textPopups = [];
+
+            player.x = canvas.width / 2;
+            player.targetX = canvas.width / 2;
+            player.shieldTime = 0;
+
+            // Load and apply levels
+            applyUpgradesToPlayer();
+
+            // Screen dismissal
+            document.getElementById('screen-menu').classList.add('hidden');
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('screen-shop').classList.add('hidden');
+            document.getElementById('warning-overlay').style.borderColor = "rgba(239, 68, 68, 0)";
+            document.getElementById('shield-overlay').style.borderColor = "rgba(34, 211, 238, 0)";
+
+            syncTiltButtonUI();
+
+            // Run rendering tick
             draw();
         }
 
-        // เริ่มเกม
-        draw();
+        function triggerGameOver(cause) {
+            gameActive = false;
+            audio.playGameOver();
+
+            const causeText = document.getElementById('gameover-cause');
+            if (cause === 'hull') {
+                causeText.innerText = "ตัวเรือพังทลายเสียหายจากการประทะกับอุปสรรคใต้ทะเล";
+            } else {
+                causeText.innerText = "สูญเสียออกซิเจนและพลังงานจนขาดอากาศหายใจ";
+            }
+
+            document.getElementById('gameover-depth').innerText = `${Math.floor(depth)} เมตร`;
+            document.getElementById('gameover-coins').innerText = `🪙 ${sessionCoins}`;
+
+            const badge = document.getElementById('new-highscore-badge');
+            if (depth > state.highscore) {
+                state.highscore = depth;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            saveGame();
+            updateMenuUI();
+
+            document.getElementById('screen-gameover').classList.remove('hidden');
+        }
+
+        // --- SHOP & SCREENS NAVIGATION ---
+
+        function openShop() {
+            audio.playPowerup();
+            document.getElementById('screen-menu').classList.add('hidden');
+            document.getElementById('screen-shop').classList.remove('hidden');
+            updateShopUI();
+        }
+
+        function openShopFromGameOver() {
+            audio.playPowerup();
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('screen-shop').classList.remove('hidden');
+            updateShopUI();
+        }
+
+        function closeShop() {
+            audio.playPowerup();
+            document.getElementById('screen-shop').classList.add('hidden');
+            document.getElementById('screen-menu').classList.remove('hidden');
+            updateMenuUI();
+        }
+
+        function goToMenu() {
+            audio.playPowerup();
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('screen-menu').classList.remove('hidden');
+            updateMenuUI();
+        }
+
+        function toggleSound() {
+            audio.enabled = !audio.enabled;
+            audio.init();
+            if (audio.enabled) {
+                document.getElementById('sound-btn').innerText = "🔊 เสียง: เปิด";
+                audio.playCoin();
+            } else {
+                document.getElementById('sound-btn').innerText = "🔇 เสียง: ปิด";
+            }
+        }
+
+        function updateShopUI() {
+            document.getElementById('shop-coins').innerText = state.coins;
+
+            const categories = ['hull', 'engine', 'oxygen', 'light'];
+            categories.forEach(cat => {
+                const currentLevel = state.upgrades[cat];
+                const max = UPGRADES_CONF[cat].maxLevel;
+                const cost = getUpgradeCost(cat, currentLevel);
+                
+                document.getElementById(`level-${cat}`).innerText = currentLevel >= max ? "สูงสุด (MAX)" : `Lv.${currentLevel}`;
+                
+                const percent = (currentLevel / max) * 100;
+                document.getElementById(`bar-${cat}`).style.width = `${percent}%`;
+
+                const btn = document.getElementById(`btn-upgrade-${cat}`);
+                if (currentLevel >= max) {
+                    btn.innerText = "MAX";
+                    btn.disabled = true;
+                    btn.className = "px-3 py-1 bg-slate-800 text-slate-500 text-xs font-bold rounded-lg cursor-not-allowed shrink-0";
+                } else {
+                    btn.innerText = `🪙 ${cost}`;
+                    btn.disabled = false;
+                    
+                    if (state.coins >= cost) {
+                        btn.className = "px-3 py-1 bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold rounded-lg transition shrink-0 transform active:scale-95";
+                    } else {
+                        btn.className = "px-3 py-1 bg-slate-800 text-slate-400 text-xs font-bold rounded-lg border border-slate-700 cursor-not-allowed shrink-0";
+                    }
+                }
+            });
+        }
+
+        function buyUpgrade(type) {
+            const currentLevel = state.upgrades[type];
+            const cost = getUpgradeCost(type, currentLevel);
+
+            if (state.coins >= cost && currentLevel < UPGRADES_CONF[type].maxLevel) {
+                state.coins -= cost;
+                state.upgrades[type]++;
+                audio.playPowerup();
+                saveGame();
+                updateShopUI();
+            } else {
+                audio.playHit();
+            }
+        }
+
+        function resetUpgrades() {
+            // Replaced window.confirm with Custom Modal flow logic to satisfy clean iframe guidelines
+            const modal = document.getElementById('custom-modal');
+            
+            // Creating a specialized reset confirmation inside the modal on demand
+            document.getElementById('modal-icon').innerText = "⚠️";
+            document.getElementById('modal-title').innerText = "รีเซ็ตการอัปเกรด?";
+            document.getElementById('modal-desc').innerText = "คุณต้องการรีเซ็ตอัปเกรดเรือทั้งหมดกลับเป็นเลเวล 1 และเริ่มเก็บเหรียญใหม่หรือไม่?";
+            
+            // Temporary bind confirmation action directly
+            const footerButton = document.querySelector('#custom-modal button');
+            const originalOnClick = footerButton.getAttribute('onclick');
+            
+            footerButton.setAttribute('onclick', 'confirmResetUpgrades()');
+            modal.classList.remove('hidden');
+        }
+
+        function confirmResetUpgrades() {
+            state.coins = 0;
+            state.upgrades = { hull: 1, engine: 1, oxygen: 1, light: 1 };
+            audio.playHit();
+            saveGame();
+            updateShopUI();
+            
+            // Restore modal button to standard closer
+            const footerButton = document.querySelector('#custom-modal button');
+            footerButton.setAttribute('onclick', 'closeModal()');
+            closeModal();
+        }
+
+        // Render ambient bubbles
+        const bubbleContainer = document.getElementById('ambient-bubbles');
+        function populateMenuBubbles() {
+            bubbleContainer.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                const bubble = document.createElement('div');
+                const size = Math.random() * 8 + 3;
+                bubble.style.position = 'absolute';
+                bubble.style.width = `${size}px`;
+                bubble.style.height = `${size}px`;
+                bubble.style.borderRadius = '50%';
+                bubble.style.backgroundColor = 'rgba(14, 165, 233, 0.25)';
+                bubble.style.left = `${Math.random() * 100}%`;
+                bubble.style.bottom = `-20px`;
+                bubble.style.animation = `bubbleRise ${Math.random() * 8 + 4}s linear infinite`;
+                bubble.style.animationDelay = `${Math.random() * 6}s`;
+                bubbleContainer.appendChild(bubble);
+            }
+        }
+
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes bubbleRise {
+                0% { transform: translateY(0) translateX(0); opacity: 0; }
+                10% { opacity: 0.6; }
+                90% { opacity: 0.6; }
+                100% { transform: translateY(-750px) translateX(15px); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Run decor
+        populateMenuBubbles();
+
+        // Initial launch setups
+        loadSaveData();
+        autoEnableSensorOnLoad();
+
     </script>
 </body>
 </html>
+
+```
