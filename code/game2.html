@@ -43,6 +43,13 @@
             z-index: 11;
             pointer-events: none;
         }
+        /* Style for color selection circles */
+        .color-dot {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .color-dot:hover {
+            transform: scale(1.15);
+        }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col justify-center items-center select-none text-white p-2">
@@ -90,7 +97,7 @@
                 <div class="scanner-bar"></div>
                 <!-- Webcam Video Layer -->
                 <video id="webcam" class="hidden" autoplay playsinline></video>
-                <!-- Render Canvas showing raw pixel feed + tracked centroid indicators -->
+                <!-- Render Canvas showing raw pixel feed -->
                 <canvas id="cameraCanvas" class="w-full h-full object-cover scale-x-[-1]"></canvas>
                 <div class="absolute bottom-1 left-0 right-0 text-[8px] text-center bg-black/70 text-cyan-300 py-0.5 font-bold uppercase tracking-wider">
                     กล้องจับใบหน้า
@@ -112,54 +119,85 @@
             </div>
 
             <!-- ================= SCREEN: MAIN MENU ================= -->
-            <div id="screen-menu" class="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-blue-900/95 via-slate-900/98 to-slate-950 z-30 transition-all duration-300 text-center">
-                <div class="my-auto space-y-3.5">
-                    <div class="inline-block p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-full text-4xl animate-bounce mb-1">
-                        🚢
+            <div id="screen-menu" class="absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-blue-900/95 via-slate-900/98 to-slate-950 z-30 transition-all duration-300 text-center overflow-y-auto">
+                <div class="my-auto space-y-3">
+                    <div class="relative inline-block">
+                        <div class="p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-full text-4xl animate-bounce">
+                            🚢
+                        </div>
+                        <!-- Elegant Version Badge -->
+                        <span class="absolute -bottom-2 -right-4 px-2 py-0.5 bg-cyan-500 text-slate-950 font-black text-[9px] rounded-full uppercase tracking-wider shadow">
+                            v2.3.0
+                        </span>
                     </div>
-                    <h1 class="text-3xl font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-yellow-300 to-amber-500">
-                        DEEP SEA DESCENT
-                    </h1>
+                    
+                    <div>
+                        <h1 class="text-3xl font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-yellow-300 to-amber-500">
+                            DEEP SEA DESCENT
+                        </h1>
+                        <p class="text-[9px] text-cyan-400 font-semibold tracking-widest uppercase mt-0.5">Premium AI Face Track Edition</p>
+                    </div>
+
                     <p class="text-slate-300 text-xs max-w-xs mx-auto leading-relaxed">
-                        ผจญภัยสู่ก้นทะเลลึกด้วยใบหน้าของคุณ! ระบบตรวจจับพิกัดใบหน้าด้วยสีผิวที่แม่นยำที่สุด ปราศจากปัญหาบั๊กกล้องค้างบนสมาร์ทโฟน
+                        ผจญภัยสู่ก้นทะเลลึกด้วยใบหน้าของคุณ! ระบบตรวจจับพิกัดใบหน้าด้วยสีผิวที่แม่นยำที่สุด ปราศจากปัญหาบัตตันค้างบนสมาร์ทโฟน
                     </p>
+
+                    <!-- ================= COLOR SELECTOR INTERFACE ================= -->
+                    <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 max-w-xs mx-auto space-y-2">
+                        <div class="flex justify-between items-center px-1">
+                            <span class="text-[11px] font-bold text-slate-300">🎨 เลือกสีตัวเรือของคุณ:</span>
+                            <span id="color-name-display" class="text-[11px] font-bold text-yellow-400">เหลืองคลาสสิก</span>
+                        </div>
+                        <!-- Color Dots List -->
+                        <div class="flex justify-center items-center gap-3 py-1">
+                            <button onclick="selectSubColor(0)" id="color-dot-0" class="color-dot w-6 h-6 rounded-full bg-[#eab308] border-2 border-white shadow-lg ring-2 ring-yellow-500/40" title="เหลืองคลาสสิก"></button>
+                            <button onclick="selectSubColor(1)" id="color-dot-1" class="color-dot w-6 h-6 rounded-full bg-[#06b6d4] border-2 border-transparent shadow-lg" title="นีออนไซแอน"></button>
+                            <button onclick="selectSubColor(2)" id="color-dot-2" class="color-dot w-6 h-6 rounded-full bg-[#dc2626] border-2 border-transparent shadow-lg" title="คริมสันแดง"></button>
+                            <button onclick="selectSubColor(3)" id="color-dot-3" class="color-dot w-6 h-6 rounded-full bg-[#10b981] border-2 border-transparent shadow-lg" title="เขียวมรกต"></button>
+                            <button onclick="selectSubColor(4)" id="color-dot-4" class="color-dot w-6 h-6 rounded-full bg-[#8b5cf6] border-2 border-transparent shadow-lg" title="ม่วงแฟนตาซี"></button>
+                        </div>
+                        <!-- Submarine miniature preview canvas -->
+                        <div class="flex justify-center bg-slate-950/80 rounded-md py-1 border border-slate-800/60">
+                            <canvas id="menuPreviewCanvas" width="160" height="50" class="block"></canvas>
+                        </div>
+                    </div>
                     
                     <!-- Control Mode Help Box -->
-                    <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1.5 max-w-xs mx-auto text-left">
-                        <div class="flex items-center gap-1.5 text-yellow-400 font-bold">
+                    <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 text-[10px] text-slate-300 space-y-1 max-w-xs mx-auto text-left">
+                        <div class="flex items-center gap-1 text-yellow-400 font-bold">
                             <span>🎮</span> <span id="menu-control-desc">วิธีควบคุม: แตะสัมผัส หน้าจอซ้าย / ขวา</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px] text-slate-400">
-                            <div>🟢 <span class="text-emerald-400 font-semibold">ถังสีเขียว (O2):</span> ปรากฏตัวบ่อยขึ้นเยอะ!</div>
-                            <div>🔴 <span class="text-red-400 font-semibold">ประแจ (HP):</span> ซ่อมแซมระบบตัวเรือ</div>
-                            <div class="col-span-2">🔵 <span class="text-cyan-400 font-semibold">บาเรียเรืองแสง:</span> อมตะทะลวงฝ่าฝูงปลา</div>
+                        <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[9px] text-slate-400">
+                            <div>🟢 <span class="text-emerald-400 font-semibold">ออกซิเจน (O2):</span> ดรอปถี่ขึ้นมาก!</div>
+                            <div>🔴 <span class="text-red-400 font-semibold">ประแจ (HP):</span> ซ่อมแซมระบบเกราะ</div>
+                            <div class="col-span-2">🔵 <span class="text-cyan-400 font-semibold">บาเรียเรืองแสง:</span> วิ่งอมตะทะลวงฝ่าฝูงปลา</div>
                         </div>
                     </div>
 
-                    <div class="bg-cyan-950/40 p-2 rounded-lg border border-cyan-800/30 text-xs inline-block">
+                    <div class="bg-cyan-950/40 p-1.5 rounded-lg border border-cyan-800/30 text-xs inline-block">
                         🏆 ความลึกสูงสุด: <span class="text-cyan-300 font-bold" id="menu-highscore">0 ม.</span>
                     </div>
                 </div>
 
-                <div class="space-y-2.5 mt-auto">
-                    <button onclick="startGame()" class="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold rounded-xl text-md shadow-lg shadow-cyan-500/20 active:scale-95 transition transform">
+                <div class="space-y-2 mt-auto">
+                    <button onclick="startGame()" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold rounded-xl text-base shadow-lg shadow-cyan-500/20 active:scale-95 transition transform">
                         เริ่มภารกิจสำรวจ
                     </button>
                     
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="toggleCameraControl()" id="camera-toggle-btn" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold rounded-lg text-xs border border-slate-700 flex items-center justify-center gap-1">
+                        <button onclick="toggleCameraControl()" id="camera-toggle-btn" class="py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold rounded-lg text-[11px] border border-slate-700 flex items-center justify-center gap-1">
                             📷 กล้องหน้า AI: ปิด
                         </button>
-                        <button onclick="toggleTiltControl()" id="tilt-btn" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs border border-slate-700 flex items-center justify-center gap-1">
+                        <button onclick="toggleTiltControl()" id="tilt-btn" class="py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-[11px] border border-slate-700 flex items-center justify-center gap-1">
                             📳 เอียงเครื่อง: ปิด
                         </button>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="openShop()" class="py-2 bg-slate-900 hover:bg-slate-800 text-yellow-400 font-bold rounded-lg text-xs border border-slate-800">
+                        <button onclick="openShop()" class="py-1.5 bg-slate-900 hover:bg-slate-800 text-yellow-400 font-bold rounded-lg text-[10px] border border-slate-800">
                             🪙 อู่ซ่อมและอัปเกรดเรือ
                         </button>
-                        <button onclick="toggleSound()" id="sound-btn" class="py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-lg text-xs border border-slate-800">
+                        <button onclick="toggleSound()" id="sound-btn" class="py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-lg text-[10px] border border-slate-800">
                             🔊 เสียง: เปิด
                         </button>
                     </div>
@@ -431,6 +469,15 @@
         let activeFaceRatio = 0.5; // Starts at direct center (Neutral)
         let frameIntervalId = null;
 
+        // Submarine Color Customization Options
+        const COLOR_OPTIONS = [
+            { id: 'yellow', name: 'เหลืองคลาสสิก', primary: '#eab308', glow: 'rgba(234, 179, 8, 0.4)', window: '#22d3ee', nameColor: 'text-yellow-400' },
+            { id: 'cyan', name: 'นีออนไซแอน', primary: '#06b6d4', glow: 'rgba(6, 182, 212, 0.4)', window: '#fbbf24', nameColor: 'text-cyan-400' },
+            { id: 'red', name: 'คริมสันแดง', primary: '#dc2626', glow: 'rgba(220, 38, 38, 0.4)', window: '#22d3ee', nameColor: 'text-red-500' },
+            { id: 'green', name: 'เขียวมรกต', primary: '#10b981', glow: 'rgba(16, 185, 129, 0.4)', window: '#f43f5e', nameColor: 'text-emerald-400' },
+            { id: 'purple', name: 'ม่วงแฟนตาซี', primary: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.4)', window: '#34d399', nameColor: 'text-purple-400' }
+        ];
+
         function resizeCanvas() {
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
@@ -453,13 +500,14 @@
                 oxygen: 1,    
                 light: 1      
             },
-            controlMode: 'touch' // 'touch' | 'tilt' | 'camera'
+            controlMode: 'touch', // 'touch' | 'tilt' | 'camera'
+            subColorIndex: 0     // Default to yellow
         };
 
         let deviceTiltGamma = 0;
 
         function loadSaveData() {
-            const savedState = localStorage.getItem('deep_sea_descent_save_v5');
+            const savedState = localStorage.getItem('deep_sea_descent_save_v6');
             if (savedState) {
                 try {
                     const parsed = JSON.parse(savedState);
@@ -469,22 +517,58 @@
                         state.upgrades = { ...state.upgrades, ...parsed.upgrades };
                     }
                     state.controlMode = parsed.controlMode || 'touch';
+                    state.subColorIndex = parsed.subColorIndex !== undefined ? parsed.subColorIndex : 0;
                 } catch (e) {
                     console.error("Error loading save data:", e);
                 }
             }
             updateMenuUI();
             syncControlButtonsUI();
+            selectSubColor(state.subColorIndex, false); // Initialize selected sub color
         }
 
         function saveGame() {
-            localStorage.setItem('deep_sea_descent_save_v5', JSON.stringify(state));
+            localStorage.setItem('deep_sea_descent_save_v6', JSON.stringify(state));
         }
 
         function updateMenuUI() {
             document.getElementById('menu-highscore').innerText = `${Math.floor(state.highscore)} ม.`;
             document.getElementById('hud-coins').innerText = state.coins;
             document.getElementById('shop-coins').innerText = state.coins;
+        }
+
+        // Handle interactive color selection before the game starts
+        function selectSubColor(index, playSfx = true) {
+            state.subColorIndex = index;
+            saveGame();
+
+            const chosen = COLOR_OPTIONS[index];
+            const nameDisplay = document.getElementById('color-name-display');
+            nameDisplay.innerText = chosen.name;
+            
+            // Apply corresponding Tailwind color class for name text
+            nameDisplay.className = `text-[11px] font-bold ${chosen.nameColor}`;
+
+            // Sync color dots highlight borders
+            for (let i = 0; i < COLOR_OPTIONS.length; i++) {
+                const dot = document.getElementById(`color-dot-${i}`);
+                if (dot) {
+                    if (i === index) {
+                        dot.classList.add('border-white', 'ring-2', `ring-${COLOR_OPTIONS[i].id}-500/40`);
+                        dot.classList.remove('border-transparent');
+                    } else {
+                        dot.classList.remove('border-white', 'ring-2', `ring-${COLOR_OPTIONS[i].id}-500/40`);
+                        dot.classList.add('border-transparent');
+                    }
+                }
+            }
+
+            if (playSfx) {
+                audio.playCoin();
+            }
+
+            // Draw/Redraw preview submarine
+            drawMenuPreviewSub();
         }
 
         function syncControlButtonsUI() {
@@ -586,7 +670,7 @@
             }
         }
 
-        // ================= 100% RELIABLE PURE JS SKIN-TONE CENTROID FACE TRACKER =================
+        // ================= PURE JS SKIN-TONE CENTROID FACE TRACKER =================
         function toggleCameraControl() {
             audio.resumeContext();
             if (state.controlMode === 'camera') {
@@ -619,7 +703,6 @@
                 syncControlButtonsUI();
                 audio.playPowerup();
 
-                // Setup the tracking loop (runs 24 frames per second to be extremely light on processors)
                 frameIntervalId = setInterval(processWebcamFrame, 40);
             })
             .catch(err => {
@@ -643,19 +726,15 @@
             document.getElementById('camera-hud').classList.add('hidden');
         }
 
-        // Pure JS Skin Tone Core Processing:
-        // Analyzes pixel colors in real-time, calculates the bounding centroid of skin tone, and translates to face alignment.
         function processWebcamFrame() {
             if (!cameraActive) return;
 
-            // Set camera HUD dimensions
             cameraCanvas.width = 120;
             cameraCanvas.height = 160;
 
-            // Draw current camera stream onto our analytical canvas
             cameraCtx.save();
             cameraCtx.translate(cameraCanvas.width, 0);
-            cameraCtx.scale(-1, 1); // mirror image
+            cameraCtx.scale(-1, 1); 
             cameraCtx.drawImage(video, 0, 0, cameraCanvas.width, cameraCanvas.height);
             cameraCtx.restore();
 
@@ -667,7 +746,6 @@
                 let sumY = 0;
                 let skinPixelCount = 0;
 
-                // Scan every 2nd pixel horizontally and vertically to optimize performance dramatically
                 for (let y = 0; y < cameraCanvas.height; y += 3) {
                     for (let x = 0; x < cameraCanvas.width; x += 3) {
                         const idx = (y * cameraCanvas.width + x) * 4;
@@ -675,7 +753,6 @@
                         const g = pixels[idx + 1];
                         const b = pixels[idx + 2];
 
-                        // Human skin chrominance heuristic classifier (Works amazingly across all skin complexions in normal lighting)
                         const isSkin = r > 85 && g > 40 && b > 20 &&
                                        r > g && r > b &&
                                        (Math.max(r, g, b) - Math.min(r, g, b) > 15) &&
@@ -689,16 +766,13 @@
                     }
                 }
 
-                if (skinPixelCount > 40) { // Require a baseline of skin pixels detected to prevent noise
+                if (skinPixelCount > 40) { 
                     const centroidX = sumX / skinPixelCount;
                     const centroidY = sumY / skinPixelCount;
 
-                    // Calculate relative horizontal ratio (0.0 to 1.0)
                     const rawRatio = centroidX / cameraCanvas.width;
-                    // Apply smooth low-pass filter to prevent ship jitter
                     activeFaceRatio = activeFaceRatio * 0.75 + rawRatio * 0.25;
 
-                    // Draw cyan tracking target on centroid of face
                     cameraCtx.strokeStyle = "#22d3ee";
                     cameraCtx.lineWidth = 2;
                     cameraCtx.strokeRect(centroidX - 22, centroidY - 26, 44, 52);
@@ -708,7 +782,6 @@
                     cameraCtx.arc(centroidX, centroidY, 3, 0, Math.PI * 2);
                     cameraCtx.fill();
                 } else {
-                    // Smoothly gravitate back to direct center if face is out of view
                     activeFaceRatio = activeFaceRatio * 0.95 + 0.5 * 0.05;
                 }
             } catch (e) {
@@ -738,7 +811,8 @@
             speedCoeff: 0.15,
             lightRange: 180,
             lightWidth: 45,
-            propellerAngle: 0
+            propellerAngle: 0,
+            color: COLOR_OPTIONS[0] // Set dynamically
         };
 
         let obstacles = [];
@@ -790,7 +864,6 @@
                 this.bounce = false;
                 this.explosive = false;
 
-                // Pick biological sea life dynamically based on water zone depth
                 if (spawnDepth < 1000) {
                     const r = Math.random();
                     if (r < 0.35) this.species = 'clownfish';
@@ -870,7 +943,7 @@
                 const s = this.size;
 
                 switch (this.species) {
-                    case 'clownfish': // Clownfish (Orange with white stripes)
+                    case 'clownfish':
                         ctx.fillStyle = "#f97316"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.4, s*0.25, 0, 0, Math.PI * 2);
@@ -891,7 +964,7 @@
                         ctx.fill();
                         break;
 
-                    case 'bluetang': // Blue Tang (Royal Blue & Yellow)
+                    case 'bluetang':
                         ctx.fillStyle = "#2563eb"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.4, s*0.3, 0, 0, Math.PI * 2);
@@ -917,7 +990,7 @@
                         ctx.fill();
                         break;
 
-                    case 'goldfish': // Anthias Goldfish (Pinkish Orange)
+                    case 'goldfish':
                         ctx.fillStyle = "#f43f5e"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.38, s*0.22, 0, 0, Math.PI * 2);
@@ -936,7 +1009,7 @@
                         ctx.fill();
                         break;
 
-                    case 'turtle': // Sea Turtle (Green)
+                    case 'turtle':
                         ctx.fillStyle = "#15803d"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.4, s*0.32, 0, 0, Math.PI * 2);
@@ -955,7 +1028,7 @@
                         ctx.fill();
                         break;
 
-                    case 'lanternfish': // Lanternfish
+                    case 'lanternfish':
                         ctx.fillStyle = "#334155"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.42, s*0.2, 0, 0, Math.PI * 2);
@@ -986,7 +1059,7 @@
                         ctx.fill();
                         break;
 
-                    case 'jellyfish': // Jellyfish (Glows Pink/Purple)
+                    case 'jellyfish':
                         ctx.fillStyle = "rgba(236, 72, 153, 0.7)";
                         ctx.beginPath();
                         ctx.arc(0, -s*0.1, s*0.3, Math.PI, 0, false);
@@ -1002,7 +1075,7 @@
                         }
                         break;
 
-                    case 'ribboneel': // Ribbon Eel
+                    case 'ribboneel':
                         ctx.strokeStyle = "#22d3ee";
                         ctx.lineWidth = 4;
                         ctx.beginPath();
@@ -1012,13 +1085,13 @@
                             ctx.lineTo(x, wave);
                         }
                         ctx.stroke();
-                        ctx.fillStyle = "#eab308"; // Yellow eyes
+                        ctx.fillStyle = "#eab308"; 
                         ctx.beginPath();
                         ctx.arc(s*0.45, -2, 2, 0, Math.PI*2);
                         ctx.fill();
                         break;
 
-                    case 'oarfish': // Oarfish
+                    case 'oarfish':
                         ctx.fillStyle = "#cbd5e1"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*1.3, s*0.12, 0, 0, Math.PI * 2);
@@ -1041,7 +1114,7 @@
                         ctx.stroke();
                         break;
 
-                    case 'anglerfish': // Anglerfish
+                    case 'anglerfish':
                         ctx.fillStyle = "#1e1b4b"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.42, s*0.35, 0, 0, Math.PI * 2);
@@ -1078,7 +1151,7 @@
                         ctx.fill();
                         break;
 
-                    case 'viperfish': // Viperfish (Long body, scary teeth)
+                    case 'viperfish':
                         ctx.fillStyle = "#0f172a"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.5, s*0.15, 0, 0, Math.PI * 2);
@@ -1098,7 +1171,7 @@
                         ctx.stroke();
                         break;
 
-                    case 'isopod': // Giant Isopod
+                    case 'isopod':
                         ctx.fillStyle = "#cbd5e1"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.44, s*0.22, 0, 0, Math.PI * 2);
@@ -1121,7 +1194,7 @@
                         }
                         break;
 
-                    case 'blobfish': // Blobfish (Sad pink fish)
+                    case 'blobfish':
                         ctx.fillStyle = "#fda4af"; 
                         ctx.beginPath();
                         ctx.ellipse(0, 0, s*0.45, s*0.3, 0, 0, Math.PI * 2);
@@ -1142,7 +1215,7 @@
                         ctx.fill();
                         break;
 
-                    case 'gulpereel': // Gulper Eel (Giant mouth)
+                    case 'gulpereel':
                         ctx.fillStyle = "#090d16"; 
                         ctx.beginPath();
                         ctx.ellipse(-s*0.1, -s*0.05, s*0.45, s*0.32, 0, 0, Math.PI * 2);
@@ -1154,7 +1227,7 @@
                         ctx.lineTo(-s*0.1, -s*0.15);
                         ctx.closePath();
                         ctx.fill();
-                        ctx.strokeStyle = "#4ade80"; // Waving green bioluminescent tail
+                        ctx.strokeStyle = "#4ade80"; 
                         ctx.lineWidth = 2.5;
                         ctx.beginPath();
                         ctx.moveTo(-s*0.45, -s*0.05);
@@ -1165,7 +1238,7 @@
                         ctx.stroke();
                         break;
 
-                    case 'dumbo': // Dumbo Octopus
+                    case 'dumbo':
                         ctx.fillStyle = "#a855f7"; 
                         ctx.beginPath();
                         ctx.ellipse(0, -s*0.08, s*0.3, s*0.28, 0, 0, Math.PI * 2);
@@ -1199,7 +1272,7 @@
                         ctx.fill();
                         break;
 
-                    case 'mine': // Underwater Bomb (Steel Spike Mine)
+                    case 'mine':
                         ctx.fillStyle = "#334155"; 
                         ctx.beginPath();
                         ctx.arc(0, 0, s*0.32, 0, Math.PI * 2);
@@ -1223,7 +1296,7 @@
             }
         }
 
-        // Class representing Items (Coins, Repair kits, Air, Shields)
+        // Class representing Items
         class SeaItem {
             constructor(spawnDepth) {
                 const candidate = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
@@ -1350,7 +1423,7 @@
             }
         }
 
-        // Submarine rendering
+        // Submarine rendering (Utilizing chosen player colors)
         function drawSubmarine() {
             ctx.save();
             ctx.translate(player.x, player.y);
@@ -1391,16 +1464,17 @@
             ctx.fillStyle = "#475569";
             ctx.fillRect(-26, -4, 4, 8);
 
+            // Hull drawing with customized color
             ctx.shadowBlur = 8;
-            ctx.shadowColor = 'rgba(234, 179, 8, 0.4)';
-            ctx.fillStyle = "#eab308";
+            ctx.shadowColor = player.color.glow;
+            ctx.fillStyle = player.color.primary;
             ctx.beginPath();
             ctx.ellipse(0, 0, 24, 15, 0, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.fillRect(-12, -18, 20, 5);
 
-            ctx.strokeStyle = "#eab308";
+            ctx.strokeStyle = player.color.primary;
             ctx.lineWidth = 4;
             ctx.lineCap = "round";
             ctx.beginPath();
@@ -1409,7 +1483,7 @@
             ctx.lineTo(10, -26);
             ctx.stroke();
             
-            ctx.fillStyle = "#22d3ee";
+            ctx.fillStyle = player.color.window;
             ctx.beginPath();
             ctx.arc(9, -26, 2, 0, Math.PI * 2);
             ctx.fill();
@@ -1421,7 +1495,7 @@
             ctx.arc(8, -1, 7, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = player.hp < 30 && Math.floor(Date.now() / 250) % 2 === 0 ? "#ef4444" : "#22d3ee";
+            ctx.fillStyle = player.hp < 30 && Math.floor(Date.now() / 250) % 2 === 0 ? "#ef4444" : player.color.window;
             ctx.beginPath();
             ctx.arc(-4, -1, 5, 0, Math.PI * 2);
             ctx.arc(8, -1, 5, 0, Math.PI * 2);
@@ -1454,6 +1528,96 @@
 
             ctx.restore();
         }
+
+        // Draw animated miniature preview submarine inside main menu selector
+        let menuPreviewAngle = 0;
+        function drawMenuPreviewSub() {
+            const mCanvas = document.getElementById('menuPreviewCanvas');
+            if (!mCanvas) return;
+            const mCtx = mCanvas.getContext('2d');
+            
+            mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+            
+            const px = mCanvas.width / 2;
+            const py = mCanvas.height / 2 + 5;
+            const chosenColor = COLOR_OPTIONS[state.subColorIndex];
+
+            mCtx.save();
+            mCtx.translate(px, py);
+
+            // Minor bobbing animation
+            const bob = Math.sin(Date.now() * 0.004) * 2;
+            mCtx.translate(0, bob);
+
+            // 1. Propeller
+            menuPreviewAngle += 0.15;
+            mCtx.strokeStyle = "#94a3b8";
+            mCtx.lineWidth = 2.5;
+            mCtx.save();
+            mCtx.translate(-22, 0);
+            mCtx.rotate(menuPreviewAngle);
+            mCtx.beginPath();
+            mCtx.moveTo(0, -8);
+            mCtx.lineTo(0, 8);
+            mCtx.stroke();
+            mCtx.restore();
+
+            mCtx.fillStyle = "#475569";
+            mCtx.fillRect(-24, -3, 3, 6);
+
+            // 2. Main Body (Custom selected colors)
+            mCtx.shadowBlur = 6;
+            mCtx.shadowColor = chosenColor.glow;
+            mCtx.fillStyle = chosenColor.primary;
+            mCtx.beginPath();
+            mCtx.ellipse(0, 0, 20, 12, 0, 0, Math.PI * 2);
+            mCtx.fill();
+            mCtx.fillRect(-10, -14, 16, 4);
+
+            // 3. Periscope
+            mCtx.strokeStyle = chosenColor.primary;
+            mCtx.lineWidth = 3.5;
+            mCtx.lineCap = "round";
+            mCtx.beginPath();
+            mCtx.moveTo(2, -12);
+            mCtx.lineTo(2, -21);
+            mCtx.lineTo(8, -21);
+            mCtx.stroke();
+
+            mCtx.fillStyle = chosenColor.window;
+            mCtx.beginPath();
+            mCtx.arc(7, -21, 1.5, 0, Math.PI*2);
+            mCtx.fill();
+
+            // 4. Windows
+            mCtx.shadowBlur = 0;
+            mCtx.fillStyle = "#1e293b";
+            mCtx.beginPath();
+            mCtx.arc(-3, -1, 5, 0, Math.PI * 2);
+            mCtx.arc(7, -1, 5, 0, Math.PI * 2);
+            mCtx.fill();
+
+            mCtx.fillStyle = chosenColor.window;
+            mCtx.beginPath();
+            mCtx.arc(-3, -1, 3.5, 0, Math.PI * 2);
+            mCtx.arc(7, -1, 3.5, 0, Math.PI * 2);
+            mCtx.fill();
+
+            // 5. Headlight bulb glow
+            mCtx.fillStyle = "#fef08a";
+            mCtx.beginPath();
+            mCtx.arc(18, 1, 3, 0, Math.PI*2);
+            mCtx.fill();
+
+            mCtx.restore();
+        }
+
+        // Keep updating preview submarine on main menu
+        setInterval(() => {
+            if (!gameActive) {
+                drawMenuPreviewSub();
+            }
+        }, 30);
 
         // --- BACKGROUND GENERATOR ---
         function drawDynamicBackground() {
@@ -1527,6 +1691,8 @@
             player.lightRange = lightVal.length;
             player.lightWidth = lightVal.width;
 
+            // Bind chosen customization color to active player
+            player.color = COLOR_OPTIONS[state.subColorIndex];
             player.oxygen = 100;
         }
 
@@ -1560,8 +1726,8 @@
                 alertTimer++;
                 document.getElementById('oxygen-hud-container').classList.add('animate-pulse', 'bg-red-950/60');
                 
-                // Rhythmic beeping sounds based on severity of air depletion
-                const beepInterval = player.oxygen < 10 ? 30 : 60; // Twice as fast (every 0.5s vs 1s) when extremely low
+                // Rhythmic warning sounds based on severity of air depletion
+                const beepInterval = player.oxygen < 10 ? 30 : 60; // Twice as fast when extremely low
                 if (alertTimer % beepInterval === 0) {
                     audio.playSonarWarning(player.oxygen < 10);
                     spawnTextPopup(player.oxygen < 10 ? "🚨 อากาศวิกฤตสูญเสียโครงสร้าง!" : "⚠️ ออกซิเจนต่ำกระชั้นชิด!", player.x, player.y - 30, "#f87171");
@@ -1584,7 +1750,7 @@
 
             if (player.oxygen <= 0) {
                 player.oxygen = 0;
-                player.hp -= 0.25; // Damage structural hull directly if suffocating
+                player.hp -= 0.25; 
                 triggerScreenShake(4);
                 if (Math.floor(Date.now() / 300) % 2 === 0) {
                     document.getElementById('warning-overlay').style.borderColor = "rgba(239, 68, 68, 0.4)";
@@ -1602,14 +1768,10 @@
 
             // 3. CORE MOTION INPUT PROCESSING: Webcam AI Centroid Face Track vs. Gyroscope Tilt vs. Touch Buttons
             if (state.controlMode === 'camera' && cameraActive) {
-                // Centroid coordinates mapping to horizontal alignment:
-                // Raw ratio ranges around 0.5 (perfect center alignment).
-                // Centroid shifts left -> ratio < 0.5 | Centroid shifts right -> ratio > 0.5
                 const faceDeadzone = 0.015; 
                 const difference = activeFaceRatio - 0.5;
 
                 if (Math.abs(difference) > faceDeadzone) {
-                    // Normalize horizontal speed scaling based on degree of lean/shift
                     const maxDeviation = 0.14;
                     const clampedDev = Math.min(Math.max(difference, -maxDeviation), maxDeviation);
                     const steerFactor = clampedDev / maxDeviation; 
@@ -1647,12 +1809,12 @@
                 }
             });
 
-            // 5. Spawn Logic (Significantly increased item spawn rates from 0.007 to 0.035!)
+            // 5. Spawn Logic (Frequent item spawn rates: 0.035)
             if (Math.random() < currentZone.spawnChance) {
                 obstacles.push(new CreatureObstacle(depth));
             }
 
-            if (Math.random() < 0.035) { // 5x more items spawning for much easier play and collection!
+            if (Math.random() < 0.035) { 
                 items.push(new SeaItem(depth));
             }
 
@@ -1788,7 +1950,7 @@
             player.targetX = (relativeX / rect.width) * canvas.width;
         });
 
-        // Touch Control handling (Left/Right division splits)
+        // Touch Control handling
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             audio.resumeContext();
