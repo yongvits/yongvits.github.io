@@ -267,10 +267,43 @@
         audio::-webkit-media-controls-time-remaining-display {
             color: #00ffff;
         }
+
+        /* Hide UI Button & Class */
+        #toggle-ui-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            color: #00ffff;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        #toggle-ui-btn:hover {
+            background: rgba(0, 255, 255, 0.2);
+        }
+
+        body.ui-hidden .ui-container,
+        body.ui-hidden .controls-wrapper {
+            display: none !important;
+        }
+
+        body.ui-hidden #toggle-ui-btn {
+            opacity: 0.3;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+    
+    <!-- ปุ่มสำหรับ ซ่อน/แสดง UI -->
+    <button id="toggle-ui-btn">👁️ ซ่อน UI</button>
 
     <!-- หน้าต่างต้อนรับ -->
     <div id="start-overlay">
@@ -383,10 +416,9 @@
             <audio id="audio-player" controls></audio>
         </div>
         
-        <!-- AI Panel -->
+        <!-- Random Panel -->
         <div class="panel-box" style="gap: 8px;">
-            <input type="text" id="ai-prompt" class="input-style" placeholder="พิมอารมณ์สี เช่น 'ไฟแห่งนรก'..." autocomplete="off">
-            <button id="ai-btn" class="btn-style" style="flex: 0 0 auto; padding: 8px 15px;">✨ AI สุ่ม</button>
+            <button id="ai-btn" class="btn-style" style="width: 100%; padding: 10px 15px;">🎲 สุ่มบรรยากาศ (Random)</button>
         </div>
     </div>
 
@@ -719,6 +751,17 @@
                 }
             });
             
+            // Toggle UI Button
+            const toggleUiBtn = document.getElementById('toggle-ui-btn');
+            toggleUiBtn.addEventListener('click', () => {
+                document.body.classList.toggle('ui-hidden');
+                if (document.body.classList.contains('ui-hidden')) {
+                    toggleUiBtn.innerText = "👁️ แสดง UI";
+                } else {
+                    toggleUiBtn.innerText = "👁️ ซ่อน UI";
+                }
+            });
+
             // Start Button
             document.getElementById('start-btn').addEventListener('click', () => {
                 initDeviceOrientation();
@@ -728,11 +771,8 @@
                 setTimeout(() => { overlay.style.display = 'none'; }, 500);
             });
 
-            // AI
-            document.getElementById('ai-btn').addEventListener('click', generateAIAura);
-            document.getElementById('ai-prompt').addEventListener('keypress', (e) => {
-                if(e.key === 'Enter') generateAIAura();
-            });
+            // Random Button
+            document.getElementById('ai-btn').addEventListener('click', generateRandomAura);
 
             // Audio Controls (Mic & MP3)
             const audioUpload = document.getElementById('audio-upload');
@@ -912,8 +952,26 @@
 
         function handleOrientation(event) {
             if (!event.gamma || !event.beta) return;
-            let x = Math.max(-45, Math.min(45, event.gamma));
-            let y = Math.max(-45, Math.min(45, event.beta - 45));
+            
+            // ปรับแก้เพื่อรองรับการถือทั้งแนวตั้งและแนวนอน
+            let orientation = (screen.orientation || {}).angle || window.orientation || 0;
+            let gamma = event.gamma;
+            let beta = event.beta;
+            let x, y;
+            
+            if (orientation === 90) {
+                x = beta;
+                y = -gamma - 45;
+            } else if (orientation === -90 || orientation === 270) {
+                x = -beta;
+                y = gamma - 45;
+            } else {
+                x = gamma;
+                y = beta - 45;
+            }
+
+            x = Math.max(-45, Math.min(45, x));
+            y = Math.max(-45, Math.min(45, y));
             targetCameraPos.x = (x / 45) * 8;
             targetCameraPos.y = -(y / 45) * 5;
         }
@@ -934,7 +992,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        function updatePhysicsGroup(activeCount, pos, vel, home, phase, sin_t1, cos_t1, sin_t2, cos_t2, curTurb, pull, maxV, maxVSq, sBass, sLowMid, sMid) {
+        function updatePhysicsGroup(activeCount, pos, vel, home, phase, sin_t1, cos_t1, sin_t2, cos_t2, curTurb, pull, maxV, maxVSq, sBass, sLowMid, sMid, gyroShiftX, gyroShiftY) {
             for(let i=0; i<activeCount; i++) {
                 let i3 = i*3, i2 = i*2;
                 
@@ -958,8 +1016,9 @@
                 // 2. เสียง Low-Mid (Bass Guitar/Lower Vocals) ควบคุมการหายใจ (พอง/ยุบ ตัวรวม)
                 let breathe = 1.0 + (sLowMid * 0.4);
 
-                let targetX = (hx * breathe) + (hx/3) * spikeForce;
-                let targetY = (hy * breathe) + (hy/3) * spikeForce;
+                // นำ gyroShift มาบวกเพื่อจำลองแรงโน้มถ่วงเวลาเอียงมือถือ
+                let targetX = (hx * breathe) + (hx/3) * spikeForce + gyroShiftX;
+                let targetY = (hy * breathe) + (hy/3) * spikeForce + gyroShiftY;
                 let targetZ = (hz * breathe) + (hz/3) * spikeForce;
 
                 // 3. เสียง Mid (Vocals/Guitar) ควบคุมความปั่นป่วนบนผิวคลื่น (Turbulence/Ripples)
@@ -1069,6 +1128,10 @@
             const sin_t1 = Math.sin(t1), cos_t1 = Math.cos(t1);
             const sin_t2 = Math.sin(t2), cos_t2 = Math.cos(t2);
             
+            // คำนวณแรงโน้มถ่วงจาก Gyroscope (ให้ Particle เทไหลไปตามการเอียง)
+            let gyroShiftX = targetCameraPos.x * 2.2;
+            let gyroShiftY = targetCameraPos.y * 2.2;
+
             const pull = 0.005 * currentSpeedMult + (smoothedBass * 0.02);
             let activeSpeedLimit = (idleRatio * 0.2) + (smoothedVolume * 0.8);
             if(activeSpeedLimit < 0.01) activeSpeedLimit = 0.01;
@@ -1076,9 +1139,9 @@
             const maxV = activeSpeedLimit * currentSpeedMult;
             const maxVSq = maxV * maxV;
 
-            // ส่งข้อมูลแยกย่านความถี่เข้าไปคำนวณในกลุ่ม
-            updatePhysicsGroup(currentDrawCount, pos1, vel1, home1, phase1, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass, smoothedLowMid, smoothedMid);
-            updatePhysicsGroup(currentDrawCount, pos2, vel2, home2, phase2, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass, smoothedLowMid, smoothedMid);
+            // ส่งข้อมูลแยกย่านความถี่เข้าไปคำนวณในกลุ่ม พร้อมแรง Gyro
+            updatePhysicsGroup(currentDrawCount, pos1, vel1, home1, phase1, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass, smoothedLowMid, smoothedMid, gyroShiftX, gyroShiftY);
+            updatePhysicsGroup(currentDrawCount, pos2, vel2, home2, phase2, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass, smoothedLowMid, smoothedMid, gyroShiftX, gyroShiftY);
 
             particles1.geometry.attributes.position.needsUpdate = true;
             particles2.geometry.attributes.position.needsUpdate = true;
@@ -1090,71 +1153,32 @@
             particles2.rotation.z = simTime * (0.05 + smoothedMid * 0.1);
         }
 
-        async function fetchGeminiWithBackoff(prompt, retries = 5) {
-            const apiKeyStr = ""; // ไม่จำเป็นต้องใส่ API key แบบฮาร์ดโค้ด
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKeyStr}`;
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: {
-                    parts: [{ text: "You are an AI environment architect for a 3D WebGL particle room. Based on the user's prompt (which might be a mood, element, or scenario), generate a JSON configuration to change the environment's physics and colors. Respond ONLY with valid JSON." }]
-                },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            color1: { type: "STRING", description: "Hex color code for primary particles, e.g. #ff0055" },
-                            color2: { type: "STRING", description: "Hex color code for secondary particles, e.g. #0088ff" },
-                            lightColor: { type: "STRING", description: "Hex color code for the center glowing core" },
-                            speed: { type: "NUMBER", description: "Movement speed multiplier. 0.2 (calm/slow) to 3.0 (fast/chaotic/stormy)" },
-                            turbulence: { type: "NUMBER", description: "Amount of chaos/wave in movement. 0.001 (calm) to 0.05 (very stormy/explosive)" },
-                            statusText: { type: "STRING", description: "A poetic 3-6 word description of the new atmosphere in Thai (e.g. 'เปลวเพลิงแห่งความโกรธแค้น')" }
-                        },
-                        required: ["color1", "color2", "lightColor", "speed", "turbulence", "statusText"]
-                    }
-                }
-            };
-
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const data = await response.json();
-                    return JSON.parse(data.candidates[0].content.parts[0].text);
-                } catch (error) {
-                    if (i === retries - 1) throw error;
-                    await new Promise(res => setTimeout(res, [1000, 2000, 4000, 8000, 16000][i]));
-                }
-            }
-        }
-
-        async function generateAIAura() {
-            const promptInput = document.getElementById('ai-prompt');
+        function generateRandomAura() {
             const btn = document.getElementById('ai-btn');
-            const prompt = promptInput.value.trim();
-            if(!prompt) return;
-
+            
             btn.disabled = true;
             btn.innerText = "กำลังจูน...";
             aiStatus.innerText = "กำลังดึงพลังงาน...";
             colorModeSelect.value = ""; // ยกเลิกการเลือกสีใน Dropdown
 
-            try {
-                const config = await fetchGeminiWithBackoff(prompt);
-                targetColor1.set(config.color1);
-                targetColor2.set(config.color2);
-                targetLightColor.set(config.lightColor);
-                targetSpeedMult = config.speed;
-                targetTurb = config.turbulence;
-                aiStatus.innerText = config.statusText;
-                promptInput.value = '';
-            } catch (error) {
-                console.error("AI Error:", error);
-                aiStatus.innerText = "รอการเชื่อมต่อ API...";
-            } finally {
+            // หน่วงเวลาเล็กน้อยให้รู้สึกเหมือนกำลังสุ่ม
+            setTimeout(() => {
+                // สุ่มสีสันใหม่แบบ HSL เพื่อให้ได้สีที่สดใส
+                targetColor1.setHSL(Math.random(), 0.8 + Math.random()*0.2, 0.4 + Math.random()*0.3);
+                targetColor2.setHSL(Math.random(), 0.8 + Math.random()*0.2, 0.4 + Math.random()*0.3);
+                targetLightColor.setHSL(Math.random(), 0.8 + Math.random()*0.2, 0.5 + Math.random()*0.3);
+                
+                // สุ่มความเร็วและความปั่นป่วน
+                targetSpeedMult = 0.5 + Math.random() * 2.0;
+                targetTurb = 0.01 + Math.random() * 0.04;
+                
+                // สุ่มข้อความบรรยากาศ
+                const texts = ["พายุแห่งสีสัน", "ความสงบในอวกาศ", "เปลวเพลิงเริงระบำ", "คลื่นแห่งอนาคต", "พลังงานลี้ลับ", "แสงสะท้อนแห่งจิตวิญญาณ", "มิติควอนตัม", "ทะเลดาวประกาย"];
+                aiStatus.innerText = texts[Math.floor(Math.random() * texts.length)];
+                
                 btn.disabled = false;
-                btn.innerText = "✨ AI สุ่ม";
-            }
+                btn.innerText = "🎲 สุ่มบรรยากาศ (Random)";
+            }, 300);
         }
 
         function animate() {
