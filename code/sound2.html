@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebGL Ferrofluid Speaker</title>
+    <title>Ferrofluid Speaker | Cinema Reactive</title>
     <style>
         body {
             margin: 0;
@@ -276,6 +276,138 @@
         body.ui-hidden .ui-container,
         body.ui-hidden .controls-wrapper { display: none !important; }
         body.ui-hidden .top-right-btns { opacity: 0.3; }
+
+        /* v2.0 Mobile UI Fix */
+        .ui-container {
+            gap: 10px;
+        }
+
+        .ui-row {
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .ui-text {
+            max-width: min(52vw, 360px);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ui-row .ui-text:last-child {
+            min-width: 88px;
+        }
+
+        .controls-wrapper {
+            width: min(92vw, 420px);
+            max-height: min(48vh, 430px);
+            overflow-x: hidden;
+        }
+
+        .panel-box {
+            box-sizing: border-box;
+        }
+
+        .btn-style,
+        .top-btn,
+        .input-style,
+        .select-style {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            letter-spacing: 0.01em;
+        }
+
+        .select-style {
+            min-width: 0;
+        }
+
+        .slider-row {
+            gap: 10px;
+        }
+
+        .slider-row span:first-child {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 640px) {
+            .ui-container {
+                padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
+            }
+
+            .ui-row {
+                align-items: flex-start;
+            }
+
+            .ui-text {
+                font-size: 10px;
+                line-height: 1.25;
+                padding: 6px 8px;
+                max-width: 58vw;
+            }
+
+            .ui-row .ui-text:last-child {
+                max-width: 30vw;
+                text-align: right;
+            }
+
+            .top-right-btns {
+                top: max(10px, env(safe-area-inset-top));
+                right: max(10px, env(safe-area-inset-right));
+                gap: 6px;
+            }
+
+            .top-btn {
+                font-size: 10px;
+                padding: 6px 9px;
+                border-radius: 14px;
+            }
+
+            .controls-wrapper {
+                width: calc(100vw - 22px);
+                max-width: 390px;
+                max-height: 42vh;
+                bottom: max(10px, env(safe-area-inset-bottom));
+                gap: 8px;
+                padding-right: 0;
+            }
+
+            .panel-box {
+                padding: 10px;
+                border-radius: 16px;
+                gap: 8px;
+            }
+
+            .panel-col {
+                gap: 9px;
+            }
+
+            .slider-row {
+                font-size: 10px;
+            }
+
+            .btn-style {
+                font-size: 11px;
+                padding: 9px 8px;
+                border-radius: 13px;
+            }
+
+            .select-style {
+                font-size: 11px;
+                padding: 8px 9px;
+            }
+
+            audio {
+                height: 32px;
+            }
+        }
+
+        @media (max-height: 720px) {
+            .controls-wrapper {
+                max-height: 38vh;
+            }
+        }
+
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
@@ -287,16 +419,16 @@
 <body>
 
     <div class="top-right-btns">
-        <button id="toggle-rotate-btn" class="top-btn active">ð à¸à¸´à¸à¸«à¸¡à¸¸à¸à¸à¸²à¸</button>
-        <button id="toggle-ui-btn" class="top-btn">ðï¸ à¸à¹à¸­à¸ UI</button>
+        <button id="toggle-rotate-btn" class="top-btn active">Auto Rotate ON</button>
+        <button id="toggle-ui-btn" class="top-btn">Hide UI</button>
     </div>
 
     <!-- à¸«à¸à¹à¸²à¸à¹à¸²à¸à¸à¹à¸­à¸à¸£à¸±à¸ -->
     <div id="start-overlay">
-        <button id="start-btn">à¹à¸à¹à¸²à¸ªà¸¹à¹à¸«à¹à¸­à¸ 3 à¸¡à¸´à¸à¸´</button>
+        <button id="start-btn">Enter 3D Room</button>
         <div class="instruction">
-            à¹à¸à¸°à¹à¸à¸·à¹à¸­à¹à¸£à¸´à¹à¸¡à¸à¹à¸<br>
-            <span style="font-size: 12px; opacity: 0.7;">à¸£à¸­à¸à¸£à¸±à¸ Gyro, Safe Cinema FX, Beat Burst à¹à¸¥à¸°à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸à¹à¸à¸¥à¸</span>
+            Tap to start<br>
+            <span style="font-size: 12px; opacity: 0.7;">Gyro, Cinema FX, Beat Burst and Audio Colors</span>
         </div>
     </div>
 
@@ -304,7 +436,7 @@
     <div class="ui-container">
         <div class="ui-row">
             <div class="ui-text">
-                <span>WebGL Ferrofluid Speaker <b style="color:#00ffff;">v1.9 Safe Cinema</b></span>
+                <span>WebGL Ferrofluid Speaker <b style="color:#00ffff;">v2.0 Cinema</b></span>
                 <span id="gyro-status">Gyro-Parallax: Waiting...</span>
             </div>
             <div class="ui-text" style="text-align: right;">
@@ -313,9 +445,9 @@
             </div>
         </div>
         <div class="ui-row">
-            <div class="ui-text" style="margin-bottom: 270px;">
-                <span style="color: #00ffff; font-weight: bold;">â¨ Status</span>
-                <span id="ai-status">à¸à¸£à¹à¸­à¸¡à¹à¸à¹à¸à¸²à¸</span>
+            <div class="ui-text" style="margin-bottom: 0;">
+                <span style="color: #00ffff; font-weight: bold;">Status</span>
+                <span id="ai-status">Ready</span>
             </div>
         </div>
     </div>
@@ -325,7 +457,7 @@
         <div class="panel-box panel-col">
             <div class="slider-container">
                 <div class="slider-row">
-                    <span>à¸à¸§à¸²à¸¡à¸«à¸à¸²à¹à¸à¹à¸à¸­à¸à¸¸à¸ à¸²à¸ (Density)</span>
+                    <span>Particle Density</span>
                     <span class="val" id="pt-slider-val">40,000</span>
                 </div>
                 <input type="range" id="pt-slider" min="1000" max="80000" step="1000" value="40000">
@@ -333,7 +465,7 @@
 
             <div class="slider-container" style="margin-top: 5px;">
                 <div class="slider-row">
-                    <span>à¸£à¸±à¸¨à¸¡à¸µà¸à¹à¸­à¸à¸à¸¥à¸±à¸à¸à¸²à¸ (Size)</span>
+                    <span>Energy Size</span>
                     <span class="val" id="rad-slider-val">100%</span>
                 </div>
                 <input type="range" id="rad-slider" min="20" max="250" value="100">
@@ -342,76 +474,76 @@
             <div style="display: flex; gap: 10px; margin-top: 5px;">
                 <div class="slider-container" style="flex: 1;">
                     <div class="slider-row" style="margin-bottom: 3px;">
-                        <span>ð¨ à¸ªà¸µ (Color)</span>
+                        <span>Color</span>
                     </div>
                     <select id="color-mode" class="select-style">
-                        <option value="gold">â¨ à¸à¸­à¸à¸à¸³à¸«à¸£à¸¹à¸«à¸£à¸²</option>
-                        <option value="cyan">ðµ à¸à¸µà¸­à¸­à¸à¸à¸¥à¸¹</option>
-                        <option value="fire">ð¥ à¹à¸¡à¸à¸¡à¹à¸²à¹à¸à¸¥à¸´à¸</option>
-                        <option value="cyber">ð£ à¹à¸à¹à¸à¸­à¸£à¹à¸à¸±à¸à¸à¹</option>
-                        <option value="nature">ð¿ à¸à¸¥à¸±à¸à¸à¹à¸²à¸¥à¸¶à¸</option>
+                        <option value="gold">Luxury Gold</option>
+                        <option value="cyan">Neon Cyan</option>
+                        <option value="fire">Magma Fire</option>
+                        <option value="cyber">Cyberpunk</option>
+                        <option value="nature">Forest Energy</option>
                     </select>
                 </div>
                 <div class="slider-container" style="flex: 1;">
                     <div class="slider-row" style="margin-bottom: 3px;">
-                        <span>ð¢ à¸«à¹à¸­à¸ (Room)</span>
+                        <span>Room</span>
                     </div>
                     <select id="room-mode" class="select-style">
-                        <option value="dark-box">â¬ à¸«à¹à¸­à¸à¸¡à¸·à¸à¸ªà¸µà¹à¹à¸«à¸¥à¸µà¹à¸¢à¸¡</option>
-                        <option value="white-grid">â¬ à¸«à¹à¸­à¸à¹à¸¥à¹à¸à¸ªà¸µà¸à¸²à¸§</option>
-                        <option value="cylinder">â« à¸à¸£à¸à¸à¸£à¸°à¸à¸­à¸à¸¡à¸·à¸</option>
-                        <option value="sphere-hdri">ð à¸à¸£à¸à¸à¸¥à¸¡à¸à¸²à¹à¸à¸£à¸²à¸¡à¸² (HDRI)</option>
+                        <option value="dark-box">Dark Box</option>
+                        <option value="white-grid">White Lab</option>
+                        <option value="cylinder">Dark Cylinder</option>
+                        <option value="sphere-hdri">Panorama Sphere</option>
                     </select>
                 </div>
             </div>
             
             <div class="slider-container" style="margin-top: 5px;">
                 <div class="slider-row">
-                    <span>ð¬ Cinema FX</span>
-                    <span class="val" id="fx-slider-val">45%</span>
+                    <span>Cinema FX</span>
+                    <span class="val" id="fx-slider-val">35%</span>
                 </div>
-                <input type="range" id="fx-slider" min="0" max="100" value="45">
+                <input type="range" id="fx-slider" min="0" max="100" value="35">
             </div>
 
             <div style="display: flex; gap: 10px; margin-top: 5px;">
-                <button id="cinema-btn" class="btn-style active" style="width: 100%;">ð¬ Cinema ON</button>
-                <button id="reactive-color-btn" class="btn-style active" style="width: 100%;">ð à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸ ON</button>
+                <button id="cinema-btn" class="btn-style active" style="width: 100%;">Cinema ON</button>
+                <button id="reactive-color-btn" class="btn-style active" style="width: 100%;">Audio Color ON</button>
             </div>
 
             <div id="hdri-controls" class="slider-container" style="display: none; margin-top: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 10px;">
                 <div class="slider-row">
-                    <span>à¸à¸§à¸²à¸¡à¸ªà¸§à¹à¸²à¸à¸ à¸²à¸ 360 (HDRI Brightness)</span>
+                    <span>HDRI Brightness</span>
                     <span class="val" id="bright-slider-val">100%</span>
                 </div>
                 <input type="range" id="bright-slider" min="10" max="300" value="100" style="margin-bottom: 10px;">
                 
                 <div class="slider-row" style="margin-bottom: 3px;">
-                    <span>à¹à¸¥à¸·à¸­à¸à¹à¸à¸¥à¹ HDRI à¸«à¸£à¸·à¸­à¸­à¸±à¸à¹à¸«à¸¥à¸</span>
+                    <span>Choose HDRI or upload</span>
                 </div>
                 <select id="hdri-preset" class="select-style" style="margin-bottom: 10px;">
-                    <option value="default">ð à¸ à¸²à¸à¸à¸³à¸¥à¸­à¸à¸­à¸§à¸à¸²à¸¨ (Default)</option>
-                    <option value="hdri01.jpg">ð¼ï¸ hdri01.jpg</option>
-                    <option value="hdri02.jpg">ð¼ï¸ hdri02.jpg</option>
-                    <option value="hdri03.jpg">ð¼ï¸ hdri03.jpg</option>
-                    <option value="hdri04.jpg">ð¼ï¸ hdri04.jpg</option>
+                    <option value="default">Default Space</option>
+                    <option value="hdri01.jpg">hdri01.jpg</option>
+                    <option value="hdri02.jpg">hdri02.jpg</option>
+                    <option value="hdri03.jpg">hdri03.jpg</option>
+                    <option value="hdri04.jpg">hdri04.jpg</option>
                 </select>
 
-                <button id="hdri-btn" class="btn-style" style="width: 100%;">ð à¸­à¸±à¸à¹à¸«à¸¥à¸à¸ à¸²à¸ HDRI à¹à¸­à¸ (JPG/PNG)</button>
+                <button id="hdri-btn" class="btn-style" style="width: 100%;">Upload HDRI Image</button>
                 <input type="file" id="hdri-upload" accept="image/*" style="display: none;">
             </div>
         </div>
 
         <div class="panel-box panel-col" style="gap: 8px;">
             <div style="display: flex; gap: 10px; width: 100%;">
-                <button id="mic-btn" class="btn-style">ðï¸ à¹à¸¡à¸à¹à¸£à¸±à¸à¹à¸ªà¸µà¸¢à¸</button>
-                <button id="file-btn" class="btn-style">ðµ à¹à¸«à¸¥à¸à¹à¸à¸¥à¸ MP3</button>
+                <button id="mic-btn" class="btn-style">Microphone</button>
+                <button id="file-btn" class="btn-style">Load Audio</button>
                 <input type="file" id="audio-upload" accept="audio/*" style="display: none;">
             </div>
             <audio id="audio-player" controls></audio>
         </div>
         
         <div class="panel-box" style="gap: 8px;">
-            <button id="ai-btn" class="btn-style" style="width: 100%; padding: 10px 15px;">ð² à¸ªà¸¸à¹à¸¡à¸à¸£à¸£à¸¢à¸²à¸à¸²à¸¨ (Random)</button>
+            <button id="ai-btn" class="btn-style" style="width: 100%; padding: 10px 15px;">Random Aura</button>
         </div>
     </div>
 
@@ -422,7 +554,7 @@
         let postFXAvailable = false;
         let cinemaFXEnabled = true;
         let reactiveColorEnabled = true;
-        let fxAmount = 0.45;
+        let fxAmount = 0.35;
         let beatFlash = 0.0;
         let beatCooldown = 0;
         let bassHistory = [];
@@ -522,9 +654,39 @@
         const hdriUpload = document.getElementById('hdri-upload');
 
         init();
+        forceEnglishUI();
         animate();
 
         // à¸à¸±à¸à¸à¹à¸à¸±à¸ Texture à¸«à¸£à¸¹à¸«à¸£à¸² (à¹à¸«à¸¡à¸·à¸­à¸à¹à¸à¹à¸§/à¹à¸à¸à¸£à¹à¸à¸¥à¹à¸à¹à¸ªà¸)
+
+        function forceEnglishUI() {
+            const textMap = new Map([
+                ['start-btn', 'Enter 3D Room'],
+                ['toggle-rotate-btn', isAutoRotate ? 'Auto Rotate ON' : 'Auto Rotate OFF'],
+                ['toggle-ui-btn', document.body.classList.contains('ui-hidden') ? 'Show UI' : 'Hide UI'],
+                ['fullscreen-btn', document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen'],
+                ['mic-btn', 'Microphone'],
+                ['file-btn', 'Load Audio'],
+                ['ai-btn', 'Random Aura'],
+                ['cinema-btn', cinemaFXEnabled ? 'Cinema ON' : 'Cinema OFF'],
+                ['reactive-color-btn', reactiveColorEnabled ? 'Audio Color ON' : 'Audio Color OFF']
+            ]);
+
+            textMap.forEach((text, id) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = text;
+            });
+
+            const statusLabel = document.querySelector('.ui-container .ui-row:nth-child(2) .ui-text span:first-child');
+            if (statusLabel) statusLabel.innerText = 'Status';
+
+            const instruction = document.querySelector('.instruction');
+            if (instruction) {
+                instruction.innerHTML = 'Tap to start<br><span style="font-size: 12px; opacity: 0.7;">Gyro, Cinema FX, Beat Burst and Audio Colors</span>';
+            }
+        }
+
+
         function createParticleTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 64; 
@@ -570,7 +732,7 @@
 
         function loadHDRI(url) {
             const loader = new THREE.TextureLoader();
-            aiStatus.innerText = "à¸à¸³à¸¥à¸±à¸à¹à¸«à¸¥à¸ HDRI...";
+            aiStatus.innerText = "Loading HDRI...";
             loader.load(url, (tex) => {
                 tex.mapping = THREE.EquirectangularReflectionMapping;
                 envTexture = tex; 
@@ -579,10 +741,10 @@
                     roomMesh.material.map = envTexture;
                     roomMesh.material.needsUpdate = true;
                 }
-                aiStatus.innerText = "à¹à¸«à¸¥à¸ HDRI à¸ªà¸³à¹à¸£à¹à¸!";
+                aiStatus.innerText = "HDRI loaded";
             }, undefined, function (err) {
                 console.error('HDRI Load Error:', err);
-                aiStatus.innerText = "à¹à¸¡à¹à¸à¸à¹à¸à¸¥à¹ " + url + " à¹à¸à¹à¸à¸¥à¹à¸à¸­à¸£à¹";
+                aiStatus.innerText = "File not found: " + url + " in folder";
             });
         }
 
@@ -700,7 +862,7 @@
 
             try {
                 if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass || !THREE.ShaderPass) {
-                    aiStatus.innerText = "Cinema FX à¹à¸«à¸¥à¸à¹à¸¡à¹à¸à¸£à¸ à¹à¸à¹à¹à¸«à¸¡à¸à¸à¸à¸à¸´";
+                    aiStatus.innerText = "Cinema FX unavailable, using normal renderer";
                     return;
                 }
 
@@ -736,8 +898,8 @@
             const flash = beatFlash * fx;
 
             if (bloomPass) {
-                bloomPass.strength = 0.45 + fx * 1.1 + flash * 1.5 + smoothedHigh * 0.55;
-                bloomPass.radius = 0.18 + fx * 0.35;
+                bloomPass.strength = 0.38 + fx * 0.85 + flash * 1.15 + smoothedHigh * 0.40;
+                bloomPass.radius = 0.16 + fx * 0.28;
                 bloomPass.threshold = Math.max(0.03, 0.18 - flash * 0.08);
             }
 
@@ -850,7 +1012,7 @@
                     targetLightColor.setHex(preset.l);
                     targetTurb = preset.turb;
                     targetSpeedMult = preset.speed;
-                    aiStatus.innerText = `à¹à¸«à¸¡à¸à¸ªà¸µ: ${e.target.options[e.target.selectedIndex].text}`;
+                    aiStatus.innerText = `Color mode: ${e.target.options[e.target.selectedIndex].text}`;
                 }
             });
 
@@ -876,8 +1038,8 @@
                 cinemaBtn.addEventListener('click', () => {
                     cinemaFXEnabled = !cinemaFXEnabled;
                     cinemaBtn.classList.toggle('active', cinemaFXEnabled);
-                    cinemaBtn.innerText = cinemaFXEnabled ? "ð¬ Cinema ON" : "ð¬ Cinema OFF";
-                    aiStatus.innerText = cinemaFXEnabled ? "à¹à¸à¸´à¸ Cinema FX" : "à¸à¸´à¸ Cinema FX";
+                    cinemaBtn.innerText = cinemaFXEnabled ? "Cinema ON" : "Cinema OFF";
+                    aiStatus.innerText = cinemaFXEnabled ? "Cinema FX enabled" : "Cinema FX disabled";
                 });
             }
 
@@ -885,8 +1047,8 @@
                 reactiveColorBtn.addEventListener('click', () => {
                     reactiveColorEnabled = !reactiveColorEnabled;
                     reactiveColorBtn.classList.toggle('active', reactiveColorEnabled);
-                    reactiveColorBtn.innerText = reactiveColorEnabled ? "ð à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸ ON" : "ð à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸ OFF";
-                    aiStatus.innerText = reactiveColorEnabled ? "à¹à¸à¸´à¸à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸" : "à¸à¸´à¸à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸";
+                    reactiveColorBtn.innerText = reactiveColorEnabled ? "Audio Color ON" : "Audio Color OFF";
+                    aiStatus.innerText = reactiveColorEnabled ? "Audio color enabled" : "Audio color disabled";
                 });
             }
 
@@ -907,7 +1069,7 @@
                         roomMesh.material.map = envTexture;
                         roomMesh.material.needsUpdate = true;
                     }
-                    aiStatus.innerText = "à¹à¸à¹à¸ à¸²à¸à¸­à¸§à¸à¸²à¸¨à¸à¸³à¸¥à¸­à¸ (Default)";
+                    aiStatus.innerText = "Using default space environment";
                 } else {
                     loadHDRI(e.target.value);
                 }
@@ -927,9 +1089,9 @@
             toggleUiBtn.addEventListener('click', () => {
                 document.body.classList.toggle('ui-hidden');
                 if (document.body.classList.contains('ui-hidden')) {
-                    toggleUiBtn.innerText = "ðï¸ à¹à¸ªà¸à¸ UI";
+                    toggleUiBtn.innerText = "Show UI";
                 } else {
-                    toggleUiBtn.innerText = "ðï¸ à¸à¹à¸­à¸ UI";
+                    toggleUiBtn.innerText = "Hide UI";
                 }
             });
 
@@ -937,10 +1099,10 @@
             toggleRotateBtn.addEventListener('click', () => {
                 isAutoRotate = !isAutoRotate;
                 if(isAutoRotate) {
-                    toggleRotateBtn.innerText = "ð à¸à¸´à¸à¸«à¸¡à¸¸à¸à¸à¸²à¸";
+                    toggleRotateBtn.innerText = "Auto Rotate ON";
                     toggleRotateBtn.classList.add('active');
                 } else {
-                    toggleRotateBtn.innerText = "ð à¹à¸à¸´à¸à¸«à¸¡à¸¸à¸à¸à¸²à¸";
+                    toggleRotateBtn.innerText = "Auto Rotate OFF";
                     toggleRotateBtn.classList.remove('active');
                 }
             });
@@ -948,7 +1110,7 @@
             document.getElementById('start-btn').addEventListener('click', () => {
                 const overlay = document.getElementById('start-overlay');
                 document.body.classList.add('started');
-                aiStatus.innerText = "à¹à¸£à¸´à¹à¸¡à¸£à¸°à¸à¸à¸ªà¸³à¹à¸£à¹à¸";
+                aiStatus.innerText = "System started";
 
                 // à¸à¹à¸­à¸à¸«à¸à¹à¸²à¸à¸­à¹à¸£à¸´à¹à¸¡à¸à¹à¸­à¸à¹à¸ªà¸¡à¸­ à¹à¸à¸·à¹à¸­à¹à¸¡à¹à¹à¸«à¹ iOS permission / audio error à¸¡à¸²à¸à¸§à¸²à¸à¸à¸²à¸£à¹à¸à¹à¸²à¹à¸§à¹à¸
                 if (overlay) {
@@ -983,7 +1145,7 @@
                     micBtn.classList.remove('active');
                     fileBtn.classList.add('active');
                     isMicActive = false;
-                    aiStatus.innerText = "à¸à¸³à¸¥à¸±à¸à¹à¸¥à¹à¸à¹à¸à¸¥à¸: " + file.name;
+                    aiStatus.innerText = "Playing: " + file.name;
                 }
             });
 
@@ -997,10 +1159,10 @@
                         audioPlayer.pause();
                         audioPlayer.style.display = "none"; 
                         isMicActive = true;
-                        aiStatus.innerText = "à¸à¸³à¸¥à¸±à¸à¸£à¸±à¸à¹à¸ªà¸µà¸¢à¸à¸à¸²à¸à¹à¸¡à¹à¸à¸£à¹à¸à¸";
+                        aiStatus.innerText = "Microphone input active";
                     } catch (err) {
                         console.error("Mic access denied:", err);
-                        alert("à¹à¸¡à¹à¸ªà¸²à¸¡à¸²à¸£à¸à¹à¸à¹à¸²à¸à¸¶à¸à¹à¸¡à¹à¸à¸£à¹à¸à¸à¹à¸à¹ à¹à¸à¸£à¸à¸­à¸à¸¸à¸à¸²à¸à¸ªà¸´à¸à¸à¸´à¹à¸à¹à¸­à¸");
+                        alert("Cannot access microphone à¹à¸à¸£à¸à¸­à¸à¸¸à¸à¸²à¸à¸ªà¸´à¸à¸à¸´à¹à¸à¹à¸­à¸");
                     }
                 }
             });
@@ -1346,8 +1508,8 @@
             const btn = document.getElementById('ai-btn');
             
             btn.disabled = true;
-            btn.innerText = "à¸à¸³à¸¥à¸±à¸à¸à¸¹à¸...";
-            aiStatus.innerText = "à¸à¸³à¸¥à¸±à¸à¸à¸¶à¸à¸à¸¥à¸±à¸à¸à¸²à¸...";
+            btn.innerText = "Tuning...";
+            aiStatus.innerText = "Generating energy...";
             colorModeSelect.value = ""; 
 
             setTimeout(() => {
@@ -1358,11 +1520,11 @@
                 targetSpeedMult = 0.5 + Math.random() * 2.0;
                 targetTurb = 0.01 + Math.random() * 0.04;
                 
-                const texts = ["à¸à¸²à¸¢à¸¸à¹à¸«à¹à¸à¸ªà¸µà¸ªà¸±à¸", "à¸à¸§à¸²à¸¡à¸ªà¸à¸à¹à¸à¸­à¸§à¸à¸²à¸¨", "à¹à¸à¸¥à¸§à¹à¸à¸¥à¸´à¸à¹à¸£à¸´à¸à¸£à¸°à¸à¸³", "à¸à¸¥à¸·à¹à¸à¹à¸«à¹à¸à¸­à¸à¸²à¸à¸", "à¸à¸¥à¸±à¸à¸à¸²à¸à¸¥à¸µà¹à¸¥à¸±à¸", "à¹à¸ªà¸à¸ªà¸°à¸à¹à¸­à¸à¹à¸«à¹à¸à¸à¸´à¸à¸§à¸´à¸à¸à¸²à¸", "à¸¡à¸´à¸à¸´à¸à¸§à¸­à¸à¸à¸±à¸¡", "à¸à¸°à¹à¸¥à¸à¸²à¸§à¸à¸£à¸°à¸à¸²à¸¢"];
+                const texts = ["Color Storm", "Space Calm", "Dancing Flame", "Future Wave", "Mystic Energy", "Soul Reflection", "Quantum Dimension", "Starlight Ocean"];
                 aiStatus.innerText = texts[Math.floor(Math.random() * texts.length)];
                 
                 btn.disabled = false;
-                btn.innerText = "ð² à¸ªà¸¸à¹à¸¡à¸à¸£à¸£à¸¢à¸²à¸à¸²à¸¨ (Random)";
+                btn.innerText = "Random Aura";
             }, 300);
         }
 
