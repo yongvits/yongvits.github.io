@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<!-- Upload-ready single-file build for GitHub Pages: /ferrofluid/index.html -->
 <html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Ferrofluid Speaker | yongvits</title>
+    <title>WebGL Ferrofluid Speaker</title>
     <style>
         body {
             margin: 0;
@@ -297,7 +296,7 @@
         <button id="start-btn">à¹à¸à¹à¸²à¸ªà¸¹à¹à¸«à¹à¸­à¸ 3 à¸¡à¸´à¸à¸´</button>
         <div class="instruction">
             à¹à¸à¸°à¹à¸à¸·à¹à¸­à¹à¸£à¸´à¹à¸¡à¸à¹à¸<br>
-            <span style="font-size: 12px; opacity: 0.7;">à¸£à¸­à¸à¸£à¸±à¸ Gyro, Cinema FX, Beat Burst à¹à¸¥à¸°à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸à¹à¸à¸¥à¸</span>
+            <span style="font-size: 12px; opacity: 0.7;">à¸£à¸­à¸à¸£à¸±à¸ Gyro, Safe Cinema FX, Beat Burst à¹à¸¥à¸°à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸à¹à¸à¸¥à¸</span>
         </div>
     </div>
 
@@ -305,7 +304,7 @@
     <div class="ui-container">
         <div class="ui-row">
             <div class="ui-text">
-                <span>WebGL Ferrofluid Speaker <b style="color:#00ffff;">v1.9 Cinema Reactive</b></span>
+                <span>WebGL Ferrofluid Speaker <b style="color:#00ffff;">v1.9 Safe Cinema</b></span>
                 <span id="gyro-status">Gyro-Parallax: Waiting...</span>
             </div>
             <div class="ui-text" style="text-align: right;">
@@ -369,9 +368,9 @@
             <div class="slider-container" style="margin-top: 5px;">
                 <div class="slider-row">
                     <span>ð¬ Cinema FX</span>
-                    <span class="val" id="fx-slider-val">70%</span>
+                    <span class="val" id="fx-slider-val">45%</span>
                 </div>
-                <input type="range" id="fx-slider" min="0" max="100" value="70">
+                <input type="range" id="fx-slider" min="0" max="100" value="45">
             </div>
 
             <div style="display: flex; gap: 10px; margin-top: 5px;">
@@ -419,12 +418,11 @@
     <script>
         // --- à¸à¸±à¸§à¹à¸à¸£à¸«à¸¥à¸±à¸ ---
         let scene, camera, renderer;
-        let composer, renderPass, bloomPass, cinemaPass;
+        let composer = null, bloomPass = null, cinemaPass = null;
         let postFXAvailable = false;
         let cinemaFXEnabled = true;
         let reactiveColorEnabled = true;
-        let fxAmount = 0.70;
-        let beatEnergy = 0.0;
+        let fxAmount = 0.45;
         let beatFlash = 0.0;
         let beatCooldown = 0;
         let bassHistory = [];
@@ -433,7 +431,6 @@
         let cameraShake = 0.0;
         let extraBurst = 0.0;
         let lastBeatTime = 0;
-        let estimatedBPM = 0;
         
         const maxCountPerGroup = 40000;
         let currentDrawCount = 20000; 
@@ -644,13 +641,13 @@
         }
 
 
-        function createCinemaShader() {
+        function createSafeCinemaShader() {
             return {
                 uniforms: {
                     tDiffuse: { value: null },
-                    amount: { value: 0.004 },
-                    grainAmount: { value: 0.06 },
-                    vignetteAmount: { value: 0.45 },
+                    amount: { value: 0.003 },
+                    grainAmount: { value: 0.035 },
+                    vignetteAmount: { value: 0.30 },
                     time: { value: 0.0 },
                     flash: { value: 0.0 }
                 },
@@ -679,22 +676,18 @@
                         vec2 center = vec2(0.5);
                         vec2 dir = uv - center;
                         float dist = length(dir);
+                        vec2 offset = normalize(dir + 0.0001) * amount * dist * (1.0 + flash * 5.0);
 
-                        float dynamicAmount = amount * (1.0 + flash * 6.0);
-                        vec2 offset = normalize(dir + 0.0001) * dynamicAmount * dist;
+                        vec3 color;
+                        color.r = texture2D(tDiffuse, uv + offset).r;
+                        color.g = texture2D(tDiffuse, uv).g;
+                        color.b = texture2D(tDiffuse, uv - offset).b;
 
-                        float r = texture2D(tDiffuse, uv + offset).r;
-                        float g = texture2D(tDiffuse, uv).g;
-                        float b = texture2D(tDiffuse, uv - offset).b;
-                        vec3 color = vec3(r, g, b);
+                        color += (random(uv * vec2(1280.0, 720.0)) - 0.5) * grainAmount;
 
-                        float grain = (random(uv * vec2(1280.0, 720.0)) - 0.5) * grainAmount;
-                        color += grain;
-
-                        float vignette = smoothstep(0.85, 0.20, dist);
+                        float vignette = smoothstep(0.85, 0.18, dist);
                         color *= mix(1.0 - vignetteAmount, 1.0, vignette);
-
-                        color += flash * 0.08;
+                        color += flash * 0.07;
 
                         gl_FragColor = vec4(color, 1.0);
                     }
@@ -702,98 +695,84 @@
             };
         }
 
-        function initPostProcessing() {
+        function initPostProcessingSafe() {
             postFXAvailable = false;
 
-            if (!renderer || !window.THREE || !THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass || !THREE.ShaderPass) {
-                console.warn("Post-processing libraries unavailable. Falling back to direct render.");
-                aiStatus.innerText = "Cinema FX à¹à¸¡à¹à¸à¸£à¹à¸­à¸¡ à¹à¸à¹à¹à¸«à¸¡à¸à¸à¸à¸à¸´";
-                return;
-            }
-
             try {
+                if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass || !THREE.ShaderPass) {
+                    aiStatus.innerText = "Cinema FX à¹à¸«à¸¥à¸à¹à¸¡à¹à¸à¸£à¸ à¹à¸à¹à¹à¸«à¸¡à¸à¸à¸à¸à¸´";
+                    return;
+                }
+
                 composer = new THREE.EffectComposer(renderer);
-                renderPass = new THREE.RenderPass(scene, camera);
-                composer.addPass(renderPass);
+                composer.addPass(new THREE.RenderPass(scene, camera));
 
                 bloomPass = new THREE.UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    1.15,
-                    0.55,
-                    0.10
+                    0.85,
+                    0.45,
+                    0.15
                 );
                 composer.addPass(bloomPass);
 
-                cinemaPass = new THREE.ShaderPass(createCinemaShader());
+                cinemaPass = new THREE.ShaderPass(createSafeCinemaShader());
                 cinemaPass.renderToScreen = true;
                 composer.addPass(cinemaPass);
 
                 postFXAvailable = true;
-                aiStatus.innerText = "Cinema FX à¸à¸£à¹à¸­à¸¡à¹à¸à¹à¸à¸²à¸";
             } catch (err) {
-                console.error("Post-processing init failed:", err);
-                postFXAvailable = false;
+                console.warn("Post FX disabled:", err);
                 composer = null;
-                aiStatus.innerText = "Cinema FX à¸¡à¸µà¸à¸±à¸à¸«à¸² à¸à¸¶à¸à¸à¸´à¸à¸­à¸±à¸à¹à¸à¸¡à¸±à¸à¸´";
+                bloomPass = null;
+                cinemaPass = null;
+                postFXAvailable = false;
             }
         }
 
-        function updatePostProcessing(realTime) {
+        function updatePostProcessingSafe(realTime) {
             if (!postFXAvailable || !composer) return;
 
-            const active = cinemaFXEnabled ? 1.0 : 0.0;
-            const fx = fxAmount * active;
+            const fx = cinemaFXEnabled ? fxAmount : 0.0;
             const flash = beatFlash * fx;
 
             if (bloomPass) {
-                bloomPass.strength = 0.55 + fx * 1.25 + flash * 1.8 + smoothedHigh * 0.8;
-                bloomPass.radius = 0.25 + fx * 0.45;
-                bloomPass.threshold = Math.max(0.02, 0.16 - flash * 0.10);
+                bloomPass.strength = 0.45 + fx * 1.1 + flash * 1.5 + smoothedHigh * 0.55;
+                bloomPass.radius = 0.18 + fx * 0.35;
+                bloomPass.threshold = Math.max(0.03, 0.18 - flash * 0.08);
             }
 
-            if (cinemaPass) {
+            if (cinemaPass && cinemaPass.uniforms) {
                 cinemaPass.enabled = cinemaFXEnabled;
                 cinemaPass.uniforms.time.value = realTime;
                 cinemaPass.uniforms.flash.value = flash;
-                cinemaPass.uniforms.amount.value = 0.0015 + (fx * 0.006) + (chromaSpike * 0.014);
-                cinemaPass.uniforms.grainAmount.value = 0.015 + fx * 0.065;
-                cinemaPass.uniforms.vignetteAmount.value = 0.20 + fx * 0.42;
+                cinemaPass.uniforms.amount.value = 0.001 + fx * 0.0045 + chromaSpike * 0.009;
+                cinemaPass.uniforms.grainAmount.value = 0.010 + fx * 0.045;
+                cinemaPass.uniforms.vignetteAmount.value = 0.18 + fx * 0.34;
             }
         }
 
-        function detectBeat(bassValue, lowMidValue, volumeValue) {
+        function detectBeatSafe(bassValue, lowMidValue) {
             bassHistory.push(bassValue);
-            if (bassHistory.length > 42) bassHistory.shift();
+            if (bassHistory.length > 38) bassHistory.shift();
 
-            let avg = 0.0;
+            let avg = 0;
             for (let i = 0; i < bassHistory.length; i++) avg += bassHistory[i];
-            avg = bassHistory.length ? avg / bassHistory.length : 0.0;
+            avg = bassHistory.length ? avg / bassHistory.length : 0;
 
             beatCooldown = Math.max(0, beatCooldown - 1);
-
-            const threshold = Math.max(0.18, avg * 1.55 + 0.055);
-            const isBeat = bassValue > threshold && bassValue > 0.20 && beatCooldown <= 0;
+            const threshold = Math.max(0.20, avg * 1.55 + 0.06);
+            const isBeat = bassValue > threshold && bassValue > 0.22 && beatCooldown <= 0;
 
             if (isBeat) {
-                const now = performance.now();
-                if (lastBeatTime > 0) {
-                    const delta = now - lastBeatTime;
-                    if (delta > 260 && delta < 1600) {
-                        const instantBPM = 60000 / delta;
-                        estimatedBPM = estimatedBPM ? (estimatedBPM * 0.88 + instantBPM * 0.12) : instantBPM;
-                    }
-                }
-                lastBeatTime = now;
-
-                beatEnergy = Math.min(1.0, (bassValue - threshold) * 3.2 + lowMidValue * 0.5);
-                beatFlash = Math.min(1.0, beatFlash + 0.65 + beatEnergy * 0.35);
-                chromaSpike = Math.min(1.0, chromaSpike + 0.85);
-                cameraShake = Math.min(1.0, cameraShake + 0.45 + beatEnergy * 0.35);
-                extraBurst = Math.min(1.0, extraBurst + 0.75 + beatEnergy * 0.35);
-                bpmPulse = Math.min(1.0, bpmPulse + 0.8);
-                beatCooldown = 10;
-
-                sceneRotationAngle += 0.035 + beatEnergy * 0.055;
+                const power = Math.min(1.0, (bassValue - threshold) * 3.0 + lowMidValue * 0.45);
+                beatFlash = Math.min(1.0, beatFlash + 0.50 + power * 0.35);
+                chromaSpike = Math.min(1.0, chromaSpike + 0.65);
+                cameraShake = Math.min(1.0, cameraShake + 0.30 + power * 0.35);
+                extraBurst = Math.min(1.0, extraBurst + 0.55 + power * 0.35);
+                bpmPulse = Math.min(1.0, bpmPulse + 0.65);
+                beatCooldown = 12;
+                sceneRotationAngle += 0.025 + power * 0.04;
+                lastBeatTime = performance.now();
             }
 
             beatFlash *= 0.88;
@@ -803,20 +782,16 @@
             bpmPulse *= 0.92;
         }
 
-        function updateReactiveColors() {
+        function updateReactiveColorsSafe() {
             if (!reactiveColorEnabled) return;
 
-            const bassHue = 0.02 + smoothedBass * 0.06;
-            const midHue = 0.66 + smoothedMid * 0.18;
-            const highHue = 0.48 + smoothedHigh * 0.18;
+            const warm = new THREE.Color().setHSL(0.02 + smoothedBass * 0.05, 0.95, 0.45 + smoothedBass * 0.18);
+            const bright = new THREE.Color().setHSL(0.50 + smoothedHigh * 0.14, 0.95, 0.52 + smoothedHigh * 0.22);
+            const mid = new THREE.Color().setHSL((0.66 + smoothedMid * 0.16) % 1.0, 0.90, 0.46 + smoothedMid * 0.15);
 
-            const cBass = new THREE.Color().setHSL(bassHue, 0.95, 0.45 + smoothedBass * 0.20);
-            const cHigh = new THREE.Color().setHSL(highHue, 0.95, 0.55 + smoothedHigh * 0.25);
-            const cMid = new THREE.Color().setHSL(midHue % 1.0, 0.90, 0.48 + smoothedMid * 0.16);
-
-            targetColor1.lerp(cBass, 0.10 + smoothedBass * 0.12);
-            targetColor2.lerp(cHigh, 0.08 + smoothedHigh * 0.10);
-            targetLightColor.lerp(cMid.lerp(cBass, smoothedBass * 0.55), 0.12);
+            targetColor1.lerp(warm, 0.075 + smoothedBass * 0.10);
+            targetColor2.lerp(bright, 0.070 + smoothedHigh * 0.08);
+            targetLightColor.lerp(mid.lerp(warm, smoothedBass * 0.45), 0.095);
         }
 
 
@@ -833,7 +808,6 @@
             document.body.appendChild(renderer.domElement);
 
             setRoomStyle('dark-box');
-            initPostProcessing();
 
             const ambientLight = new THREE.AmbientLight(0x666666); 
             scene.add(ambientLight);
@@ -853,6 +827,7 @@
 
             createOptimizedParticles();
             updateDrawRange(); 
+            initPostProcessingSafe();
 
             window.addEventListener('resize', onWindowResize, false);
             document.addEventListener('mousemove', onDocumentMouseMove, false);
@@ -889,25 +864,31 @@
             });
 
 
-            fxSlider.addEventListener('input', (e) => {
-                const val = parseInt(e.target.value);
-                fxAmount = val / 100;
-                fxSliderVal.innerText = val + '%';
-            });
+            if (fxSlider) {
+                fxSlider.addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value);
+                    fxAmount = val / 100;
+                    fxSliderVal.innerText = val + '%';
+                });
+            }
 
-            cinemaBtn.addEventListener('click', () => {
-                cinemaFXEnabled = !cinemaFXEnabled;
-                cinemaBtn.classList.toggle('active', cinemaFXEnabled);
-                cinemaBtn.innerText = cinemaFXEnabled ? "ð¬ Cinema ON" : "ð¬ Cinema OFF";
-                aiStatus.innerText = cinemaFXEnabled ? "à¹à¸à¸´à¸ Cinema FX" : "à¸à¸´à¸ Cinema FX";
-            });
+            if (cinemaBtn) {
+                cinemaBtn.addEventListener('click', () => {
+                    cinemaFXEnabled = !cinemaFXEnabled;
+                    cinemaBtn.classList.toggle('active', cinemaFXEnabled);
+                    cinemaBtn.innerText = cinemaFXEnabled ? "ð¬ Cinema ON" : "ð¬ Cinema OFF";
+                    aiStatus.innerText = cinemaFXEnabled ? "à¹à¸à¸´à¸ Cinema FX" : "à¸à¸´à¸ Cinema FX";
+                });
+            }
 
-            reactiveColorBtn.addEventListener('click', () => {
-                reactiveColorEnabled = !reactiveColorEnabled;
-                reactiveColorBtn.classList.toggle('active', reactiveColorEnabled);
-                reactiveColorBtn.innerText = reactiveColorEnabled ? "ð à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸ ON" : "ð à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸ OFF";
-                aiStatus.innerText = reactiveColorEnabled ? "à¹à¸à¸´à¸à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸" : "à¸à¸´à¸à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸";
-            });
+            if (reactiveColorBtn) {
+                reactiveColorBtn.addEventListener('click', () => {
+                    reactiveColorEnabled = !reactiveColorEnabled;
+                    reactiveColorBtn.classList.toggle('active', reactiveColorEnabled);
+                    reactiveColorBtn.innerText = reactiveColorEnabled ? "ð à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸ ON" : "ð à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸ OFF";
+                    aiStatus.innerText = reactiveColorEnabled ? "à¹à¸à¸´à¸à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸" : "à¸à¸´à¸à¸ªà¸µà¸à¸²à¸¡à¹à¸ªà¸µà¸¢à¸";
+                });
+            }
 
             brightSlider.addEventListener('input', (e) => {
                 const val = parseInt(e.target.value);
@@ -965,11 +946,20 @@
             });
 
             document.getElementById('start-btn').addEventListener('click', () => {
-                initDeviceOrientation();
-                initAudioContext();
                 const overlay = document.getElementById('start-overlay');
-                overlay.style.opacity = '0';
-                setTimeout(() => { overlay.style.display = 'none'; }, 500);
+                document.body.classList.add('started');
+                aiStatus.innerText = "à¹à¸£à¸´à¹à¸¡à¸£à¸°à¸à¸à¸ªà¸³à¹à¸£à¹à¸";
+
+                // à¸à¹à¸­à¸à¸«à¸à¹à¸²à¸à¸­à¹à¸£à¸´à¹à¸¡à¸à¹à¸­à¸à¹à¸ªà¸¡à¸­ à¹à¸à¸·à¹à¸­à¹à¸¡à¹à¹à¸«à¹ iOS permission / audio error à¸¡à¸²à¸à¸§à¸²à¸à¸à¸²à¸£à¹à¸à¹à¸²à¹à¸§à¹à¸
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => { overlay.style.display = 'none'; }, 350);
+                }
+
+                setTimeout(() => {
+                    try { initAudioContext(); } catch (e) { console.warn("Audio init skipped:", e); }
+                    try { initDeviceOrientation(); } catch (e) { console.warn("Gyro init skipped:", e); }
+                }, 50);
             });
 
             document.getElementById('ai-btn').addEventListener('click', generateRandomAura);
@@ -1210,7 +1200,7 @@
 
                 // à¸ªà¸£à¹à¸²à¸à¸£à¸¹à¸à¸à¸£à¸à¸«à¸à¸²à¸¡à¹à¸«à¸¥à¸¡à¸à¸¡à¸«à¸£à¸¹à¸«à¸£à¸² à¹à¸à¸¢à¹à¸à¹ Noise à¹à¸à¸ Radial
                 let spikeShape = Math.sin(nx * 4.5 + sin_t1) * Math.cos(ny * 4.5 + cos_t1) * Math.sin(nz * 4.5 + sin_t2);
-                let spikeForce = Math.pow(Math.abs(spikeShape), 3) * ((sBass * 30.0) + (extraBurst * 34.0)); // à¹à¸à¹ Math.pow à¹à¸à¸·à¹à¸­à¹à¸«à¹à¸à¸¥à¸²à¸¢à¹à¸«à¸¥à¸¡
+                let spikeForce = Math.pow(Math.abs(spikeShape), 3) * ((sBass * 30.0) + (extraBurst * 28.0)); // à¹à¸à¹ Math.pow à¹à¸à¸·à¹à¸­à¹à¸«à¹à¸à¸¥à¸²à¸¢à¹à¸«à¸¥à¸¡
 
                 // à¸à¸²à¸£à¸«à¸²à¸¢à¹à¸à¹à¸à¹à¸²à¸­à¸­à¸à¸à¸­à¸à¸à¹à¸­à¸à¸£à¸§à¸¡
                 let breathe = 1.0 + (sLowMid * 0.3);
@@ -1221,7 +1211,7 @@
                 let targetZ = (hz * breathe) + (nz * spikeForce);
 
                 // à¸à¸¥à¸·à¹à¸à¸à¸±à¹à¸à¸à¹à¸§à¸à¸à¸à¸à¸´à¸§
-                let rippleStr = curTurb + (sMid * 0.18) + (bpmPulse * 0.035);
+                let rippleStr = curTurb + (sMid * 0.16) + (bpmPulse * 0.028);
                 let moveX = (sin_t1 * cos_p + cos_t1 * sin_p) * rippleStr;
                 let moveY = (cos_t1 * cos_p - sin_t1 * sin_p) * rippleStr;
                 let moveZ = (sin_t2 * cos_p + cos_t2 * sin_p) * rippleStr;
@@ -1280,8 +1270,8 @@
             
             smoothedVolume += (currentVolume - smoothedVolume) * 0.15;
 
-            detectBeat(smoothedBass, smoothedLowMid, smoothedVolume);
-            updateReactiveColors();
+            detectBeatSafe(smoothedBass, smoothedLowMid);
+            updateReactiveColorsSafe();
 
             const idleRatio = 0.1;
             const timeSpeed = (idleRatio * 0.5) + (smoothedVolume * 3.0);
@@ -1312,7 +1302,7 @@
                 ml.light.position.x = Math.sin(realTime * ml.speed + ml.offset) * (bounds.x * 0.9);
                 ml.light.position.y = Math.cos(realTime * (ml.speed * 0.8) + ml.offset) * (bounds.y * 0.9);
                 ml.light.position.z = Math.sin(realTime * (ml.speed * 1.2) + ml.offset) * (bounds.z * 0.9);
-                ml.light.intensity = 1.0 + (smoothedHigh * 5.0) + (beatFlash * 7.0);
+                ml.light.intensity = 1.0 + (smoothedHigh * 5.0) + (beatFlash * 5.5);
             });
 
             const t1 = simTime;
@@ -1344,9 +1334,9 @@
 
             // --- à¸£à¸°à¸à¸à¸«à¸¡à¸¸à¸à¸à¸²à¸ 360 à¸­à¸à¸¨à¸² (Auto-Rotate) ---
             if(isAutoRotate) {
-                sceneRotationAngle += 0.001 + (bpmPulse * 0.0035); // à¸«à¸¡à¸¸à¸à¸à¸´à¹à¸¡ + à¸à¸£à¸°à¸à¸¸à¸à¸à¸²à¸¡à¸à¸±à¸à¸«à¸§à¸°à¹à¸à¸ª
+                sceneRotationAngle += 0.001 + (bpmPulse * 0.0028);
                 scene.rotation.y = sceneRotationAngle;
-                scene.rotation.z = Math.sin(simTime * 0.7) * bpmPulse * 0.025;
+                scene.rotation.z = Math.sin(simTime * 0.7) * bpmPulse * 0.018;
             } else {
                 scene.rotation.z *= 0.92;
             }
@@ -1381,8 +1371,8 @@
             // à¸à¸¥à¹à¸­à¸à¸à¸¢à¸±à¸à¸à¸²à¸¡ Gyroscope à¸«à¸£à¸·à¸­à¹à¸¡à¸²à¸ªà¹
             camera.position.x += (targetCameraPos.x - camera.position.x) * 0.05;
             camera.position.y += (targetCameraPos.y - camera.position.y) * 0.05;
-            const shakeX = (Math.random() - 0.5) * cameraShake * 0.34 * fxAmount;
-            const shakeY = (Math.random() - 0.5) * cameraShake * 0.22 * fxAmount;
+            const shakeX = (Math.random() - 0.5) * cameraShake * 0.22 * fxAmount;
+            const shakeY = (Math.random() - 0.5) * cameraShake * 0.15 * fxAmount;
             camera.position.x += shakeX;
             camera.position.y += shakeY;
 
@@ -1391,8 +1381,7 @@
 
             updatePhysics();
 
-            const realTime = performance.now() * 0.001;
-            updatePostProcessing(realTime);
+            updatePostProcessingSafe(performance.now() * 0.001);
 
             if (postFXAvailable && composer && cinemaFXEnabled) {
                 composer.render();
