@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WebGL 3D Room - Gyro Interactive</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #fff;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI Overlays */
+        .ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .ui-row {
+            display: flex;
+            justify-content: space-between;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .ui-text {
+            font-size: 12px;
+            line-height: 1.4;
+            opacity: 0.8;
+        }
+
+        .ui-text span {
+            display: block;
+        }
+
+        #start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(15, 15, 15, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            pointer-events: auto;
+        }
+
+        #start-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            background-color: transparent;
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            border-radius: 30px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+        }
+
+        #start-btn:active {
+            background-color: rgba(0, 255, 255, 0.2);
+        }
+
+        .instruction {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #888;
+            text-align: center;
+        }
+
+        /* AI Prompt UI */
+        .ai-control-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+            background: rgba(20, 20, 20, 0.7);
+            padding: 10px 15px;
+            border-radius: 30px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        #ai-prompt {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            outline: none;
+            font-size: 14px;
+            padding: 5px;
+        }
+
+        #ai-prompt::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        #ai-btn {
+            background: rgba(0, 255, 255, 0.2);
+            color: #00ffff;
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-radius: 20px;
+            padding: 5px 15px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        #ai-btn:hover {
+            background: rgba(0, 255, 255, 0.4);
+        }
+
+        #ai-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <button id="start-btn">เข้าสู่ห้อง 3 มิติ</button>
+        <div class="instruction">แตะเพื่อเริ่มต้น<br>ใช้การเอียงมือถือเพื่อดูรอบๆ ห้อง</div>
+    </div>
+
+    <div class="ui-container">
+        <div class="ui-row">
+            <div class="ui-text">
+                <span>WebGL 3D Room</span>
+                <span id="gyro-status">Gyro-Parallax: Waiting...</span>
+            </div>
+            <div class="ui-text" style="text-align: right;">
+                <span>FPS: <span id="fps">60</span></span>
+                <span>Particles: 80k</span>
+            </div>
+        </div>
+        <div class="ui-row">
+            <div class="ui-text">
+                <span>✨ AI Aura Control</span>
+                <span id="ai-status">พิมพ์ธีมบรรยากาศด้านล่าง</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="ai-control-panel">
+        <input type="text" id="ai-prompt" placeholder="เช่น 'ไฟนรก', 'พายุอวกาศ'..." autocomplete="off">
+        <button id="ai-btn">✨ สร้าง</button>
+    </div>
+
+    <script>
+        // --- ตัวแปรหลัก ---
+        let scene, camera, renderer;
+        
+        // 80,000 Particles แบ่งเป็น 2 กลุ่ม เพื่อลดการดึงคัลเลอร์เรย์บน CPU (Optimization)
+        const count1 = 40000;
+        const count2 = 40000;
+        
+        let particles1, particles2;
+        let pos1, vel1, home1, phase1;
+        let pos2, vel2, home2, phase2;
+
+        let movingLights = []; 
+        
+        // --- AI Aura (Gemini) ---
+        const apiKey = ""; 
+        let currentColor1 = new THREE.Color(0x00ffff);
+        let targetColor1 = new THREE.Color(0x00ffff);
+        let currentColor2 = new THREE.Color(0x00aaff);
+        let targetColor2 = new THREE.Color(0x00aaff);
+        let currentSpeedMult = 1.0;
+        let targetSpeedMult = 1.0;
+        let currentTurb = 0.01;
+        let targetTurb = 0.01;
+        let currentLightColor = new THREE.Color(0x00ffff);
+        let targetLightColor = new THREE.Color(0x00ffff);
+
+        const roomWidth = 40;
+        const roomHeight = 25;
+        const roomDepth = 40;
+
+        const bounds = { x: roomWidth / 2 - 0.5, y: roomHeight / 2 - 0.5, z: roomDepth / 2 - 0.5 };
+
+        let targetCameraPos = new THREE.Vector3(0, 0, roomDepth / 2 - 2);
+        const cameraZBase = roomDepth / 2 - 2;
+        let mouseX = 0, mouseY = 0;
+        let windowHalfX = window.innerWidth / 2;
+        let windowHalfY = window.innerHeight / 2;
+        let useGyro = false;
+
+        let lastTime = performance.now();
+        let frames = 0;
+        const fpsElement = document.getElementById('fps');
+        const gyroStatusElement = document.getElementById('gyro-status');
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x1a1a1a, 0.02);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, cameraZBase);
+
+            renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false }); // ปิด antialias เพิ่มความลื่น
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // จำกัดความละเอียดจอไม่ให้กินสเปคเกินไป
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x1a1a1a); 
+            document.body.appendChild(renderer.domElement);
+
+            const roomGeo = new THREE.BoxGeometry(roomWidth, roomHeight, roomDepth);
+            const roomMat = new THREE.MeshPhongMaterial({
+                color: 0x222222,
+                side: THREE.BackSide,
+                shininess: 15, // เพิ่มความเงาให้สะท้อนแสงชัดขึ้น
+                specular: 0x333333
+            });
+            const roomMesh = new THREE.Mesh(roomGeo, roomMat);
+            scene.add(roomMesh);
+
+            const ambientLight = new THREE.AmbientLight(0x202020); 
+            scene.add(ambientLight);
+
+            // แทนที่จุดตรงกลางด้วยแสงไดนามิก 3 ดวงที่วิ่งโฉบไปมา (สว่างเมื่อใกล้กำแพง)
+            for (let i = 0; i < 3; i++) {
+                let pLight = new THREE.PointLight(0x00ffff, 1.5, 35);
+                scene.add(pLight);
+                movingLights.push({
+                    light: pLight,
+                    offset: Math.random() * Math.PI * 2,
+                    speed: Math.random() * 0.4 + 0.4
+                });
+            }
+
+            createOptimizedParticles();
+
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('mousemove', onDocumentMouseMove, false);
+            document.getElementById('start-btn').addEventListener('click', initDeviceOrientation);
+            document.getElementById('ai-btn').addEventListener('click', generateAIAura);
+            document.getElementById('ai-prompt').addEventListener('keypress', (e) => {
+                if(e.key === 'Enter') generateAIAura();
+            });
+        }
+
+        function createOptimizedParticles() {
+            // ฟังก์ชันช่วยเหลือสำหรับเตรียมข้อมูล TypedArray ให้ไวที่สุด
+            function allocateGroup(count) {
+                const pos = new Float32Array(count * 3);
+                const vel = new Float32Array(count * 3);
+                const home = new Float32Array(count * 3);
+                const phase = new Float32Array(count * 2); // เก็บแค่ sin(phase) และ cos(phase)
+
+                for (let i = 0; i < count; i++) {
+                    const radius = Math.random() * 10;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos((Math.random() * 2) - 1);
+                    
+                    const x = radius * Math.sin(phi) * Math.cos(theta);
+                    const y = radius * Math.sin(phi) * Math.sin(theta);
+                    const z = radius * Math.cos(phi);
+
+                    pos[i*3] = x; pos[i*3+1] = y; pos[i*3+2] = z;
+                    home[i*3] = x; home[i*3+1] = y; home[i*3+2] = z;
+                    
+                    vel[i*3] = (Math.random() - 0.5) * 0.2;
+                    vel[i*3+1] = (Math.random() - 0.5) * 0.2;
+                    vel[i*3+2] = (Math.random() - 0.5) * 0.2;
+
+                    const p = Math.random() * Math.PI * 2;
+                    phase[i*2] = Math.sin(p); // pre-calculate
+                    phase[i*2+1] = Math.cos(p);
+                }
+                return { pos, vel, home, phase };
+            }
+
+            const g1 = allocateGroup(count1);
+            pos1 = g1.pos; vel1 = g1.vel; home1 = g1.home; phase1 = g1.phase;
+            
+            const g2 = allocateGroup(count2);
+            pos2 = g2.pos; vel2 = g2.vel; home2 = g2.home; phase2 = g2.phase;
+
+            const geo1 = new THREE.BufferGeometry();
+            geo1.setAttribute('position', new THREE.BufferAttribute(pos1, 3));
+            
+            const geo2 = new THREE.BufferGeometry();
+            geo2.setAttribute('position', new THREE.BufferAttribute(pos2, 3));
+
+            const mat1 = new THREE.PointsMaterial({
+                color: currentColor1, size: 0.15, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.7, depthWrite: false
+            });
+            const mat2 = new THREE.PointsMaterial({
+                color: currentColor2, size: 0.15, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.7, depthWrite: false
+            });
+
+            particles1 = new THREE.Points(geo1, mat1);
+            particles2 = new THREE.Points(geo2, mat2);
+            
+            scene.add(particles1);
+            scene.add(particles2);
+        }
+
+        function initDeviceOrientation() {
+            document.getElementById('start-overlay').style.display = 'none';
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                            useGyro = true;
+                            gyroStatusElement.innerText = "Gyro-Parallax: Active";
+                        } else { gyroStatusElement.innerText = "Gyro-Parallax: Denied (Mouse only)"; }
+                    }).catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+                useGyro = true;
+                gyroStatusElement.innerText = "Gyro-Parallax: Active";
+            }
+        }
+
+        function handleOrientation(event) {
+            if (!event.gamma || !event.beta) return;
+            let x = Math.max(-45, Math.min(45, event.gamma));
+            let y = Math.max(-45, Math.min(45, event.beta - 45));
+            targetCameraPos.x = (x / 45) * 8;
+            targetCameraPos.y = -(y / 45) * 5;
+        }
+
+        function onDocumentMouseMove(event) {
+            if (useGyro) return;
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+            targetCameraPos.x = (mouseX / windowHalfX) * 8;
+            targetCameraPos.y = -(mouseY / windowHalfY) * 5;
+        }
+
+        function onWindowResize() {
+            windowHalfX = window.innerWidth / 2;
+            windowHalfY = window.innerHeight / 2;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ฟังก์ชันอัปเดตฟิสิกส์ 80,000 จุดที่ถูก Optimize มาอย่างดี (ไม่ใช้ Math.sin/cos ในลูป)
+        function updatePhysicsGroup(count, pos, vel, home, phase, sin_t1, cos_t1, sin_t2, cos_t2, curTurb, pull, maxV, maxVSq) {
+            for(let i=0; i<count; i++) {
+                let i3 = i*3, i2 = i*2;
+                
+                let px = pos[i3], py = pos[i3+1], pz = pos[i3+2];
+                let hx = home[i3], hy = home[i3+1], hz = home[i3+2];
+                let vx = vel[i3], vy = vel[i3+1], vz = vel[i3+2];
+                
+                let sin_p = phase[i2];
+                let cos_p = phase[i2+1];
+
+                // คณิตศาสตร์ยุบรูป ลดภาระ CPU
+                let moveX = (sin_t1 * cos_p + cos_t1 * sin_p) * curTurb;
+                let moveY = (cos_t1 * cos_p - sin_t1 * sin_p) * curTurb;
+                let moveZ = (sin_t2 * cos_p + cos_t2 * sin_p) * curTurb;
+
+                vx += moveX + (hx - px) * pull;
+                vy += moveY + (hy - py) * pull;
+                vz += moveZ + (hz - pz) * pull;
+
+                // จำกัดความเร็ว
+                let vSq = vx*vx + vy*vy + vz*vz;
+                if(vSq > maxVSq) {
+                    let f = maxV / Math.sqrt(vSq);
+                    vx *= f; vy *= f; vz *= f;
+                }
+
+                px += vx; py += vy; pz += vz;
+
+                // ตรวจสอบการชนกำแพง
+                if (px > bounds.x) { px = bounds.x; vx *= -0.8; }
+                else if (px < -bounds.x) { px = -bounds.x; vx *= -0.8; }
+                if (py > bounds.y) { py = bounds.y; vy *= -0.8; }
+                else if (py < -bounds.y) { py = -bounds.y; vy *= -0.8; }
+                if (pz > bounds.z) { pz = bounds.z; vz *= -0.8; }
+                else if (pz < -bounds.z) { pz = -bounds.z; vz *= -0.8; }
+
+                pos[i3] = px; pos[i3+1] = py; pos[i3+2] = pz;
+                vel[i3] = vx; vel[i3+1] = vy; vel[i3+2] = vz;
+            }
+        }
+
+        function updatePhysics() {
+            const time = performance.now() * 0.001;
+
+            currentColor1.lerp(targetColor1, 0.02);
+            currentColor2.lerp(targetColor2, 0.02);
+            currentLightColor.lerp(targetLightColor, 0.02);
+            currentSpeedMult += (targetSpeedMult - currentSpeedMult) * 0.02;
+            currentTurb += (targetTurb - currentTurb) * 0.02;
+
+            particles1.material.color.copy(currentColor1);
+            particles2.material.color.copy(currentColor2);
+
+            // อัปเดตแสงที่วิ่งไปชนกำแพง
+            movingLights.forEach(ml => {
+                ml.light.color.copy(currentLightColor);
+                ml.light.position.x = Math.sin(time * ml.speed * currentSpeedMult + ml.offset) * (bounds.x * 0.85);
+                ml.light.position.y = Math.cos(time * (ml.speed * 0.7) * currentSpeedMult + ml.offset) * (bounds.y * 0.85);
+                ml.light.position.z = Math.sin(time * (ml.speed * 1.1) * currentSpeedMult + ml.offset) * (bounds.z * 0.85);
+            });
+
+            // ค่าคงที่ที่ถูกคำนวณล่วงหน้าไว้นอกลูป
+            const t1 = time * currentSpeedMult;
+            const t2 = time * 0.5 * currentSpeedMult;
+            const sin_t1 = Math.sin(t1), cos_t1 = Math.cos(t1);
+            const sin_t2 = Math.sin(t2), cos_t2 = Math.cos(t2);
+            const pull = 0.001 * currentSpeedMult;
+            const maxV = 0.4 * currentSpeedMult;
+            const maxVSq = maxV * maxV;
+
+            // รันฟิสิกส์ทีละกลุ่ม
+            updatePhysicsGroup(count1, pos1, vel1, home1, phase1, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq);
+            updatePhysicsGroup(count2, pos2, vel2, home2, phase2, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq);
+
+            particles1.geometry.attributes.position.needsUpdate = true;
+            particles2.geometry.attributes.position.needsUpdate = true;
+            
+            particles1.rotation.y = time * 0.1 * currentSpeedMult;
+            particles1.rotation.z = time * 0.05 * currentSpeedMult;
+            particles2.rotation.y = time * 0.1 * currentSpeedMult;
+            particles2.rotation.z = time * 0.05 * currentSpeedMult;
+        }
+
+        async function fetchGeminiWithBackoff(prompt, retries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: {
+                    parts: [{ text: "You are an AI environment architect for a 3D WebGL particle room. Based on the user's prompt (which might be a mood, element, or scenario), generate a JSON configuration to change the environment's physics and colors. Respond ONLY with valid JSON." }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            color1: { type: "STRING", description: "Hex color code for primary particles, e.g. #ff0055" },
+                            color2: { type: "STRING", description: "Hex color code for secondary particles, e.g. #0088ff" },
+                            lightColor: { type: "STRING", description: "Hex color code for the center glowing core" },
+                            speed: { type: "NUMBER", description: "Movement speed multiplier. 0.2 (calm/slow) to 3.0 (fast/chaotic/stormy)" },
+                            turbulence: { type: "NUMBER", description: "Amount of chaos/wave in movement. 0.001 (calm) to 0.05 (very stormy/explosive)" },
+                            statusText: { type: "STRING", description: "A poetic 3-6 word description of the new atmosphere in Thai (e.g. 'เปลวเพลิงแห่งความโกรธแค้น', 'ห้วงอวกาศอันสงบ')" }
+                        },
+                        required: ["color1", "color2", "lightColor", "speed", "turbulence", "statusText"]
+                    }
+                }
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+                    return JSON.parse(data.candidates[0].content.parts[0].text);
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(res => setTimeout(res, delays[i]));
+                }
+            }
+        }
+
+        async function generateAIAura() {
+            const promptInput = document.getElementById('ai-prompt');
+            const btn = document.getElementById('ai-btn');
+            const statusEl = document.getElementById('ai-status');
+            const prompt = promptInput.value.trim();
+            if(!prompt) return;
+
+            btn.disabled = true;
+            btn.innerText = "✨ กำลังประมวลผล...";
+            statusEl.innerText = "กำลังจูนคลื่นพลังงาน...";
+
+            try {
+                const config = await fetchGeminiWithBackoff(prompt);
+                targetColor1.set(config.color1);
+                targetColor2.set(config.color2);
+                targetLightColor.set(config.lightColor);
+                targetSpeedMult = config.speed;
+                targetTurb = config.turbulence;
+                statusEl.innerText = config.statusText;
+                promptInput.value = '';
+            } catch (error) {
+                console.error("AI Error:", error);
+                statusEl.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ AI";
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "✨ สร้าง";
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            camera.position.x += (targetCameraPos.x - camera.position.x) * 0.05;
+            camera.position.y += (targetCameraPos.y - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            updatePhysics();
+            renderer.render(scene, camera);
+
+            frames++;
+            const time = performance.now();
+            if (time >= lastTime + 1000) {
+                fpsElement.innerText = Math.round((frames * 1000) / (time - lastTime));
+                frames = 0;
+                lastTime = time;
+            }
+        }
+    </script>
+</body>
+</html>
