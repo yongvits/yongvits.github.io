@@ -285,7 +285,7 @@
     <div class="ui-container">
         <div class="ui-row">
             <div class="ui-text">
-                <span>WebGL Ferrofluid Speaker</span>
+                <span>WebGL Ferrofluid Speaker <b style="color:#00ffff;">v1.5</b></span>
                 <span id="gyro-status">Gyro-Parallax: Waiting...</span>
             </div>
             <div class="ui-text" style="text-align: right;">
@@ -356,7 +356,18 @@
                 </div>
                 <input type="range" id="bright-slider" min="10" max="300" value="100" style="margin-bottom: 10px;">
                 
-                <button id="hdri-btn" class="btn-style" style="width: 100%;">🖼️ อัปโหลดภาพ 360 (JPG/PNG)</button>
+                <div class="slider-row" style="margin-bottom: 3px;">
+                    <span>เลือกไฟล์ HDRI หรืออัปโหลด</span>
+                </div>
+                <select id="hdri-preset" class="select-style" style="margin-bottom: 10px;">
+                    <option value="default">🌌 ภาพจำลองอวกาศ (Default)</option>
+                    <option value="hdri01.jpg">🖼️ hdri01.jpg</option>
+                    <option value="hdri02.jpg">🖼️ hdri02.jpg</option>
+                    <option value="hdri03.jpg">🖼️ hdri03.jpg</option>
+                    <option value="hdri04.jpg">🖼️ hdri04.jpg</option>
+                </select>
+
+                <button id="hdri-btn" class="btn-style" style="width: 100%;">📁 อัปโหลดภาพ HDRI เอง (JPG/PNG)</button>
                 <input type="file" id="hdri-upload" accept="image/*" style="display: none;">
             </div>
         </div>
@@ -466,6 +477,7 @@
         const hdriControls = document.getElementById('hdri-controls');
         const brightSlider = document.getElementById('bright-slider');
         const brightSliderVal = document.getElementById('bright-slider-val');
+        const hdriPresetSelect = document.getElementById('hdri-preset');
         const hdriBtn = document.getElementById('hdri-btn');
         const hdriUpload = document.getElementById('hdri-upload');
 
@@ -515,6 +527,24 @@
             tex.needsUpdate = true;
             tex.mapping = THREE.EquirectangularReflectionMapping;
             return tex;
+        }
+
+        function loadHDRI(url) {
+            const loader = new THREE.TextureLoader();
+            aiStatus.innerText = "กำลังโหลด HDRI...";
+            loader.load(url, (tex) => {
+                tex.mapping = THREE.EquirectangularReflectionMapping;
+                envTexture = tex; 
+                
+                if(roomModeSelect.value === 'sphere-hdri' && roomMesh && roomMesh.material) {
+                    roomMesh.material.map = envTexture;
+                    roomMesh.material.needsUpdate = true;
+                }
+                aiStatus.innerText = "โหลด HDRI สำเร็จ!";
+            }, undefined, function (err) {
+                console.error('HDRI Load Error:', err);
+                aiStatus.innerText = "ไม่พบไฟล์ " + url + " ในโฟลเดอร์";
+            });
         }
 
         // ระบบสลับโหมดห้อง
@@ -664,6 +694,19 @@
                 }
             });
 
+            hdriPresetSelect.addEventListener('change', (e) => {
+                if(e.target.value === 'default') {
+                    envTexture = createDefaultHDRI();
+                    if(roomModeSelect.value === 'sphere-hdri' && roomMesh && roomMesh.material) {
+                        roomMesh.material.map = envTexture;
+                        roomMesh.material.needsUpdate = true;
+                    }
+                    aiStatus.innerText = "ใช้ภาพอวกาศจำลอง (Default)";
+                } else {
+                    loadHDRI(e.target.value);
+                }
+            });
+
             hdriBtn.addEventListener('click', () => { hdriUpload.click(); });
             
             hdriUpload.addEventListener('change', function(e) {
@@ -671,16 +714,8 @@
                     const file = this.files[0];
                     const url = URL.createObjectURL(file);
                     
-                    const loader = new THREE.TextureLoader();
-                    loader.load(url, (tex) => {
-                        tex.mapping = THREE.EquirectangularReflectionMapping;
-                        envTexture = tex; // เก็บไว้ใช้เวลาเปลี่ยนสลับห้องไปมา
-                        
-                        if(roomModeSelect.value === 'sphere-hdri' && roomMesh && roomMesh.material) {
-                            roomMesh.material.map = envTexture;
-                            roomMesh.material.needsUpdate = true;
-                        }
-                    });
+                    loadHDRI(url);
+                    // Reset dropdown กลับเป็นค่าว่างๆ หรือปล่อยไว้ก็ได้
                 }
             });
             
