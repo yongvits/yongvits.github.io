@@ -63,6 +63,7 @@
             align-items: center;
             z-index: 100;
             pointer-events: auto;
+            transition: opacity 0.5s ease;
         }
 
         #start-btn {
@@ -89,23 +90,31 @@
             text-align: center;
         }
 
-        /* AI Prompt UI */
-        .ai-control-panel {
+        /* Audio & AI Prompt UI */
+        .controls-wrapper {
             position: absolute;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
+            flex-direction: column;
             gap: 10px;
             z-index: 20;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .panel-box {
+            display: flex;
+            gap: 10px;
             background: rgba(20, 20, 20, 0.7);
             padding: 10px 15px;
             border-radius: 30px;
             border: 1px solid rgba(0, 255, 255, 0.3);
             backdrop-filter: blur(10px);
             pointer-events: auto;
-            width: 90%;
-            max-width: 400px;
+            align-items: center;
+            justify-content: center;
         }
 
         #ai-prompt {
@@ -116,14 +125,15 @@
             outline: none;
             font-size: 14px;
             padding: 5px;
+            width: 100%;
         }
 
         #ai-prompt::placeholder {
             color: rgba(255, 255, 255, 0.5);
         }
 
-        #ai-btn {
-            background: rgba(0, 255, 255, 0.2);
+        .btn-style {
+            background: rgba(0, 255, 255, 0.1);
             color: #00ffff;
             border: 1px solid rgba(0, 255, 255, 0.5);
             border-radius: 20px;
@@ -132,13 +142,19 @@
             font-weight: bold;
             transition: all 0.3s;
             white-space: nowrap;
+            font-size: 12px;
         }
 
-        #ai-btn:hover {
-            background: rgba(0, 255, 255, 0.4);
+        .btn-style:hover {
+            background: rgba(0, 255, 255, 0.3);
         }
 
-        #ai-btn:disabled {
+        .btn-style.active {
+            background: rgba(0, 255, 255, 0.6);
+            color: #000;
+        }
+
+        .btn-style:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
@@ -155,7 +171,7 @@
     <div class="ui-container">
         <div class="ui-row">
             <div class="ui-text">
-                <span>WebGL 3D Room</span>
+                <span>WebGL Ferrofluid Speaker</span>
                 <span id="gyro-status">Gyro-Parallax: Waiting...</span>
             </div>
             <div class="ui-text" style="text-align: right;">
@@ -164,16 +180,27 @@
             </div>
         </div>
         <div class="ui-row">
-            <div class="ui-text">
+            <div class="ui-text" style="margin-bottom: 90px;">
                 <span>✨ AI Aura Control</span>
                 <span id="ai-status">พิมพ์ธีมบรรยากาศด้านล่าง</span>
             </div>
         </div>
     </div>
 
-    <div class="ai-control-panel">
-        <input type="text" id="ai-prompt" placeholder="เช่น 'ไฟนรก', 'พายุอวกาศ'..." autocomplete="off">
-        <button id="ai-btn">✨ สร้าง</button>
+    <div class="controls-wrapper">
+        <!-- Audio Panel -->
+        <div class="panel-box">
+            <button id="mic-btn" class="btn-style">🎙️ เปิดไมค์</button>
+            <button id="file-btn" class="btn-style">🎵 เลือกเพลง</button>
+            <input type="file" id="audio-upload" accept="audio/*" style="display: none;">
+            <audio id="audio-player" style="display: none;"></audio>
+        </div>
+        
+        <!-- AI Panel -->
+        <div class="panel-box">
+            <input type="text" id="ai-prompt" placeholder="เช่น 'ไฟนรก', 'พายุอวกาศ'..." autocomplete="off">
+            <button id="ai-btn" class="btn-style">✨ สร้าง</button>
+        </div>
     </div>
 
     <script>
@@ -203,6 +230,12 @@
         let currentLightColor = new THREE.Color(0x00ffff);
         let targetLightColor = new THREE.Color(0x00ffff);
 
+        // --- Audio Variables ---
+        let audioCtx, analyser, dataArray;
+        let currentAudioSource = null;
+        let smoothedBass = 0.0;
+        let isMicActive = false;
+
         const roomWidth = 40;
         const roomHeight = 25;
         const roomDepth = 40;
@@ -231,8 +264,8 @@
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 0, cameraZBase);
 
-            renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false }); // ปิด antialias เพิ่มความลื่น
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // จำกัดความละเอียดจอไม่ให้กินสเปคเกินไป
+            renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false }); 
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setClearColor(0x1a1a1a); 
             document.body.appendChild(renderer.domElement);
@@ -241,7 +274,7 @@
             const roomMat = new THREE.MeshPhongMaterial({
                 color: 0x222222,
                 side: THREE.BackSide,
-                shininess: 15, // เพิ่มความเงาให้สะท้อนแสงชัดขึ้น
+                shininess: 15, 
                 specular: 0x333333
             });
             const roomMesh = new THREE.Mesh(roomGeo, roomMat);
@@ -250,7 +283,7 @@
             const ambientLight = new THREE.AmbientLight(0x202020); 
             scene.add(ambientLight);
 
-            // แทนที่จุดตรงกลางด้วยแสงไดนามิก 3 ดวงที่วิ่งโฉบไปมา (สว่างเมื่อใกล้กำแพง)
+            // แทนที่จุดตรงกลางด้วยแสงไดนามิก 3 ดวงที่วิ่งโฉบไปมา
             for (let i = 0; i < 3; i++) {
                 let pLight = new THREE.PointLight(0x00ffff, 1.5, 35);
                 scene.add(pLight);
@@ -265,23 +298,100 @@
 
             window.addEventListener('resize', onWindowResize, false);
             document.addEventListener('mousemove', onDocumentMouseMove, false);
-            document.getElementById('start-btn').addEventListener('click', initDeviceOrientation);
+            
+            // ปุ่มเริ่ม
+            document.getElementById('start-btn').addEventListener('click', () => {
+                initDeviceOrientation();
+                initAudioContext(); // เตรียม Audio Context ตอนกดเริ่ม
+                const overlay = document.getElementById('start-overlay');
+                overlay.style.opacity = '0';
+                setTimeout(() => { overlay.style.display = 'none'; }, 500);
+            });
+
+            // AI
             document.getElementById('ai-btn').addEventListener('click', generateAIAura);
             document.getElementById('ai-prompt').addEventListener('keypress', (e) => {
                 if(e.key === 'Enter') generateAIAura();
             });
+
+            // Audio Controls
+            const audioUpload = document.getElementById('audio-upload');
+            const fileBtn = document.getElementById('file-btn');
+            const micBtn = document.getElementById('mic-btn');
+            const audioPlayer = document.getElementById('audio-player');
+
+            fileBtn.addEventListener('click', () => { audioUpload.click(); });
+            
+            audioUpload.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    const url = URL.createObjectURL(file);
+                    audioPlayer.src = url;
+                    audioPlayer.play();
+                    setupAudioSource(audioPlayer, false);
+                    
+                    micBtn.classList.remove('active');
+                    fileBtn.classList.add('active');
+                    isMicActive = false;
+                }
+            });
+
+            micBtn.addEventListener('click', async () => {
+                if (!isMicActive) {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        setupAudioSource(stream, true);
+                        micBtn.classList.add('active');
+                        fileBtn.classList.remove('active');
+                        audioPlayer.pause();
+                        isMicActive = true;
+                    } catch (err) {
+                        console.error("Mic access denied or error:", err);
+                        alert("ไม่สามารถเข้าถึงไมโครโฟนได้");
+                    }
+                }
+            });
+        }
+
+        // --- ระบบเสียง ---
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256; 
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+            }
+            if(audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function setupAudioSource(sourceNode, isMic) {
+            initAudioContext();
+            if (currentAudioSource) {
+                currentAudioSource.disconnect();
+            }
+            if (isMic) {
+                currentAudioSource = audioCtx.createMediaStreamSource(sourceNode);
+                currentAudioSource.connect(analyser);
+                // ไม่ต้องต่อ destination ถ้าเป็นไมค์ (เดี๋ยวเสียงจะหอน)
+            } else {
+                currentAudioSource = audioCtx.createMediaElementSource(sourceNode);
+                currentAudioSource.connect(analyser);
+                analyser.connect(audioCtx.destination);
+            }
         }
 
         function createOptimizedParticles() {
-            // ฟังก์ชันช่วยเหลือสำหรับเตรียมข้อมูล TypedArray ให้ไวที่สุด
             function allocateGroup(count) {
                 const pos = new Float32Array(count * 3);
                 const vel = new Float32Array(count * 3);
                 const home = new Float32Array(count * 3);
-                const phase = new Float32Array(count * 2); // เก็บแค่ sin(phase) และ cos(phase)
+                const phase = new Float32Array(count * 2);
 
                 for (let i = 0; i < count; i++) {
-                    const radius = Math.random() * 10;
+                    // สร้างรูปร่างทรงกลมแน่นๆ แบบ Ferrofluid
+                    const radius = 3.5 + (Math.random() * 1.5); 
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos((Math.random() * 2) - 1);
                     
@@ -292,12 +402,12 @@
                     pos[i*3] = x; pos[i*3+1] = y; pos[i*3+2] = z;
                     home[i*3] = x; home[i*3+1] = y; home[i*3+2] = z;
                     
-                    vel[i*3] = (Math.random() - 0.5) * 0.2;
-                    vel[i*3+1] = (Math.random() - 0.5) * 0.2;
-                    vel[i*3+2] = (Math.random() - 0.5) * 0.2;
+                    vel[i*3] = (Math.random() - 0.5) * 0.1;
+                    vel[i*3+1] = (Math.random() - 0.5) * 0.1;
+                    vel[i*3+2] = (Math.random() - 0.5) * 0.1;
 
                     const p = Math.random() * Math.PI * 2;
-                    phase[i*2] = Math.sin(p); // pre-calculate
+                    phase[i*2] = Math.sin(p);
                     phase[i*2+1] = Math.cos(p);
                 }
                 return { pos, vel, home, phase };
@@ -316,10 +426,10 @@
             geo2.setAttribute('position', new THREE.BufferAttribute(pos2, 3));
 
             const mat1 = new THREE.PointsMaterial({
-                color: currentColor1, size: 0.15, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.7, depthWrite: false
+                color: currentColor1, size: 0.2, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false
             });
             const mat2 = new THREE.PointsMaterial({
-                color: currentColor2, size: 0.15, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.7, depthWrite: false
+                color: currentColor2, size: 0.2, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false
             });
 
             particles1 = new THREE.Points(geo1, mat1);
@@ -330,20 +440,24 @@
         }
 
         function initDeviceOrientation() {
-            document.getElementById('start-overlay').style.display = 'none';
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            window.addEventListener('deviceorientation', handleOrientation);
-                            useGyro = true;
-                            gyroStatusElement.innerText = "Gyro-Parallax: Active";
-                        } else { gyroStatusElement.innerText = "Gyro-Parallax: Denied (Mouse only)"; }
-                    }).catch(console.error);
-            } else {
-                window.addEventListener('deviceorientation', handleOrientation);
-                useGyro = true;
-                gyroStatusElement.innerText = "Gyro-Parallax: Active";
+            try {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation);
+                                useGyro = true;
+                                gyroStatusElement.innerText = "Gyro-Parallax: Active";
+                            } else { gyroStatusElement.innerText = "Gyro-Parallax: Denied"; }
+                        }).catch(console.error);
+                } else {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                    useGyro = true;
+                    gyroStatusElement.innerText = "Gyro-Parallax: Active";
+                }
+            } catch(e) {
+                console.error("Gyro Error:", e);
+                gyroStatusElement.innerText = "Gyro-Parallax: Error";
             }
         }
 
@@ -371,8 +485,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // ฟังก์ชันอัปเดตฟิสิกส์ 80,000 จุดที่ถูก Optimize มาอย่างดี (ไม่ใช้ Math.sin/cos ในลูป)
-        function updatePhysicsGroup(count, pos, vel, home, phase, sin_t1, cos_t1, sin_t2, cos_t2, curTurb, pull, maxV, maxVSq) {
+        function updatePhysicsGroup(count, pos, vel, home, phase, sin_t1, cos_t1, sin_t2, cos_t2, curTurb, pull, maxV, maxVSq, bassLvl) {
             for(let i=0; i<count; i++) {
                 let i3 = i*3, i2 = i*2;
                 
@@ -383,16 +496,23 @@
                 let sin_p = phase[i2];
                 let cos_p = phase[i2+1];
 
-                // คณิตศาสตร์ยุบรูป ลดภาระ CPU
-                let moveX = (sin_t1 * cos_p + cos_t1 * sin_p) * curTurb;
-                let moveY = (cos_t1 * cos_p - sin_t1 * sin_p) * curTurb;
-                let moveZ = (sin_t2 * cos_p + cos_t2 * sin_p) * curTurb;
+                // สร้างหนาม (Spikes) ตามเสียงเบส โดยคำนวณจากตำแหน่งแกน
+                let spikeShape = Math.sin(hx * 1.5 + sin_t1) * Math.cos(hy * 1.5 + cos_t1) * Math.sin(hz * 1.5);
+                let spikeForce = Math.abs(spikeShape) * (bassLvl * 15.0); // ยืดออกไปสูงสุดตามเสียง
 
-                vx += moveX + (hx - px) * pull;
-                vy += moveY + (hy - py) * pull;
-                vz += moveZ + (hz - pz) * pull;
+                let targetX = hx + (hx/4) * spikeForce;
+                let targetY = hy + (hy/4) * spikeForce;
+                let targetZ = hz + (hz/4) * spikeForce;
 
-                // จำกัดความเร็ว
+                let moveX = (sin_t1 * cos_p + cos_t1 * sin_p) * (curTurb + bassLvl * 0.05);
+                let moveY = (cos_t1 * cos_p - sin_t1 * sin_p) * (curTurb + bassLvl * 0.05);
+                let moveZ = (sin_t2 * cos_p + cos_t2 * sin_p) * (curTurb + bassLvl * 0.05);
+
+                // ดึงดูดกลับสู่เป้าหมาย (ที่มีการยืดออก)
+                vx += moveX + (targetX - px) * pull;
+                vy += moveY + (targetY - py) * pull;
+                vz += moveZ + (targetZ - pz) * pull;
+
                 let vSq = vx*vx + vy*vy + vz*vz;
                 if(vSq > maxVSq) {
                     let f = maxV / Math.sqrt(vSq);
@@ -401,13 +521,13 @@
 
                 px += vx; py += vy; pz += vz;
 
-                // ตรวจสอบการชนกำแพง
-                if (px > bounds.x) { px = bounds.x; vx *= -0.8; }
-                else if (px < -bounds.x) { px = -bounds.x; vx *= -0.8; }
-                if (py > bounds.y) { py = bounds.y; vy *= -0.8; }
-                else if (py < -bounds.y) { py = -bounds.y; vy *= -0.8; }
-                if (pz > bounds.z) { pz = bounds.z; vz *= -0.8; }
-                else if (pz < -bounds.z) { pz = -bounds.z; vz *= -0.8; }
+                // ตรวจสอบการชนกำแพงห้อง 3 มิติ
+                if (px > bounds.x) { px = bounds.x; vx *= -0.7; }
+                else if (px < -bounds.x) { px = -bounds.x; vx *= -0.7; }
+                if (py > bounds.y) { py = bounds.y; vy *= -0.7; }
+                else if (py < -bounds.y) { py = -bounds.y; vy *= -0.7; }
+                if (pz > bounds.z) { pz = bounds.z; vz *= -0.7; }
+                else if (pz < -bounds.z) { pz = -bounds.z; vz *= -0.7; }
 
                 pos[i3] = px; pos[i3+1] = py; pos[i3+2] = pz;
                 vel[i3] = vx; vel[i3+1] = vy; vel[i3+2] = vz;
@@ -416,6 +536,19 @@
 
         function updatePhysics() {
             const time = performance.now() * 0.001;
+
+            // ประมวลผลเสียงเบส
+            let currentBass = 0;
+            if (analyser && dataArray) {
+                analyser.getByteFrequencyData(dataArray);
+                // นำความถี่ต่ำ (Bass) มาเฉลี่ย
+                let sum = 0;
+                for(let i = 0; i < 8; i++) { sum += dataArray[i]; }
+                currentBass = (sum / 8) / 255.0; // แปลงเป็น 0.0 - 1.0
+            }
+            
+            // Smooth การเปลี่ยนแปลงของ Bass เพื่อไม่ให้หนามกระตุกเกินไป
+            smoothedBass += (currentBass - smoothedBass) * 0.2;
 
             currentColor1.lerp(targetColor1, 0.02);
             currentColor2.lerp(targetColor2, 0.02);
@@ -426,30 +559,32 @@
             particles1.material.color.copy(currentColor1);
             particles2.material.color.copy(currentColor2);
 
-            // อัปเดตแสงที่วิ่งไปชนกำแพง
             movingLights.forEach(ml => {
                 ml.light.color.copy(currentLightColor);
                 ml.light.position.x = Math.sin(time * ml.speed * currentSpeedMult + ml.offset) * (bounds.x * 0.85);
                 ml.light.position.y = Math.cos(time * (ml.speed * 0.7) * currentSpeedMult + ml.offset) * (bounds.y * 0.85);
                 ml.light.position.z = Math.sin(time * (ml.speed * 1.1) * currentSpeedMult + ml.offset) * (bounds.z * 0.85);
+                // ไฟสว่างขึ้นตามเบส
+                ml.light.intensity = 1.0 + (smoothedBass * 2.0);
             });
 
-            // ค่าคงที่ที่ถูกคำนวณล่วงหน้าไว้นอกลูป
             const t1 = time * currentSpeedMult;
             const t2 = time * 0.5 * currentSpeedMult;
             const sin_t1 = Math.sin(t1), cos_t1 = Math.cos(t1);
             const sin_t2 = Math.sin(t2), cos_t2 = Math.cos(t2);
-            const pull = 0.001 * currentSpeedMult;
-            const maxV = 0.4 * currentSpeedMult;
+            
+            // แรงดึงดูดกลับ และ ความเร็วสูงสุด เพิ่มขึ้นเมื่อมีเบส เพื่อให้ขยับเร็วขึ้นตอนเพลงมันส์ๆ
+            const pull = 0.002 * currentSpeedMult + (smoothedBass * 0.01);
+            const maxV = 0.5 * currentSpeedMult + (smoothedBass * 0.5);
             const maxVSq = maxV * maxV;
 
-            // รันฟิสิกส์ทีละกลุ่ม
-            updatePhysicsGroup(count1, pos1, vel1, home1, phase1, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq);
-            updatePhysicsGroup(count2, pos2, vel2, home2, phase2, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq);
+            updatePhysicsGroup(count1, pos1, vel1, home1, phase1, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass);
+            updatePhysicsGroup(count2, pos2, vel2, home2, phase2, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass);
 
             particles1.geometry.attributes.position.needsUpdate = true;
             particles2.geometry.attributes.position.needsUpdate = true;
             
+            // หมุนก้อน Ferrofluid ทั้งก้อน
             particles1.rotation.y = time * 0.1 * currentSpeedMult;
             particles1.rotation.z = time * 0.05 * currentSpeedMult;
             particles2.rotation.y = time * 0.1 * currentSpeedMult;
