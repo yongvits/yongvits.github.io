@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>WebGL 3D Room - Gyro Interactive</title>
+    <title>WebGL Ferrofluid Speaker</title>
     <style>
         body {
             margin: 0;
@@ -43,7 +43,11 @@
         .ui-text {
             font-size: 12px;
             line-height: 1.4;
-            opacity: 0.8;
+            opacity: 0.9;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .ui-text span {
@@ -69,28 +73,31 @@
         #start-btn {
             padding: 15px 30px;
             font-size: 18px;
-            background-color: transparent;
+            background-color: rgba(0, 255, 255, 0.1);
             color: #00ffff;
-            border: 1px solid #00ffff;
+            border: 2px solid #00ffff;
             border-radius: 30px;
             cursor: pointer;
             outline: none;
             transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            font-weight: bold;
         }
 
         #start-btn:active {
-            background-color: rgba(0, 255, 255, 0.2);
+            background-color: rgba(0, 255, 255, 0.3);
+            transform: scale(0.95);
         }
 
         .instruction {
             margin-top: 20px;
             font-size: 14px;
-            color: #888;
+            color: #ddd;
             text-align: center;
+            line-height: 1.6;
         }
 
-        /* Audio & AI Prompt UI */
+        /* Controls UI */
         .controls-wrapper {
             position: absolute;
             bottom: 30px;
@@ -101,73 +108,180 @@
             gap: 10px;
             z-index: 20;
             width: 90%;
-            max-width: 400px;
+            max-width: 420px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 5px; /* เผื่อที่ให้ scrollbar */
+        }
+
+        /* ปรับแต่ง scrollbar สำหรับแผงควบคุม */
+        .controls-wrapper::-webkit-scrollbar {
+            width: 4px;
+        }
+        .controls-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.5);
+            border-radius: 4px;
         }
 
         .panel-box {
             display: flex;
             gap: 10px;
-            background: rgba(20, 20, 20, 0.7);
-            padding: 10px 15px;
-            border-radius: 30px;
+            background: rgba(15, 15, 15, 0.85);
+            padding: 15px;
+            border-radius: 20px;
             border: 1px solid rgba(0, 255, 255, 0.3);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
             pointer-events: auto;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
         }
 
-        #ai-prompt {
-            flex-grow: 1;
-            background: transparent;
-            border: none;
+        .panel-col {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+        }
+
+        /* Inputs & Selects */
+        .input-style, .select-style {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
             color: #fff;
             outline: none;
-            font-size: 14px;
-            padding: 5px;
+            font-size: 13px;
+            padding: 8px 12px;
             width: 100%;
+            box-sizing: border-box;
+            font-family: inherit;
         }
 
-        #ai-prompt::placeholder {
-            color: rgba(255, 255, 255, 0.5);
+        .select-style {
+            cursor: pointer;
         }
 
+        .select-style option {
+            background: #222;
+            color: #fff;
+        }
+
+        .input-style::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Buttons */
         .btn-style {
             background: rgba(0, 255, 255, 0.1);
             color: #00ffff;
             border: 1px solid rgba(0, 255, 255, 0.5);
-            border-radius: 20px;
-            padding: 5px 15px;
+            border-radius: 15px;
+            padding: 10px 15px;
             cursor: pointer;
             font-weight: bold;
             transition: all 0.3s;
             white-space: nowrap;
-            font-size: 12px;
+            font-size: 13px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
         }
 
         .btn-style:hover {
-            background: rgba(0, 255, 255, 0.3);
+            background: rgba(0, 255, 255, 0.25);
+            box-shadow: 0 0 10px rgba(0,255,255,0.2);
         }
 
         .btn-style.active {
-            background: rgba(0, 255, 255, 0.6);
+            background: rgba(0, 255, 255, 0.8);
             color: #000;
+            box-shadow: 0 0 15px rgba(0,255,255,0.6);
         }
 
         .btn-style:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
+
+        /* Sliders */
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 100%;
+        }
+
+        .slider-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #ddd;
+        }
+
+        .slider-row span.val {
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #00ffff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 8px rgba(0,255,255,0.6);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+        }
+
+        /* Custom Audio Player Style */
+        audio {
+            width: 100%;
+            height: 35px;
+            outline: none;
+            border-radius: 10px;
+            opacity: 0.8;
+            display: none; /* ซ่อนไว้ก่อนจนกว่าจะโหลดเพลง */
+        }
+        
+        audio::-webkit-media-controls-panel {
+            background-color: rgba(0, 255, 255, 0.1);
+        }
+        audio::-webkit-media-controls-current-time-display,
+        audio::-webkit-media-controls-time-remaining-display {
+            color: #00ffff;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
+    <!-- หน้าต่างต้อนรับ -->
     <div id="start-overlay">
         <button id="start-btn">เข้าสู่ห้อง 3 มิติ</button>
-        <div class="instruction">แตะเพื่อเริ่มต้น<br>ใช้การเอียงมือถือเพื่อดูรอบๆ ห้อง</div>
+        <div class="instruction">
+            แตะเพื่อเริ่มต้น<br>
+            <span style="font-size: 12px; opacity: 0.7;">ระบบรองรับการเอียงหน้าจอ (Gyroscope) และตอบสนองต่อเสียงเพลง</span>
+        </div>
     </div>
 
+    <!-- UI บอกสถานะด้านบน -->
     <div class="ui-container">
         <div class="ui-row">
             <div class="ui-text">
@@ -176,30 +290,92 @@
             </div>
             <div class="ui-text" style="text-align: right;">
                 <span>FPS: <span id="fps">60</span></span>
-                <span>Particles: 80k</span>
+                <span>Particles: <span id="pt-display-val">40k</span></span>
             </div>
         </div>
         <div class="ui-row">
-            <div class="ui-text" style="margin-bottom: 90px;">
-                <span>✨ AI Aura Control</span>
-                <span id="ai-status">พิมพ์ธีมบรรยากาศด้านล่าง</span>
+            <div class="ui-text" style="margin-bottom: 270px;">
+                <span style="color: #00ffff; font-weight: bold;">✨ Status</span>
+                <span id="ai-status">พร้อมใช้งาน</span>
             </div>
         </div>
     </div>
 
+    <!-- แผงควบคุมด้านล่าง -->
     <div class="controls-wrapper">
-        <!-- Audio Panel -->
-        <div class="panel-box">
-            <button id="mic-btn" class="btn-style">🎙️ เปิดไมค์</button>
-            <button id="file-btn" class="btn-style">🎵 เลือกเพลง</button>
-            <input type="file" id="audio-upload" accept="audio/*" style="display: none;">
-            <audio id="audio-player" style="display: none;"></audio>
+        
+        <!-- Setting & Color Panel -->
+        <div class="panel-box panel-col">
+            <div class="slider-container">
+                <div class="slider-row">
+                    <span>ความหนาแน่นอนุภาค (Density)</span>
+                    <span class="val" id="pt-slider-val">40,000</span>
+                </div>
+                <input type="range" id="pt-slider" min="1000" max="80000" step="1000" value="40000">
+            </div>
+
+            <div class="slider-container" style="margin-top: 5px;">
+                <div class="slider-row">
+                    <span>รัศมีก้อนพลังงาน (Size)</span>
+                    <span class="val" id="rad-slider-val">100%</span>
+                </div>
+                <input type="range" id="rad-slider" min="20" max="250" value="100">
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 5px;">
+                <div class="slider-container" style="flex: 1;">
+                    <div class="slider-row" style="margin-bottom: 3px;">
+                        <span>🎨 สี (Color)</span>
+                    </div>
+                    <select id="color-mode" class="select-style">
+                        <option value="cyan">🔵 นีออนบลู</option>
+                        <option value="fire">🔥 แมกม่าเพลิง</option>
+                        <option value="cyber">🟣 ไซเบอร์พังก์</option>
+                        <option value="nature">🌿 พลังป่าลึก</option>
+                        <option value="gold">✨ ทองคำหรูหรา</option>
+                    </select>
+                </div>
+                <div class="slider-container" style="flex: 1;">
+                    <div class="slider-row" style="margin-bottom: 3px;">
+                        <span>🏢 ห้อง (Room)</span>
+                    </div>
+                    <select id="room-mode" class="select-style">
+                        <option value="dark-box">⬛ ห้องมืดสี่เหลี่ยม</option>
+                        <option value="white-grid">⬜ ห้องแล็บสีขาว</option>
+                        <option value="cylinder">⚫ ทรงกระบอกมืด</option>
+                        <option value="sphere-hdri">🌐 ทรงกลมพาโนรามา (HDRI)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- HDRI Controls (Hidden by default) -->
+            <div id="hdri-controls" class="slider-container" style="display: none; margin-top: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 10px;">
+                <div class="slider-row">
+                    <span>ความสว่างภาพ 360 (HDRI Brightness)</span>
+                    <span class="val" id="bright-slider-val">100%</span>
+                </div>
+                <input type="range" id="bright-slider" min="10" max="300" value="100" style="margin-bottom: 10px;">
+                
+                <button id="hdri-btn" class="btn-style" style="width: 100%;">🖼️ อัปโหลดภาพ 360 (JPG/PNG)</button>
+                <input type="file" id="hdri-upload" accept="image/*" style="display: none;">
+            </div>
+        </div>
+
+        <!-- Audio Input Panel -->
+        <div class="panel-box panel-col" style="gap: 8px;">
+            <div style="display: flex; gap: 10px; width: 100%;">
+                <button id="mic-btn" class="btn-style">🎙️ ไมค์รับเสียง</button>
+                <button id="file-btn" class="btn-style">🎵 โหลดเพลง MP3</button>
+                <input type="file" id="audio-upload" accept="audio/*" style="display: none;">
+            </div>
+            <!-- เครื่องเล่นเพลง (จะโชว์เมื่อโหลดไฟล์) -->
+            <audio id="audio-player" controls></audio>
         </div>
         
         <!-- AI Panel -->
-        <div class="panel-box">
-            <input type="text" id="ai-prompt" placeholder="เช่น 'ไฟนรก', 'พายุอวกาศ'..." autocomplete="off">
-            <button id="ai-btn" class="btn-style">✨ สร้าง</button>
+        <div class="panel-box" style="gap: 8px;">
+            <input type="text" id="ai-prompt" class="input-style" placeholder="พิมอารมณ์สี เช่น 'ไฟแห่งนรก'..." autocomplete="off">
+            <button id="ai-btn" class="btn-style" style="flex: 0 0 auto; padding: 8px 15px;">✨ AI สุ่ม</button>
         </div>
     </div>
 
@@ -207,39 +383,61 @@
         // --- ตัวแปรหลัก ---
         let scene, camera, renderer;
         
-        // 80,000 Particles แบ่งเป็น 2 กลุ่ม เพื่อลดการดึงคัลเลอร์เรย์บน CPU (Optimization)
-        const count1 = 40000;
-        const count2 = 40000;
+        // 80,000 Particles
+        const maxCountPerGroup = 40000;
+        let currentDrawCount = 20000; 
         
         let particles1, particles2;
         let pos1, vel1, home1, phase1;
         let pos2, vel2, home2, phase2;
 
         let movingLights = []; 
+        let roomMesh;
+        let floorGrid;
         
-        // --- AI Aura (Gemini) ---
-        const apiKey = ""; 
+        // Settings
+        let radiusMultiplier = 1.0;
+        let envTexture = null;
+        let currentRoomBrightness = 1.0;
+
+        // --- Color Setup ---
         let currentColor1 = new THREE.Color(0x00ffff);
         let targetColor1 = new THREE.Color(0x00ffff);
         let currentColor2 = new THREE.Color(0x00aaff);
         let targetColor2 = new THREE.Color(0x00aaff);
+        let currentLightColor = new THREE.Color(0x00ffff);
+        let targetLightColor = new THREE.Color(0x00ffff);
+        
         let currentSpeedMult = 1.0;
         let targetSpeedMult = 1.0;
         let currentTurb = 0.01;
         let targetTurb = 0.01;
-        let currentLightColor = new THREE.Color(0x00ffff);
-        let targetLightColor = new THREE.Color(0x00ffff);
+
+        // Preset Colors
+        const colorPresets = {
+            cyan:   { c1: 0x00ffff, c2: 0x00aaff, l: 0x00ffff, turb: 0.01, speed: 1.0 },
+            fire:   { c1: 0xff4400, c2: 0xffaa00, l: 0xff2200, turb: 0.03, speed: 1.5 },
+            cyber:  { c1: 0xff00ff, c2: 0x00ffff, l: 0xaa00ff, turb: 0.02, speed: 1.2 },
+            nature: { c1: 0x00ff44, c2: 0xaaff00, l: 0x00ff22, turb: 0.01, speed: 0.8 },
+            gold:   { c1: 0xffcc00, c2: 0xffffaa, l: 0xffaa00, turb: 0.01, speed: 1.0 }
+        };
 
         // --- Audio Variables ---
         let audioCtx, analyser, dataArray;
         let currentAudioSource = null;
         let smoothedBass = 0.0;
+        let smoothedLowMid = 0.0;
+        let smoothedMid = 0.0;
+        let smoothedHigh = 0.0;
+        let smoothedVolume = 0.0;
         let isMicActive = false;
+        
+        let simTime = 0; 
 
+        // Room Dimensions
         const roomWidth = 40;
         const roomHeight = 25;
         const roomDepth = 40;
-
         const bounds = { x: roomWidth / 2 - 0.5, y: roomHeight / 2 - 0.5, z: roomDepth / 2 - 0.5 };
 
         let targetCameraPos = new THREE.Vector3(0, 0, roomDepth / 2 - 2);
@@ -253,56 +451,243 @@
         let frames = 0;
         const fpsElement = document.getElementById('fps');
         const gyroStatusElement = document.getElementById('gyro-status');
+        const aiStatus = document.getElementById('ai-status');
+
+        // UI Elements
+        const ptSlider = document.getElementById('pt-slider');
+        const ptSliderVal = document.getElementById('pt-slider-val');
+        const radSlider = document.getElementById('rad-slider');
+        const radSliderVal = document.getElementById('rad-slider-val');
+        const ptDisplayVal = document.getElementById('pt-display-val');
+        const colorModeSelect = document.getElementById('color-mode');
+        const roomModeSelect = document.getElementById('room-mode');
+
+        // HDRI Elements
+        const hdriControls = document.getElementById('hdri-controls');
+        const brightSlider = document.getElementById('bright-slider');
+        const brightSliderVal = document.getElementById('bright-slider-val');
+        const hdriBtn = document.getElementById('hdri-btn');
+        const hdriUpload = document.getElementById('hdri-upload');
 
         init();
         animate();
 
+        // ฟังก์ชัน Texture อนุภาค
+        function createParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; 
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(200,200,200,0.8)');
+            gradient.addColorStop(0.5, 'rgba(100,100,100,0.4)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+            
+            const tex = new THREE.Texture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        // สร้างภาพ 360 เริ่มต้น (ดวงดาวอวกาศ) สำหรับใช้กรณีที่ผู้ใช้ยังไม่ได้อัปโหลด HDRI
+        function createDefaultHDRI() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+            gradient.addColorStop(0, '#001122');
+            gradient.addColorStop(0.5, '#004488');
+            gradient.addColorStop(1, '#000000');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1024, 512);
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            for(let i=0; i<300; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random()*1024, Math.random()*512, Math.random()*1.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+            const tex = new THREE.Texture(canvas);
+            tex.needsUpdate = true;
+            tex.mapping = THREE.EquirectangularReflectionMapping;
+            return tex;
+        }
+
+        // ระบบสลับโหมดห้อง
+        function setRoomStyle(style) {
+            if(roomMesh) scene.remove(roomMesh);
+            if(floorGrid) scene.remove(floorGrid);
+            
+            if(!envTexture) envTexture = createDefaultHDRI();
+
+            let geo, mat;
+            if(style === 'dark-box') {
+                geo = new THREE.BoxGeometry(roomWidth, roomHeight, roomDepth);
+                mat = new THREE.MeshStandardMaterial({color: 0x2a2a2a, side: THREE.BackSide, roughness: 0.4, metalness: 0.5});
+                scene.fog.color.setHex(0x1a1a1a);
+                scene.fog.density = 0.015;
+                renderer.setClearColor(0x1a1a1a);
+                floorGrid = new THREE.GridHelper(roomWidth, 20, 0x00ffff, 0x444444);
+                floorGrid.material.opacity = 0.5;
+            } else if (style === 'white-grid') {
+                geo = new THREE.BoxGeometry(roomWidth, roomHeight, roomDepth);
+                mat = new THREE.MeshStandardMaterial({color: 0xffffff, side: THREE.BackSide, roughness: 0.9, metalness: 0.1});
+                scene.fog.color.setHex(0xcccccc);
+                scene.fog.density = 0.01;
+                renderer.setClearColor(0xcccccc);
+                floorGrid = new THREE.GridHelper(roomWidth, 20, 0x888888, 0xbbbbbb);
+                floorGrid.material.opacity = 0.8;
+            } else if (style === 'cylinder') {
+                geo = new THREE.CylinderGeometry(roomWidth/1.5, roomWidth/1.5, roomHeight, 32);
+                mat = new THREE.MeshStandardMaterial({color: 0x151515, side: THREE.BackSide, roughness: 0.2, metalness: 0.8});
+                scene.fog.color.setHex(0x0a0a0a);
+                scene.fog.density = 0.02;
+                renderer.setClearColor(0x0a0a0a);
+                floorGrid = new THREE.PolarGridHelper(roomWidth/1.5, 16, 8, 64, 0x00ffff, 0x333333);
+                floorGrid.material.opacity = 0.4;
+            } else if (style === 'sphere-hdri') {
+                // ทรงกลมที่มี UV รับภาพ Equirectangular HDRI
+                geo = new THREE.SphereGeometry(roomWidth * 1.5, 64, 40);
+                // พลิกแกน x เพื่อให้ Texture ไม่กลับด้านซ้ายขวาเมื่อมองจากด้านใน
+                geo.scale(-1, 1, 1); 
+                
+                mat = new THREE.MeshBasicMaterial({ 
+                    map: envTexture,
+                    color: new THREE.Color().setScalar(currentRoomBrightness)
+                });
+                
+                scene.fog.color.setHex(0x000000);
+                scene.fog.density = 0.005; // หมอกจางๆ เพื่อให้เห็นภาพ HDRI ไกลๆ
+                renderer.setClearColor(0x000000);
+                floorGrid = null; // ไม่ต้องใช้พื้นกริดในโหมดนี้
+            }
+            
+            roomMesh = new THREE.Mesh(geo, mat);
+            scene.add(roomMesh);
+            
+            if(floorGrid) {
+                // ขยับกริดลงไปที่พื้น
+                floorGrid.position.y = -roomHeight / 2 + 0.1;
+                floorGrid.material.transparent = true;
+                scene.add(floorGrid);
+            }
+        }
+
         function init() {
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x1a1a1a, 0.02);
+            scene.fog = new THREE.FogExp2(0x1a1a1a, 0.015); 
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 0, cameraZBase);
 
-            renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false }); 
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); 
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x1a1a1a); 
+            
             document.body.appendChild(renderer.domElement);
 
-            const roomGeo = new THREE.BoxGeometry(roomWidth, roomHeight, roomDepth);
-            const roomMat = new THREE.MeshPhongMaterial({
-                color: 0x222222,
-                side: THREE.BackSide,
-                shininess: 15, 
-                specular: 0x333333
-            });
-            const roomMesh = new THREE.Mesh(roomGeo, roomMat);
-            scene.add(roomMesh);
+            // โหลดห้องเริ่มต้น
+            setRoomStyle('dark-box');
 
-            const ambientLight = new THREE.AmbientLight(0x202020); 
+            // จัดแสงสว่าง
+            const ambientLight = new THREE.AmbientLight(0x666666); 
             scene.add(ambientLight);
 
-            // แทนที่จุดตรงกลางด้วยแสงไดนามิก 3 ดวงที่วิ่งโฉบไปมา
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8); 
+            scene.add(hemiLight);
+
+            // แสงวิ่งรอบห้อง (ตอบสนองความถี่สูง)
             for (let i = 0; i < 3; i++) {
-                let pLight = new THREE.PointLight(0x00ffff, 1.5, 35);
+                let pLight = new THREE.PointLight(0x00ffff, 1.5, 30); 
                 scene.add(pLight);
                 movingLights.push({
                     light: pLight,
                     offset: Math.random() * Math.PI * 2,
-                    speed: Math.random() * 0.4 + 0.4
+                    speed: Math.random() * 0.3 + 0.3
                 });
             }
 
             createOptimizedParticles();
+            updateDrawRange(); 
 
             window.addEventListener('resize', onWindowResize, false);
             document.addEventListener('mousemove', onDocumentMouseMove, false);
             
-            // ปุ่มเริ่ม
+            // Slider Listeners
+            ptSlider.addEventListener('input', (e) => {
+                ptSliderVal.innerText = parseInt(e.target.value).toLocaleString();
+                updateDrawRange();
+            });
+
+            radSlider.addEventListener('input', (e) => {
+                radSliderVal.innerText = e.target.value + '%';
+                radiusMultiplier = parseInt(e.target.value) / 100;
+            });
+
+            // Mode Selectors
+            colorModeSelect.addEventListener('change', (e) => {
+                const preset = colorPresets[e.target.value];
+                if(preset) {
+                    targetColor1.setHex(preset.c1);
+                    targetColor2.setHex(preset.c2);
+                    targetLightColor.setHex(preset.l);
+                    targetTurb = preset.turb;
+                    targetSpeedMult = preset.speed;
+                    aiStatus.innerText = `โหมดสี: ${e.target.options[e.target.selectedIndex].text}`;
+                }
+            });
+
+            roomModeSelect.addEventListener('change', (e) => {
+                setRoomStyle(e.target.value);
+                
+                // โชว์เมนูอัปโหลดและปรับความสว่างเฉพาะตอนเลือกโหมด HDRI
+                if(e.target.value === 'sphere-hdri') {
+                    hdriControls.style.display = 'block';
+                } else {
+                    hdriControls.style.display = 'none';
+                }
+            });
+
+            // --- HDRI Listeners ---
+            brightSlider.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                brightSliderVal.innerText = val + '%';
+                currentRoomBrightness = val / 100;
+                
+                // อัปเดตความสว่างของห้องแบบ Realtime
+                if(roomModeSelect.value === 'sphere-hdri' && roomMesh && roomMesh.material) {
+                    roomMesh.material.color.setScalar(currentRoomBrightness);
+                }
+            });
+
+            hdriBtn.addEventListener('click', () => { hdriUpload.click(); });
+            
+            hdriUpload.addEventListener('change', function(e) {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    const url = URL.createObjectURL(file);
+                    
+                    const loader = new THREE.TextureLoader();
+                    loader.load(url, (tex) => {
+                        tex.mapping = THREE.EquirectangularReflectionMapping;
+                        envTexture = tex; // เก็บไว้ใช้เวลาเปลี่ยนสลับห้องไปมา
+                        
+                        if(roomModeSelect.value === 'sphere-hdri' && roomMesh && roomMesh.material) {
+                            roomMesh.material.map = envTexture;
+                            roomMesh.material.needsUpdate = true;
+                        }
+                    });
+                }
+            });
+            
+            // Start Button
             document.getElementById('start-btn').addEventListener('click', () => {
                 initDeviceOrientation();
-                initAudioContext(); // เตรียม Audio Context ตอนกดเริ่ม
+                initAudioContext();
                 const overlay = document.getElementById('start-overlay');
                 overlay.style.opacity = '0';
                 setTimeout(() => { overlay.style.display = 'none'; }, 500);
@@ -314,7 +699,7 @@
                 if(e.key === 'Enter') generateAIAura();
             });
 
-            // Audio Controls
+            // Audio Controls (Mic & MP3)
             const audioUpload = document.getElementById('audio-upload');
             const fileBtn = document.getElementById('file-btn');
             const micBtn = document.getElementById('mic-btn');
@@ -327,12 +712,14 @@
                     const file = this.files[0];
                     const url = URL.createObjectURL(file);
                     audioPlayer.src = url;
+                    audioPlayer.style.display = "block"; 
                     audioPlayer.play();
                     setupAudioSource(audioPlayer, false);
                     
                     micBtn.classList.remove('active');
                     fileBtn.classList.add('active');
                     isMicActive = false;
+                    aiStatus.innerText = "กำลังเล่นเพลง: " + file.name;
                 }
             });
 
@@ -344,21 +731,33 @@
                         micBtn.classList.add('active');
                         fileBtn.classList.remove('active');
                         audioPlayer.pause();
+                        audioPlayer.style.display = "none"; 
                         isMicActive = true;
+                        aiStatus.innerText = "กำลังรับเสียงจากไมโครโฟน";
                     } catch (err) {
                         console.error("Mic access denied or error:", err);
-                        alert("ไม่สามารถเข้าถึงไมโครโฟนได้");
+                        alert("ไม่สามารถเข้าถึงไมโครโฟนได้ โปรดอนุญาตสิทธิ์ก่อน");
                     }
                 }
             });
         }
 
-        // --- ระบบเสียง ---
+        function updateDrawRange() {
+            const totalDesired = parseInt(ptSlider.value);
+            currentDrawCount = Math.floor(totalDesired / 2); 
+            
+            particles1.geometry.setDrawRange(0, currentDrawCount);
+            particles2.geometry.setDrawRange(0, currentDrawCount);
+            
+            ptDisplayVal.innerText = Math.round(totalDesired / 1000) + 'k';
+        }
+
+        // --- ระบบเสียง (Audio API) ---
         function initAudioContext() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 256; 
+                analyser.fftSize = 256; // ให้ผลลัพธ์ข้อมูล 128 แบนด์
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
             }
             if(audioCtx.state === 'suspended') {
@@ -374,7 +773,6 @@
             if (isMic) {
                 currentAudioSource = audioCtx.createMediaStreamSource(sourceNode);
                 currentAudioSource.connect(analyser);
-                // ไม่ต้องต่อ destination ถ้าเป็นไมค์ (เดี๋ยวเสียงจะหอน)
             } else {
                 currentAudioSource = audioCtx.createMediaElementSource(sourceNode);
                 currentAudioSource.connect(analyser);
@@ -383,6 +781,8 @@
         }
 
         function createOptimizedParticles() {
+            const tex = createParticleTexture(); 
+
             function allocateGroup(count) {
                 const pos = new Float32Array(count * 3);
                 const vel = new Float32Array(count * 3);
@@ -390,8 +790,10 @@
                 const phase = new Float32Array(count * 2);
 
                 for (let i = 0; i < count; i++) {
-                    // สร้างรูปร่างทรงกลมแน่นๆ แบบ Ferrofluid
-                    const radius = 3.5 + (Math.random() * 1.5); 
+                    let rSq = Math.random();
+                    // ปรับ Base Radius ให้เล็กลงแต่แรก จะได้ไม่บังจอ
+                    const radius = (rSq * rSq * 4.0) + 1.0; 
+                    
                     const theta = Math.random() * Math.PI * 2;
                     const phi = Math.acos((Math.random() * 2) - 1);
                     
@@ -402,9 +804,9 @@
                     pos[i*3] = x; pos[i*3+1] = y; pos[i*3+2] = z;
                     home[i*3] = x; home[i*3+1] = y; home[i*3+2] = z;
                     
-                    vel[i*3] = (Math.random() - 0.5) * 0.1;
-                    vel[i*3+1] = (Math.random() - 0.5) * 0.1;
-                    vel[i*3+2] = (Math.random() - 0.5) * 0.1;
+                    vel[i*3] = (Math.random() - 0.5) * 0.05;
+                    vel[i*3+1] = (Math.random() - 0.5) * 0.05;
+                    vel[i*3+2] = (Math.random() - 0.5) * 0.05;
 
                     const p = Math.random() * Math.PI * 2;
                     phase[i*2] = Math.sin(p);
@@ -413,10 +815,10 @@
                 return { pos, vel, home, phase };
             }
 
-            const g1 = allocateGroup(count1);
+            const g1 = allocateGroup(maxCountPerGroup);
             pos1 = g1.pos; vel1 = g1.vel; home1 = g1.home; phase1 = g1.phase;
             
-            const g2 = allocateGroup(count2);
+            const g2 = allocateGroup(maxCountPerGroup);
             pos2 = g2.pos; vel2 = g2.vel; home2 = g2.home; phase2 = g2.phase;
 
             const geo1 = new THREE.BufferGeometry();
@@ -426,10 +828,22 @@
             geo2.setAttribute('position', new THREE.BufferAttribute(pos2, 3));
 
             const mat1 = new THREE.PointsMaterial({
-                color: currentColor1, size: 0.2, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false
+                color: currentColor1, 
+                size: 0.35, 
+                map: tex,
+                blending: THREE.AdditiveBlending, 
+                transparent: true, 
+                opacity: 0.8, 
+                depthWrite: false
             });
             const mat2 = new THREE.PointsMaterial({
-                color: currentColor2, size: 0.2, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false
+                color: currentColor2, 
+                size: 0.35, 
+                map: tex,
+                blending: THREE.AdditiveBlending, 
+                transparent: true, 
+                opacity: 0.8, 
+                depthWrite: false
             });
 
             particles1 = new THREE.Points(geo1, mat1);
@@ -485,30 +899,40 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        function updatePhysicsGroup(count, pos, vel, home, phase, sin_t1, cos_t1, sin_t2, cos_t2, curTurb, pull, maxV, maxVSq, bassLvl) {
-            for(let i=0; i<count; i++) {
+        function updatePhysicsGroup(activeCount, pos, vel, home, phase, sin_t1, cos_t1, sin_t2, cos_t2, curTurb, pull, maxV, maxVSq, sBass, sLowMid, sMid) {
+            for(let i=0; i<activeCount; i++) {
                 let i3 = i*3, i2 = i*2;
                 
                 let px = pos[i3], py = pos[i3+1], pz = pos[i3+2];
-                let hx = home[i3], hy = home[i3+1], hz = home[i3+2];
+                // ปรับรัศมีเริ่มต้นตาม Slider
+                let hx = home[i3] * radiusMultiplier;
+                let hy = home[i3+1] * radiusMultiplier;
+                let hz = home[i3+2] * radiusMultiplier;
+
                 let vx = vel[i3], vy = vel[i3+1], vz = vel[i3+2];
                 
                 let sin_p = phase[i2];
                 let cos_p = phase[i2+1];
 
-                // สร้างหนาม (Spikes) ตามเสียงเบส โดยคำนวณจากตำแหน่งแกน
+                // --- ฟิสิกส์แยกตามความถี่ ---
+                
+                // 1. เสียงเบส (Drums) ควบคุมการพุ่งแหลมของหนาม (Spikes)
                 let spikeShape = Math.sin(hx * 1.5 + sin_t1) * Math.cos(hy * 1.5 + cos_t1) * Math.sin(hz * 1.5);
-                let spikeForce = Math.abs(spikeShape) * (bassLvl * 15.0); // ยืดออกไปสูงสุดตามเสียง
+                let spikeForce = Math.abs(spikeShape) * (sBass * 20.0); 
 
-                let targetX = hx + (hx/4) * spikeForce;
-                let targetY = hy + (hy/4) * spikeForce;
-                let targetZ = hz + (hz/4) * spikeForce;
+                // 2. เสียง Low-Mid (Bass Guitar/Lower Vocals) ควบคุมการหายใจ (พอง/ยุบ ตัวรวม)
+                let breathe = 1.0 + (sLowMid * 0.4);
 
-                let moveX = (sin_t1 * cos_p + cos_t1 * sin_p) * (curTurb + bassLvl * 0.05);
-                let moveY = (cos_t1 * cos_p - sin_t1 * sin_p) * (curTurb + bassLvl * 0.05);
-                let moveZ = (sin_t2 * cos_p + cos_t2 * sin_p) * (curTurb + bassLvl * 0.05);
+                let targetX = (hx * breathe) + (hx/3) * spikeForce;
+                let targetY = (hy * breathe) + (hy/3) * spikeForce;
+                let targetZ = (hz * breathe) + (hz/3) * spikeForce;
 
-                // ดึงดูดกลับสู่เป้าหมาย (ที่มีการยืดออก)
+                // 3. เสียง Mid (Vocals/Guitar) ควบคุมความปั่นป่วนบนผิวคลื่น (Turbulence/Ripples)
+                let rippleStr = curTurb + (sMid * 0.15);
+                let moveX = (sin_t1 * cos_p + cos_t1 * sin_p) * rippleStr;
+                let moveY = (cos_t1 * cos_p - sin_t1 * sin_p) * rippleStr;
+                let moveZ = (sin_t2 * cos_p + cos_t2 * sin_p) * rippleStr;
+
                 vx += moveX + (targetX - px) * pull;
                 vy += moveY + (targetY - py) * pull;
                 vz += moveZ + (targetZ - pz) * pull;
@@ -521,13 +945,13 @@
 
                 px += vx; py += vy; pz += vz;
 
-                // ตรวจสอบการชนกำแพงห้อง 3 มิติ
-                if (px > bounds.x) { px = bounds.x; vx *= -0.7; }
-                else if (px < -bounds.x) { px = -bounds.x; vx *= -0.7; }
-                if (py > bounds.y) { py = bounds.y; vy *= -0.7; }
-                else if (py < -bounds.y) { py = -bounds.y; vy *= -0.7; }
-                if (pz > bounds.z) { pz = bounds.z; vz *= -0.7; }
-                else if (pz < -bounds.z) { pz = -bounds.z; vz *= -0.7; }
+                // การชนกำแพง
+                if (px > bounds.x) { px = bounds.x; vx *= -0.6; }
+                else if (px < -bounds.x) { px = -bounds.x; vx *= -0.6; }
+                if (py > bounds.y) { py = bounds.y; vy *= -0.6; }
+                else if (py < -bounds.y) { py = -bounds.y; vy *= -0.6; }
+                if (pz > bounds.z) { pz = bounds.z; vz *= -0.6; }
+                else if (pz < -bounds.z) { pz = -bounds.z; vz *= -0.6; }
 
                 pos[i3] = px; pos[i3+1] = py; pos[i3+2] = pz;
                 vel[i3] = vx; vel[i3+1] = vy; vel[i3+2] = vz;
@@ -535,21 +959,46 @@
         }
 
         function updatePhysics() {
-            const time = performance.now() * 0.001;
-
-            // ประมวลผลเสียงเบส
-            let currentBass = 0;
+            let bSum = 0, lmSum = 0, mSum = 0, hSum = 0;
+            let currentVolume = 0;
+            
             if (analyser && dataArray) {
                 analyser.getByteFrequencyData(dataArray);
-                // นำความถี่ต่ำ (Bass) มาเฉลี่ย
-                let sum = 0;
-                for(let i = 0; i < 8; i++) { sum += dataArray[i]; }
-                currentBass = (sum / 8) / 255.0; // แปลงเป็น 0.0 - 1.0
+                
+                // แยกย่านความถี่ (รวม 128 Bins)
+                // Bass (Drums) : 0-5
+                for(let i=0; i<=5; i++) bSum += dataArray[i];
+                // Low-Mid (Bass Guitar) : 6-15
+                for(let i=6; i<=15; i++) lmSum += dataArray[i];
+                // Mid (Vocals/Guitar) : 16-45
+                for(let i=16; i<=45; i++) mSum += dataArray[i];
+                // High (Cymbals/Synths) : 46-100
+                for(let i=46; i<=100; i++) hSum += dataArray[i];
+
+                let bAvg = (bSum / 6) / 255.0;
+                let lmAvg = (lmSum / 10) / 255.0;
+                let mAvg = (mSum / 30) / 255.0;
+                let hAvg = (hSum / 55) / 255.0;
+                
+                smoothedBass += (bAvg - smoothedBass) * 0.2;
+                smoothedLowMid += (lmAvg - smoothedLowMid) * 0.15;
+                smoothedMid += (mAvg - smoothedMid) * 0.15;
+                smoothedHigh += (hAvg - smoothedHigh) * 0.2;
+
+                // Volume รวมสำหรับการเร่งเวลา
+                let volSum = 0;
+                for(let i = 0; i < analyser.frequencyBinCount; i++) volSum += dataArray[i];
+                currentVolume = (volSum / analyser.frequencyBinCount) / 255.0;
             }
             
-            // Smooth การเปลี่ยนแปลงของ Bass เพื่อไม่ให้หนามกระตุกเกินไป
-            smoothedBass += (currentBass - smoothedBass) * 0.2;
+            smoothedVolume += (currentVolume - smoothedVolume) * 0.15;
 
+            // การขยับอัตโนมัติเบาๆ + เร่งตาม Volume โดยรวม
+            const idleRatio = 0.1;
+            const timeSpeed = (idleRatio * 0.5) + (smoothedVolume * 3.0);
+            simTime += 0.02 * timeSpeed * currentSpeedMult;
+
+            // Lerp Color ทรานซิชันสี
             currentColor1.lerp(targetColor1, 0.02);
             currentColor2.lerp(targetColor2, 0.02);
             currentLightColor.lerp(targetLightColor, 0.02);
@@ -558,42 +1007,57 @@
 
             particles1.material.color.copy(currentColor1);
             particles2.material.color.copy(currentColor2);
+            if(floorGrid) {
+                // สีตารางพื้นล้อตามสีไฟ แต่ดรอปความสว่างลงนิดนึง
+                let gridColor = currentLightColor.clone();
+                if(roomModeSelect.value === 'white-grid') {
+                    gridColor.multiplyScalar(0.4); // ถ้าห้องขาวให้ตารางเข้มขึ้น
+                } else {
+                    gridColor.multiplyScalar(0.7);
+                }
+                floorGrid.material.color.copy(gridColor); 
+            }
 
+            const realTime = performance.now() * 0.001; 
             movingLights.forEach(ml => {
                 ml.light.color.copy(currentLightColor);
-                ml.light.position.x = Math.sin(time * ml.speed * currentSpeedMult + ml.offset) * (bounds.x * 0.85);
-                ml.light.position.y = Math.cos(time * (ml.speed * 0.7) * currentSpeedMult + ml.offset) * (bounds.y * 0.85);
-                ml.light.position.z = Math.sin(time * (ml.speed * 1.1) * currentSpeedMult + ml.offset) * (bounds.z * 0.85);
-                // ไฟสว่างขึ้นตามเบส
-                ml.light.intensity = 1.0 + (smoothedBass * 2.0);
+                ml.light.position.x = Math.sin(realTime * ml.speed + ml.offset) * (bounds.x * 0.9);
+                ml.light.position.y = Math.cos(realTime * (ml.speed * 0.8) + ml.offset) * (bounds.y * 0.9);
+                ml.light.position.z = Math.sin(realTime * (ml.speed * 1.2) + ml.offset) * (bounds.z * 0.9);
+                
+                // 4. เสียง High (เสียงแหลม) ทำให้ไฟวิ่งสว่างวาบขึ้นมา
+                ml.light.intensity = 1.0 + (smoothedHigh * 5.0);
             });
 
-            const t1 = time * currentSpeedMult;
-            const t2 = time * 0.5 * currentSpeedMult;
+            const t1 = simTime;
+            const t2 = simTime * 0.5;
             const sin_t1 = Math.sin(t1), cos_t1 = Math.cos(t1);
             const sin_t2 = Math.sin(t2), cos_t2 = Math.cos(t2);
             
-            // แรงดึงดูดกลับ และ ความเร็วสูงสุด เพิ่มขึ้นเมื่อมีเบส เพื่อให้ขยับเร็วขึ้นตอนเพลงมันส์ๆ
-            const pull = 0.002 * currentSpeedMult + (smoothedBass * 0.01);
-            const maxV = 0.5 * currentSpeedMult + (smoothedBass * 0.5);
+            const pull = 0.005 * currentSpeedMult + (smoothedBass * 0.02);
+            let activeSpeedLimit = (idleRatio * 0.2) + (smoothedVolume * 0.8);
+            if(activeSpeedLimit < 0.01) activeSpeedLimit = 0.01;
+
+            const maxV = activeSpeedLimit * currentSpeedMult;
             const maxVSq = maxV * maxV;
 
-            updatePhysicsGroup(count1, pos1, vel1, home1, phase1, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass);
-            updatePhysicsGroup(count2, pos2, vel2, home2, phase2, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass);
+            // ส่งข้อมูลแยกย่านความถี่เข้าไปคำนวณในกลุ่ม
+            updatePhysicsGroup(currentDrawCount, pos1, vel1, home1, phase1, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass, smoothedLowMid, smoothedMid);
+            updatePhysicsGroup(currentDrawCount, pos2, vel2, home2, phase2, sin_t1, cos_t1, sin_t2, cos_t2, currentTurb, pull, maxV, maxVSq, smoothedBass, smoothedLowMid, smoothedMid);
 
             particles1.geometry.attributes.position.needsUpdate = true;
             particles2.geometry.attributes.position.needsUpdate = true;
             
-            // หมุนก้อน Ferrofluid ทั้งก้อน
-            particles1.rotation.y = time * 0.1 * currentSpeedMult;
-            particles1.rotation.z = time * 0.05 * currentSpeedMult;
-            particles2.rotation.y = time * 0.1 * currentSpeedMult;
-            particles2.rotation.z = time * 0.05 * currentSpeedMult;
+            // หมุนก้อนตามเวลา+ปริมาณเสียงร้อง (Mid)
+            particles1.rotation.y = simTime * (0.1 + smoothedMid * 0.2);
+            particles1.rotation.z = simTime * (0.05 + smoothedMid * 0.1);
+            particles2.rotation.y = simTime * (0.1 + smoothedMid * 0.2);
+            particles2.rotation.z = simTime * (0.05 + smoothedMid * 0.1);
         }
 
         async function fetchGeminiWithBackoff(prompt, retries = 5) {
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const apiKeyStr = ""; // ไม่จำเป็นต้องใส่ API key แบบฮาร์ดโค้ด
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKeyStr}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
                 systemInstruction: {
@@ -609,7 +1073,7 @@
                             lightColor: { type: "STRING", description: "Hex color code for the center glowing core" },
                             speed: { type: "NUMBER", description: "Movement speed multiplier. 0.2 (calm/slow) to 3.0 (fast/chaotic/stormy)" },
                             turbulence: { type: "NUMBER", description: "Amount of chaos/wave in movement. 0.001 (calm) to 0.05 (very stormy/explosive)" },
-                            statusText: { type: "STRING", description: "A poetic 3-6 word description of the new atmosphere in Thai (e.g. 'เปลวเพลิงแห่งความโกรธแค้น', 'ห้วงอวกาศอันสงบ')" }
+                            statusText: { type: "STRING", description: "A poetic 3-6 word description of the new atmosphere in Thai (e.g. 'เปลวเพลิงแห่งความโกรธแค้น')" }
                         },
                         required: ["color1", "color2", "lightColor", "speed", "turbulence", "statusText"]
                     }
@@ -624,7 +1088,7 @@
                     return JSON.parse(data.candidates[0].content.parts[0].text);
                 } catch (error) {
                     if (i === retries - 1) throw error;
-                    await new Promise(res => setTimeout(res, delays[i]));
+                    await new Promise(res => setTimeout(res, [1000, 2000, 4000, 8000, 16000][i]));
                 }
             }
         }
@@ -632,13 +1096,13 @@
         async function generateAIAura() {
             const promptInput = document.getElementById('ai-prompt');
             const btn = document.getElementById('ai-btn');
-            const statusEl = document.getElementById('ai-status');
             const prompt = promptInput.value.trim();
             if(!prompt) return;
 
             btn.disabled = true;
-            btn.innerText = "✨ กำลังประมวลผล...";
-            statusEl.innerText = "กำลังจูนคลื่นพลังงาน...";
+            btn.innerText = "กำลังจูน...";
+            aiStatus.innerText = "กำลังดึงพลังงาน...";
+            colorModeSelect.value = ""; // ยกเลิกการเลือกสีใน Dropdown
 
             try {
                 const config = await fetchGeminiWithBackoff(prompt);
@@ -647,14 +1111,14 @@
                 targetLightColor.set(config.lightColor);
                 targetSpeedMult = config.speed;
                 targetTurb = config.turbulence;
-                statusEl.innerText = config.statusText;
+                aiStatus.innerText = config.statusText;
                 promptInput.value = '';
             } catch (error) {
                 console.error("AI Error:", error);
-                statusEl.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ AI";
+                aiStatus.innerText = "รอการเชื่อมต่อ API...";
             } finally {
                 btn.disabled = false;
-                btn.innerText = "✨ สร้าง";
+                btn.innerText = "✨ AI สุ่ม";
             }
         }
 
