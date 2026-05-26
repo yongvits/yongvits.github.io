@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini 3D Sculpt & Animation</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #1a1a1a; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #ui-panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(0,0,0,0.8); padding: 15px;
+            border-radius: 8px; color: white; display: flex; flex-direction: column; gap: 10px;
+        }
+        button {
+            background: #3498db; color: white; border: none; padding: 8px 12px;
+            border-radius: 4px; cursor: pointer; font-weight: bold;
+        }
+        button:hover { background: #2980b9; }
+        button#play-btn { background: #2ecc71; }
+        button#play-btn:hover { background: #27ae60; }
+        button#clear-btn { background: #e74c3c; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="ui-panel">
+        <h3>3D Sculpt & Anim</h3>
+        <p style="font-size: 12px; margin: 0; color: #aaa;">วิธีเล่น: คลิกค้างแล้วลากบนลูกบอลเพื่อดึงโมเดล</p>
+        <hr style="border-color: #444;">
+        <button id="save-btn">1. Save Keyframe</button>
+        <button id="play-btn">2. Play Animation</button>
+        <button id="clear-btn">Clear Timeline</button>
+        <div id="status" style="font-size: 12px; color: #2ecc71;">Keyframes: 0</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // --- 1. SETUP SCENE & CAMERA ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        // แสงสว่าง
+        const ambientLight = new THREE.AmbientLight(0x666666);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 5, 5);
+        scene.add(dirLight);
+
+        // ตัวควบคุมมุมมองกล้อง
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // --- 2. CREATE SCULPTABLE MESH ---
+        // ใช้ Sphere ที่มีความถี่ของจุด (Vertex) พอสมควร
+        const geometry = new THREE.SphereGeometry(1, 32, 32);
+        const material = new THREE.MeshStandardMaterial({ 
+            color: 0x3498db, 
+            roughness: 0.4,
+            metalness: 0.1,
+            wireframe: false // เปิด true ถ้าอยากเห็นโครงตาข่ายขยับ
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
+
+        // เก็บตำแหน่งเริ่มต้นของจุดต่างๆ ไว้ทำโครงสร้างเดิม
+        const initialPositions = geometry.attributes.position.clone();
+
+        // --- 3. SCULPTING LOGIC (ดึงปั้น) ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let isDrawing = false;
+
+        window.addEventListener('mousedown', (e) => {
+            // เช็คไม่ให้คลิกโดนปุ่ม UI
+            if(e.target.tagName === 'BUTTON') return;
+            isDrawing = true;
+            controls.enabled = false; // ปิดการหมุนกล้องชั่วคราวตอนปั้น
+            deformMesh(e);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            deformMesh(e);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDrawing = false;
+            controls.enabled = true; // เปิดการหมุนกล้องกลับมา
+        });
+
+        function deformMesh(event) {
+            // แปลงพิกัดเมาส์
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(mesh);
+
+            if (intersects.length > 0) {
+                const pointOfIntersection = intersects[0].point;
+                const positionAttribute = geometry.attributes.position;
+                const vertex = new THREE.Vector3();
+
+                // วนลูปเช็คจุดยอดทุกจุดอันไหนใกล้เมาส์ให้ดึงออกมา
+                for (let i = 0; i < positionAttribute.count; i++) {
+                    vertex.fromBufferAttribute(positionAttribute, i);
+                    
+                    // แปลงพิกัด Local ของ Vertex เป็น World Space
+                    const worldVertex = vertex.clone().applyMatrix4(mesh.matrixWorld);
+                    const distance = worldVertex.distanceTo(pointOfIntersection);
+
+                    // รัศมีของแปรงปั้น (Brush Radius) และความแรง (Strength)
+                    const brushRadius = 0.4;
+                    const strength = 0.05;
+
+                    if (distance < brushRadius) {
+                        // คำนวณทิศทางแรงดึง (ดึงออกจากจุดศูนย์กลางเมาส์)
+                        const dir = worldVertex.clone().sub(pointOfIntersection).normalize();
+                        const factor = (1 - (distance / brushRadius)) * strength;
+                        
+                        vertex.addScaledVector(dir, factor);
+                        positionAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+                    }
+                }
+                // แจ้งเตือน Three.js ว่าโมเดลมีการเปลี่ยนรูปทรงนะ ให้เรนเดอร์ใหม่
+                positionAttribute.needsUpdate = true;
+                geometry.computeVertexNormals(); 
+            }
+        }
+
+        // --- 4. ANIMATION SYSTEM (ระบบคีย์เฟรม) ---
+        let timeline = []; // เก็บ Array ของท่านั้นๆ
+        let isPlaying = false;
+        let animClock = 0;
+        let currentFrameIndex = 0;
+
+        const statusIdx = document.getElementById('status');
+
+        // ปุ่มเซฟคีย์เฟรม
+        document.getElementById('save-btn').addEventListener('click', () => {
+            const positionAttribute = geometry.attributes.position;
+            // ก๊อปปี้ตำแหน่งจุด ณ เวลานั้นเก็บไว้เป็นอาร์เรย์
+            const framePositions = new Float32Array(positionAttribute.array);
+            timeline.push(framePositions);
+            statusIdx.innerText = `Keyframes Saved: ${timeline.length}`;
+        });
+
+        // ปุ่มเล่นแอนิเมชัน
+        document.getElementById('play-btn').addEventListener('click', () => {
+            if(timeline.length < 2) {
+                alert("ต้องบันทึกอย่างน้อย 2 คีย์เฟรมก่อนครับถึงจะขยับได้!");
+                return;
+            }
+            isPlaying = !isPlaying;
+            document.getElementById('play-btn').innerText = isPlaying ? "Stop Animation" : "Play Animation";
+        });
+
+        // ปุ่มเคลียร์ล้างใหม่หมด
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            timeline = [];
+            isPlaying = false;
+            document.getElementById('play-btn').innerText = "Play Animation";
+            statusIdx.innerText = `Keyframes: 0`;
+            
+            // รีเซ็ตโมเดลกลับทรงกลมปกติ
+            geometry.attributes.position.copy(initialPositions);
+            geometry.attributes.position.needsUpdate = true;
+            geometry.computeVertexNormals();
+        });
+
+        // --- 5. ANIMATION LOOP (เรนเดอร์ภาพ) ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // หากกดเล่นแอนิเมชัน ระบบจะทำการเกลี่ย (Interpolate) จุดต่างๆ ระหว่าง Keyframe
+            if (isPlaying && timeline.length >= 2) {
+                animClock += clock.getDelta() * 2; // ปรับความเร็วตรงนี้
+                if(animClock > 1) {
+                    animClock = 0;
+                    currentFrameIndex = (currentFrameIndex + 1) % (timeline.length - 1);
+                }
+
+                const currentFrame = timeline[currentFrameIndex];
+                const nextFrame = timeline[currentFrameIndex + 1];
+                const positionAttribute = geometry.attributes.position;
+
+                // ผสมผสานตำแหน่ง (Lerp) ระหว่างคีย์เฟรมเพื่อให้การขยับดู Smooth ดินน้ำมันไหลลื่น
+                for (let i = 0; i < positionAttribute.count; i++) {
+                    const cx = currentFrame[i*3], cy = currentFrame[i*3+1], cz = currentFrame[i*3+2];
+                    const nx = nextFrame[i*3], ny = nextFrame[i*3+1], nz = nextFrame[i*3+2];
+
+                    // ใช้สูตร Linear Interpolation (Lerp)
+                    const targetX = cx + (nx - cx) * animClock;
+                    const targetY = cy + (ny - cy) * animClock;
+                    const targetZ = cz + (nz - cz) * animClock;
+
+                    positionAttribute.setXYZ(i, targetX, targetY, targetZ);
+                }
+                positionAttribute.needsUpdate = true;
+                geometry.computeVertexNormals();
+            } else {
+                clock.getDelta(); // สั่งให้นับเวลาปกติเพื่อไม่ให้กระตุกตอนกดเล่น
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // รองรับการย่อขยายหน้าจอ
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
