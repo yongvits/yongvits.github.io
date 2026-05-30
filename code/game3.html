@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Super Tokyo Boy 3 - Giant Chibi Fantasy</title>
+    <!-- นำเข้า Tailwind CSS สำหรับ UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0c0517;
+            color: #fff;
+            overflow-x: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        /* คุมภาพให้เป็นแบบ Pixel Art ไม่เบลอ และแสดงผลเต็มพื้นที่อย่างถูกต้อง */
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            display: block;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 640 / 560; /* อัตราส่วนแบบ NES 8-Bit ขยายขนาด */
+            background-color: #1a0b2e; /* สีฉากหลังม่วงเวทมนตร์ */
+            box-shadow: 0 10px 30px rgba(140, 20, 255, 0.4);
+        }
+        .nes-btn {
+            background-color: #d32f2f;
+            border: 4px solid #fff;
+            box-shadow: 0 4px 0 #7b241c;
+            image-rendering: pixelated;
+        }
+        .nes-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start min-h-screen p-4">
+
+    <!-- ส่วนจำลองกรอบทีวีโบราณแบบย้อนยุค -->
+    <div class="relative flex flex-col items-center w-full max-w-[640px]">
+        <!-- แถบด้านบน: เปิด-ปิดเพลงและควบคุม -->
+        <div class="w-full flex justify-between px-2 py-1 text-xs text-purple-300 font-bold mb-1">
+            <span>📺 GIANT CHIBI FANTASY WORLD</span>
+            <button id="bgm-toggle" class="bg-indigo-950/80 hover:bg-indigo-900/80 px-2 py-1 rounded border border-purple-400 cursor-pointer">🔊 เปิด/ปิดดนตรีแฟนตาซี 8-bit</button>
+        </div>
+
+        <!-- หน้าจอหลักของเกมด้วย HTML5 Canvas (สัดส่วน 640x560 ล็อกพื้นที่ด้านล่างพ้นปุ่มกด) -->
+        <div class="relative w-full border-8 border-purple-900 rounded-lg overflow-hidden bg-black shadow-2xl">
+            <canvas id="gameCanvas" width="640" height="560"></canvas>
+
+            <!-- ฉากเริ่มต้นของเกม (Title Screen) - กดตรงไหนก็เริ่มเกมได้ทันที -->
+            <div id="title-screen" class="absolute inset-0 bg-gradient-to-b from-[#1c082e] to-[#450d59] flex flex-col items-center justify-between p-4 z-50 cursor-pointer">
+                <div class="text-center my-auto">
+                    <h1 class="text-red-500 font-black text-3xl tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">SUPER</h1>
+                    <h2 class="text-blue-400 font-black text-4xl tracking-tight drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">TOKYO BOY 3</h2>
+                    <h3 class="text-yellow-400 font-bold text-sm mt-1 tracking-wider">🌟 FANTASY RPG EDITION 🌟</h3>
+                    
+                    <div class="my-6 animate-bounce flex justify-center gap-6 text-4xl">
+                        <span>🍄</span>
+                        <span>🌟</span>
+                        <span>🌸</span>
+                    </div>
+
+                    <div class="bg-purple-600 text-white font-black text-xs py-3.5 px-8 rounded-md border-2 border-white shadow-lg inline-block animate-pulse">
+                        แตะหน้าจอเพื่อเริ่มผจญภัย! (TOUCH TO START)
+                    </div>
+                </div>
+                <div class="text-[9px] text-purple-300 font-bold">
+                    © 1988 TOKYO BOY / FANTASY RETRO STUDIO
+                </div>
+            </div>
+
+            <!-- ข้อความแจ้งเตือนเมื่อได้การ์ดท้ายด่าน -->
+            <div id="card-alert" class="absolute inset-x-0 top-1/4 hidden flex flex-col items-center justify-center pointer-events-none z-40">
+                <div class="bg-black border-4 border-white p-3 text-center text-white space-y-1 animate-bounce">
+                    <p class="text-yellow-400 font-black text-lg">YOU GOT A CARD!</p>
+                    <div id="earned-card-display" class="w-12 h-12 bg-white border-2 border-black mx-auto flex items-center justify-center text-2xl">🍄</div>
+                    <p class="text-xs text-gray-300">ผ่านด่านแรกสำเร็จแล้ว!</p>
+                </div>
+            </div>
+
+            <!-- ฉากพ่ายแพ้ (Game Over Screen) -->
+            <div id="gameover-screen" class="absolute inset-0 bg-black/90 hidden flex flex-col items-center justify-center text-center p-4 z-50">
+                <h2 class="text-red-500 font-black text-4xl mb-4 tracking-wider animate-pulse">GAME OVER</h2>
+                <button id="restart-btn" class="nes-btn text-white text-base font-bold px-6 py-2 rounded cursor-pointer">
+                    ลองใหม่อีกครั้ง
+                </button>
+            </div>
+        </div>
+
+        <!-- แผงควบคุมเสมือนจริงบนมือถือ (Touch Overlay) -->
+        <div id="mobile-controls" class="w-full flex justify-between p-4 mt-2 select-none">
+            <!-- ปุ่มควบคุมการเดินซ้าย-ขวา -->
+            <div class="flex gap-4">
+                <button id="ctrl-left" class="w-16 h-16 rounded-full bg-indigo-950/80 border-2 border-indigo-500 text-white font-bold flex items-center justify-center text-2xl active:bg-indigo-700 active:scale-95">◀</button>
+                <button id="ctrl-right" class="w-16 h-16 rounded-full bg-indigo-950/80 border-2 border-indigo-500 text-white font-bold flex items-center justify-center text-2xl active:bg-indigo-700 active:scale-95">▶</button>
+            </div>
+            <!-- ปุ่มแอคชั่น B (วิ่ง/สะบัดหาง) & A (กระโดด/บิน) -->
+            <div class="flex gap-4">
+                <button id="ctrl-b" class="w-16 h-16 rounded-full bg-red-600/90 border-2 border-white text-white font-black flex flex-col items-center justify-center active:bg-red-500 active:scale-95">
+                    <span class="text-lg">B</span>
+                    <span class="text-[8px]">วิ่ง/หาง</span>
+                </button>
+                <button id="ctrl-a" class="w-16 h-16 rounded-full bg-yellow-500/90 border-2 border-white text-black font-black flex flex-col items-center justify-center active:bg-yellow-400 active:scale-95">
+                    <span class="text-lg">A</span>
+                    <span class="text-[8px]">กระโดด</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- คู่มือการเล่นแสดงผลด้านล่างจอเกม -->
+        <div class="w-full mt-2 bg-purple-950/40 border-4 border-purple-500/70 rounded-xl p-4 text-purple-200 shadow-lg text-xs md:text-sm">
+            <h3 class="font-black text-yellow-400 text-sm md:text-base mb-2 border-b-2 border-purple-500 pb-1 flex items-center gap-2">
+                🔮 คู่มือการเล่นแฟนตาซี (Super Tokyo Boy 3)
+            </h3>
+            <ul class="space-y-1.5 list-disc list-inside font-sans">
+                <li><b class="text-yellow-300">พลังแรคคูนชิบิยักษ์:</b> เก็บใบไม้ทองเพื่อแปลงร่าง! เมื่อเกจวิ่ง <b>[P]</b> เต็ม ให้กดปุ่ม <b>A (กระโดด) รัวๆ</b> เพื่อบินร่อนกลางอากาศ</li>
+                <li><b class="text-cyan-300">การร่อนลงช้าๆ:</b> ขณะตกจากที่สูง ให้กดปุ่ม <b>A ค้างไว้</b> เพื่อสะบัดหางช่วยพยุงตัวร่อนลงอย่างนุ่มนวล</li>
+                <li><b class="text-pink-300">การสะบัดหางโจมตี:</b> กดปุ่ม <b>B (วิ่ง/หาง)</b> เพื่อสะบัดหางฟาดทำลายบล็อกอิฐคริสตัล หรือกำจัดกระสุนแยมส้มที่บินมาโจมตีได้</li>
+                <li><b class="text-purple-300">การควบคุมบนคอมพิวเตอร์:</b> เดิน [← / →] หรือ [A / D] | วิ่งเร็ว/สะบัดหาง [Shift / J] | กระโดด/บิน [Spacebar / K]</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // ====================================================================
+        // ระบบเสียง Chiptune 8-bit ดนตรีประกอบแฟนตาซีแบบแต่งใหม่ทั้งหมด (Original BGM)
+        // ====================================================================
+        let audioCtx = null;
+        let bgmInterval = null;
+        let isBgmPlaying = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.error("Audio Context is not supported in this browser.", e);
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+
+            if (type === 'jump') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(650, now + 0.18);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                osc.start(now); osc.stop(now + 0.18);
+            } 
+            else if (type === 'coin') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now); 
+                osc.frequency.setValueAtTime(1318.51, now + 0.08); 
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now); osc.stop(now + 0.25);
+            } 
+            else if (type === 'stomp') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(110, now);
+                osc.frequency.linearRampToValueAtTime(20, now + 0.1);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                osc.start(now); osc.stop(now + 0.12);
+            } 
+            else if (type === 'powerup_sprout') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(330, now);
+                osc.frequency.linearRampToValueAtTime(660, now + 0.3);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            }
+            else if (type === 'powerup') {
+                const notes = [330, 392, 659, 523, 587, 784];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.type = 'square';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.06);
+                    g.gain.setValueAtTime(0.08, now + idx * 0.06);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.06 + 0.15);
+                    o.start(now + idx * 0.06); o.stop(now + idx * 0.06 + 0.15);
+                });
+            }
+            else if (type === 'tail_whip') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.08);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now); osc.stop(now + 0.08);
+            }
+            else if (type === 'fly') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.setValueAtTime(300, now + 0.05);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now + 0.1);
+            }
+            else if (type === 'brick_break') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(80, now);
+                osc.frequency.linearRampToValueAtTime(10, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            }
+            else if (type === 'pipe') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.setValueAtTime(100, now + 0.1);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now + 0.2);
+            }
+            else if (type === 'win') {
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.type = 'triangle';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    g.gain.setValueAtTime(0.1, now + idx * 0.08);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.3);
+                    o.start(now + idx * 0.08); o.stop(now + idx * 0.08 + 0.3);
+                });
+            }
+        }
+
+        // เมโลดี้ดนตรี 8-bit ดนตรีประกอบแฟนตาซีแบบแต่งใหม่ทั้งหมด (ไม่ใช่เพลงมาริโอ้)
+        function startBGM() {
+            initAudio();
+            if (isBgmPlaying || !audioCtx) return;
+            isBgmPlaying = true;
+            let noteIdx = 0;
+            // เมโลดี้เพลงแนวผจญภัยแฟนตาซี RPG ยุค 8-Bit (Original compositions)
+            const melody = [
+                440, 523, 659, 587, 523, 494, 440, 330,
+                440, 523, 659, 880, 784, 659, 587, 659,
+                698, 659, 587, 523, 587, 494, 523, 440,
+                392, 440, 494, 523, 587, 659, 698, 784
+            ];
+            
+            bgmInterval = setInterval(() => {
+                if (!audioCtx || audioCtx.state === 'suspended') return;
+                const freq = melody[noteIdx % melody.length];
+                if (freq > 0) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+                }
+                noteIdx++;
+            }, 150);
+        }
+
+        function stopBGM() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+            }
+            isBgmPlaying = false;
+        }
+
+        document.getElementById('bgm-toggle').addEventListener('click', (e) => {
+            e.stopPropagation();
+            initAudio();
+            if (isBgmPlaying) {
+                stopBGM();
+            } else {
+                startBGM();
+            }
+        });
+
+        // ====================================================================
+        // แผ่นสไปรท์ความละเอียดสูงและระบบวาดพิกเซล (Pixel Art Engines)
+        // ====================================================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false; // ปิดการเบลอภาพพิกเซล
+
+        const spriteSheets = {
+            tiles: document.createElement('canvas'),
+            items: document.createElement('canvas')
+        };
+
+        // ฟังก์ชันช่วยวาดรูปพิกเซลวงกลมคมกริบ
+        function drawPixelCircle(pCtx, cx, cy, r, color) {
+            pCtx.fillStyle = color;
+            for (let y = -r; y <= r; y++) {
+                for (let x = -r; x <= r; x++) {
+                    if (x*x + y*y <= r*r) {
+                        pCtx.fillRect(Math.floor(cx + x), Math.floor(cy + y), 1, 1);
+                    }
+                }
+            }
+        }
+
+        // 1. สร้างตัวเอกแบบชิบิ (Chibi Tokyo Boy - 64x80 พิกเซล) ยืนเท้าติดพื้นไม่ลอย
+        function renderHighResPlayer(frame, powerState, facingLeft, action) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 64; tempCanvas.height = 80;
+            const pCtx = tempCanvas.getContext('2d');
+            pCtx.imageSmoothingEnabled = false;
+
+            const headRadius = 18;
+            const headX = 32;
+            const headY = 30; // หัวโตชิบิครึ่งหัวบน
+
+            // 1.1 ทรงผมสีเหลืองทองพริ้วหนาแบบลอนพริ้ว
+            drawPixelCircle(pCtx, headX, headY - 4, headRadius + 3, '#F5B041'); // เงาผมเข้ม
+            drawPixelCircle(pCtx, headX, headY - 5, headRadius + 2, '#FFEB3B'); // ผมสีหลัก
+            drawPixelCircle(pCtx, headX - 16, headY, 8, '#FFEB3B'); // ปอยซ้าย
+            drawPixelCircle(pCtx, headX + 16, headY, 8, '#FFEB3B'); // ปอยขวา
+            drawPixelCircle(pCtx, headX - 8, headY - 14, 6, '#FFEB3B'); // ม้าซ้าย
+            drawPixelCircle(pCtx, headX + 8, headY - 14, 6, '#FFEB3B'); // ม้าขวา
+
+            // 1.2 ใบหน้ากลมสีเนื้อนวลอมส้ม
+            drawPixelCircle(pCtx, headX, headY + 2, headRadius - 2, '#FFE082');
+
+            // แก้มชมพูบลัชออนมีเสน่ห์ขี้เล่น
+            drawPixelCircle(pCtx, headX - 10, headY + 8, 3, '#FADBD8');
+            drawPixelCircle(pCtx, headX + 10, headY + 8, 3, '#FADBD8');
+
+            // 1.3 แว่นตาสีแดงคู่โตกลมหนา
+            drawPixelCircle(pCtx, headX - 8, headY + 2, 8, '#D32F2F');
+            drawPixelCircle(pCtx, headX + 8, headY + 2, 8, '#D32F2F');
+            drawPixelCircle(pCtx, headX - 8, headY + 2, 6, '#FFE082'); // เจาะช่องในแว่น
+            drawPixelCircle(pCtx, headX + 8, headY + 2, 6, '#FFE082');
+            pCtx.fillStyle = '#D32F2F'; pCtx.fillRect(headX - 2, headY + 1, 4, 3); // สะพานแว่น
+
+            // 1.4 ดวงตาสาวน้อยสีฟ้าขาวคมชัดกลมโต
+            drawPixelCircle(pCtx, headX - 8, headY + 2, 4, '#FFFFFF');
+            drawPixelCircle(pCtx, headX + 8, headY + 2, 4, '#FFFFFF');
+            drawPixelCircle(pCtx, headX - 8, headY + 2, 2.5, '#0D47A1'); // ฟ้า
+            drawPixelCircle(pCtx, headX + 8, headY + 2, 2.5, '#0D47A1');
+            drawPixelCircle(pCtx, headX - 8, headY + 2, 1.2, '#000000'); // ดำ
+            drawPixelCircle(pCtx, headX + 8, headY + 2, 1.2, '#000000');
+            pCtx.fillStyle = '#FFFFFF';
+            pCtx.fillRect(headX - 9, headY + 1, 2, 2); pCtx.fillRect(headX + 7, headY + 1, 2, 2); // ประกายตา
+
+            // 1.5 จมูกกลมสีเขียวเด่นสะดุดตากึ่งกลางแว่น
+            drawPixelCircle(pCtx, headX, headY + 5, 4, '#4CAF50');
+
+            // ปากยิ้ม
+            pCtx.strokeStyle = '#000000'; pCtx.lineWidth = 2;
+            pCtx.beginPath(); pCtx.arc(headX, headY + 9, 4, 0, Math.PI); pCtx.stroke();
+
+            // 1.6 คอเสื้อขาวด้านในสัดส่วนชิบิ
+            const bodyY = headY + headRadius - 4; // เริ่มลำตัวที่ Y: 44
+            pCtx.fillStyle = '#FFFFFF'; pCtx.fillRect(24, bodyY, 16, 4);
+
+            // 1.7 ชุดเอี๊ยมสีแดงสด (Red Overalls)
+            pCtx.fillStyle = '#D32F2F';
+            pCtx.fillRect(20, bodyY + 4, 24, 18); // ลำตัวเอี๊ยม (ขยายลงมาให้เชื่อมกับเท้า)
+            pCtx.fillRect(20, bodyY, 4, 5);       // สายซ้าย
+            pCtx.fillRect(40, bodyY, 4, 5);       // สายขวา
+            pCtx.fillStyle = '#FFEB3B'; pCtx.fillRect(21, bodyY + 5, 2, 2); pCtx.fillRect(41, bodyY + 5, 2, 2); // กระดุมทอง
+            pCtx.fillStyle = '#7B241C'; pCtx.fillRect(27, bodyY + 8, 10, 8); // กระเป๋าหน้า
+
+            // 1.8 ขาก้าวและรองเท้าบูทสีน้ำตาล (ดึงต่ำแหน่งให้สัมผัสขอบ Y = 80 พอดีเป๊ะ เท้าไม่ลอย)
+            pCtx.fillStyle = '#5D4037';
+            let leftLegY = bodyY + 22;  // Y: 66 -> ขาสัมผัสขอบ 72
+            let rightLegY = bodyY + 22;
+            if (action === 'walk') {
+                if (frame === 0) { leftLegY -= 4; } 
+                else { rightLegY -= 4; }
+            } else if (action === 'jump') {
+                leftLegY -= 6; rightLegY -= 4;
+            }
+            pCtx.fillRect(20, leftLegY, 8, 14); // ดึงขายาวแตะพิกัดล่าง
+            pCtx.fillRect(36, rightLegY, 8, 14);
+
+            // 1.9 แขนเสื้อขาวและถุงมือสีส้มหนา
+            pCtx.fillStyle = '#FFFFFF'; pCtx.fillRect(14, bodyY + 4, 6, 6); pCtx.fillRect(44, bodyY + 4, 6, 6);
+            pCtx.fillStyle = '#FF5722'; pCtx.fillRect(10, bodyY + 8, 10, 10); pCtx.fillRect(44, bodyY + 8, 10, 10);
+
+            // 1.10 โหมดแปลงหางแรคคูน
+            if (powerState === 2) {
+                pCtx.fillStyle = '#8B4513';
+                pCtx.fillRect(facingLeft ? 46 : 6, bodyY + 6, 12, 14);
+                pCtx.fillStyle = '#F5B041';
+                pCtx.fillRect(facingLeft ? 50 : 10, bodyY + 10, 4, 4);
+            }
+
+            return tempCanvas;
+        }
+
+        // ====================================================================
+        // สไปรท์ของศัตรูทั้งหมดขนาดใหญ่ชิบิเท่ากันพอดีตัวเอก (64x64 พิกเซล)
+        // ====================================================================
+        
+        // 2. ปีศาจครัวซองต์กล้ามโต (Muscular Croissant)
+        function renderHighResCroissant(frame) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 64; tempCanvas.height = 64;
+            const eCtx = tempCanvas.getContext('2d');
+            eCtx.imageSmoothingEnabled = false;
+
+            drawPixelCircle(eCtx, 32, 34, 20, '#E65100'); // เงาฐาน
+            drawPixelCircle(eCtx, 32, 32, 18, '#FFA726');  // ลำตัวครัวซองต์ส้มทอง
+            eCtx.fillStyle = '#FB8C00'; // เลเยอร์ชั้นครัวซองต์พับ
+            eCtx.fillRect(20, 20, 24, 4); eCtx.fillRect(16, 28, 32, 4);
+
+            // แขนเบ่งกล้ามโต
+            eCtx.fillStyle = '#E65100';
+            eCtx.fillRect(4, 12, 8, 18); eCtx.fillRect(8, 8, 8, 8); // ซ้าย
+            eCtx.fillRect(52, 12, 8, 18); eCtx.fillRect(48, 8, 8, 8); // ขวา
+
+            // ตาเดียวโตตรงกลาง
+            drawPixelCircle(eCtx, 32, 28, 7, '#FFFFFF');
+            drawPixelCircle(eCtx, 32, 28, 3, '#000000');
+            // คิ้วเฉียงดุ
+            eCtx.strokeStyle = '#000000'; eCtx.lineWidth = 3;
+            eCtx.beginPath(); eCtx.moveTo(22, 18); eCtx.lineTo(42, 18); eCtx.stroke();
+
+            // ขาเล็กๆ ดุ๊กดิ๊กแตะขอบ Y = 64
+            eCtx.fillStyle = '#7B241C';
+            let legOffset = (frame === 0) ? 2 : 0;
+            eCtx.fillRect(20, 48 + legOffset, 6, 16); eCtx.fillRect(38, 48 - legOffset, 6, 16);
+
+            return tempCanvas;
+        }
+
+        // 3. ปูทาโก้แสนดุ (Taco Crab)
+        function renderHighResTacoCrab(frame) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 64; tempCanvas.height = 64;
+            const eCtx = tempCanvas.getContext('2d');
+            eCtx.imageSmoothingEnabled = false;
+
+            // แป้งทาโก้กึ่งวงกลมเบจพับครึ่ง
+            eCtx.fillStyle = '#FFCC80';
+            eCtx.beginPath(); eCtx.arc(32, 36, 20, Math.PI, 0); eCtx.fill();
+            eCtx.strokeStyle = '#E65100'; eCtx.lineWidth = 2; eCtx.stroke();
+
+            // ผักและไส้ทาโก้โผล่พ้นแป้ง
+            eCtx.fillStyle = '#4CAF50'; eCtx.fillRect(16, 14, 32, 4); // ผักกาด
+            eCtx.fillStyle = '#E53935'; eCtx.fillRect(24, 12, 6, 4); // มะเขือเทศ
+
+            // ก้ามปูแดงด้านบนคู่น่ารัก
+            eCtx.fillStyle = '#E53935';
+            eCtx.fillRect(8, 4, 8, 12); eCtx.fillRect(4, 0, 8, 6); // ก้ามซ้าย
+            eCtx.fillRect(48, 4, 8, 12); eCtx.fillRect(52, 0, 8, 6); // ก้ามขวา
+
+            // ตาดำเล็กและคิ้วคว่ำดุ
+            eCtx.fillStyle = '#000000';
+            eCtx.fillRect(20, 24, 4, 4); eCtx.fillRect(40, 24, 4, 4);
+            eCtx.strokeStyle = '#000000'; eCtx.lineWidth = 2;
+            eCtx.beginPath(); eCtx.moveTo(16, 20); eCtx.lineTo(26, 24); eCtx.moveTo(48, 20); eCtx.lineTo(38, 24); eCtx.stroke();
+
+            // ขาปูแดงดึงถึงก้นสัมผัส Y = 64
+            eCtx.fillStyle = '#C62828';
+            let legOffset = (frame === 0) ? 2 : 0;
+            eCtx.fillRect(12, 36 + legOffset, 4, 28); eCtx.fillRect(48, 36 - legOffset, 4, 28);
+
+            return tempCanvas;
+        }
+
+        // 4. ขนมปังปิ้งไข่ดาวแสนเหลอหลา (Fried Egg Toast)
+        function renderHighResEggToast(frame) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 64; tempCanvas.height = 64;
+            const eCtx = tempCanvas.getContext('2d');
+            eCtx.imageSmoothingEnabled = false;
+
+            // บอดี้ขนมปังแผ่นปิ้งสีครีม
+            eCtx.fillStyle = '#8D6E63'; eCtx.fillRect(12, 14, 40, 36); // ขอบขนมปัง
+            eCtx.fillStyle = '#D7CCC8'; eCtx.fillRect(16, 18, 32, 28); // กลางขนมปัง
+
+            // มีไข่ดาวโปะอยู่บนหัวแสนน่ารัก (Fried egg)
+            drawPixelCircle(eCtx, 32, 22, 8, '#FFFFFF'); // ไข่ขาว
+            drawPixelCircle(eCtx, 32, 22, 3.6, '#FFEB3B'); // ไข่แดง
+
+            // หน้าตาเบ๊เหวอตาโตข้างเล็กข้าง
+            eCtx.fillStyle = '#000';
+            eCtx.fillRect(22, 32, 4, 4); eCtx.fillRect(38, 30, 4, 4); // ตาดำกลม
+            eCtx.fillStyle = '#E53935'; eCtx.fillRect(30, 38, 4, 4); // ปากอ้าแลบลิ้นแดง
+
+            // ขาดุ๊กดิ๊กเหยียบขอบ 64 พอดี
+            eCtx.fillStyle = '#5D4037';
+            let legOffset = (frame === 0) ? 2 : 0;
+            eCtx.fillRect(20, 48 + legOffset, 6, 16); eCtx.fillRect(38, 48 - legOffset, 6, 16);
+
+            return tempCanvas;
+        }
+
+        // 5. ปีศาจขนมปังสำรอกแยมส้ม (Barfing Toast Shooter)
+        function renderHighResBarfingToast(frame) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 64; tempCanvas.height = 64;
+            const eCtx = tempCanvas.getContext('2d');
+            eCtx.imageSmoothingEnabled = false;
+
+            // ตัวแผ่นขนมปัง
+            eCtx.fillStyle = '#5D4037'; eCtx.fillRect(12, 10, 40, 38);
+            eCtx.fillStyle = '#D7CCC8'; eCtx.fillRect(16, 14, 32, 30);
+
+            // ตาดุจ้องมอง
+            eCtx.fillStyle = '#000'; eCtx.fillRect(20, 20, 4, 4); eCtx.fillRect(40, 20, 4, 4);
+
+            // สำรอกแยมสีส้มแดงพุ่งพรูออกมาข้างล่างยาวถึงพื้น
+            eCtx.fillStyle = '#FF5722'; eCtx.fillRect(24, 28, 16, 36); // ลำธารส้มพรูถึงขอบล่าง
+            eCtx.fillStyle = '#1976D2'; eCtx.fillRect(18, 56, 28, 8);  // ถ้วยรับแก้วด้านล่างสุด Y = 64
+
+            return tempCanvas;
+        }
+
+        // 6. ปีศาจหัวใจไฟลุกแสนตกใจ (Heart-shaped Fire)
+        function renderHighResHeartFire(frame) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 64; tempCanvas.height = 64;
+            const eCtx = tempCanvas.getContext('2d');
+            eCtx.imageSmoothingEnabled = false;
+
+            // ตัวหัวใจสีแดงสด
+            eCtx.fillStyle = '#D32F2F';
+            drawPixelCircle(eCtx, 22, 28, 12, '#D32F2F'); // ซ้าย
+            drawPixelCircle(eCtx, 42, 28, 12, '#D32F2F'); // ขวา
+            eCtx.beginPath(); eCtx.moveTo(10, 28); eCtx.lineTo(54, 28); eCtx.lineTo(32, 52); eCtx.closePath(); eCtx.fill();
+
+            // เปลวเพลิงสีส้มกระพือบนหัว
+            let flameScale = (frame === 0) ? 1 : 1.2;
+            drawPixelCircle(eCtx, 32, 12, 8 * flameScale, '#FF9800');
+            drawPixelCircle(eCtx, 32, 8, 5 * flameScale, '#FFEB3B');
+
+            // ตาโตเบิกกว้าง
+            drawPixelCircle(eCtx, 22, 28, 5, '#FFFFFF'); drawPixelCircle(eCtx, 42, 28, 5, '#FFFFFF');
+            eCtx.fillStyle = '#000000'; eCtx.fillRect(20, 26, 4, 4); eCtx.fillRect(40, 26, 4, 4);
+
+            // อ้าปากตกใจร้องโอ๊ะ!
+            drawPixelCircle(eCtx, 32, 40, 3.6, '#000000');
+
+            // ขาหนูตัวเล็กสีทองดึงถึงขอบ 64
+            eCtx.fillStyle = '#F5B041'; eCtx.fillRect(24, 46, 4, 18); eCtx.fillRect(36, 46, 4, 18);
+
+            return tempCanvas;
+        }
+
+        // 7. ปีศาจบล็อกโคลี่ฟันยิ้มกวน (Broccoli Head Monster)
+        function renderHighResBroccoli(frame) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 64; tempCanvas.height = 64;
+            const eCtx = tempCanvas.getContext('2d');
+            eCtx.imageSmoothingEnabled = false;
+
+            // ทรงพุ่มดอกไม้บล็อกโคลี่สีเขียวเข้มหลายวงซ้อน
+            drawPixelCircle(eCtx, 32, 20, 16, '#1B5E20');
+            drawPixelCircle(eCtx, 22, 14, 10, '#2E7D32');
+            drawPixelCircle(eCtx, 42, 14, 10, '#2E7D32');
+            drawPixelCircle(eCtx, 32, 10, 10, '#4CAF50');
+
+            // ลำต้นก้านเขียวพาสเทล
+            eCtx.fillStyle = '#81C784'; eCtx.fillRect(24, 32, 16, 18);
+
+            // ตาและปากเห็นฟันยิ้มกวนสไตล์ต้นฉบับ
+            eCtx.fillStyle = '#FFFFFF'; eCtx.fillRect(18, 22, 8, 6); eCtx.fillRect(38, 22, 8, 6);
+            eCtx.fillStyle = '#000'; eCtx.fillRect(20, 24, 4, 2); eCtx.fillRect(40, 24, 4, 2);
+
+            // ฟันยิ้มกว้าง
+            eCtx.fillStyle = '#FFFFFF'; eCtx.fillRect(22, 32, 20, 6);
+            eCtx.strokeStyle = '#000'; eCtx.strokeRect(22, 32, 20, 6);
+
+            // ขาเขียวเดินแตะขอบ 64
+            eCtx.fillStyle = '#388E3C';
+            let legOffset = (frame === 0) ? 2 : 0;
+            eCtx.fillRect(22, 48 + legOffset, 6, 16); eCtx.fillRect(36, 48 - legOffset, 6, 16);
+
+            return tempCanvas;
+        }
+
+        // ====================================================================
+        // ตั้งค่าโมเดลและเลย์เอาต์ฉากแฟนตาซีอัญมณี (32x32 Tiles)
+        // ====================================================================
+        function generateTileSheet() {
+            const tSheet = spriteSheets.tiles;
+            tSheet.width = 256; tSheet.height = 64;
+            const tCtx = tSheet.getContext('2d');
+
+            // บล็อกอิฐคริสตัลอัญมณีเวทมนตร์ (แฟนตาซีสีม่วงเหลืองเรืองแสง) - 32x32
+            tCtx.fillStyle = '#512DA8'; tCtx.fillRect(0, 0, 32, 32);
+            tCtx.strokeStyle = '#E040FB'; tCtx.lineWidth = 2; tCtx.strokeRect(0, 0, 32, 32);
+            tCtx.fillStyle = '#7C4DFF'; tCtx.fillRect(4, 4, 24, 24);
+            tCtx.fillStyle = '#FFD700'; tCtx.fillRect(14, 14, 4, 4); // จุดประกายเพชรทองกลางบล็อก
+
+            // บล็อกน็อตอัญมณีสีชมพูสะท้อน - 32x32
+            tCtx.fillStyle = '#C2185B'; tCtx.fillRect(32, 0, 32, 32);
+            tCtx.strokeStyle = '#FF4081'; tCtx.lineWidth = 2; tCtx.strokeRect(32, 0, 32, 32);
+            tCtx.fillStyle = '#FF4081';
+            tCtx.fillRect(36, 4, 4, 4); tCtx.fillRect(56, 4, 4, 4);
+            tCtx.fillRect(36, 24, 4, 4); tCtx.fillRect(56, 24, 4, 4);
+
+            // บล็อกน็อตสีฟ้านีออน - 32x32
+            tCtx.fillStyle = '#0097A7'; tCtx.fillRect(64, 0, 32, 32);
+            tCtx.strokeStyle = '#00E5FF'; tCtx.lineWidth = 2; tCtx.strokeRect(64, 0, 32, 32);
+            tCtx.fillStyle = '#00E5FF';
+            tCtx.fillRect(68, 4, 4, 4); tCtx.fillRect(88, 4, 4, 4);
+            tCtx.fillRect(68, 24, 4, 4); tCtx.fillRect(88, 24, 4, 4);
+
+            // บล็อกปริศนาเวทมนตร์เรืองแสง (?) - 32x32
+            tCtx.fillStyle = '#D81B60'; tCtx.fillRect(96, 0, 32, 32);
+            tCtx.strokeStyle = '#FFD54F'; tCtx.lineWidth = 2; tCtx.strokeRect(96, 0, 32, 32);
+            tCtx.fillStyle = '#FFF'; tCtx.font = 'bold 22px monospace'; tCtx.fillText('?', 106, 24);
+
+            // ท่อน้ำเรืองแสงแฟนตาซีสีฟ้าเทอร์ควอยซ์
+            tCtx.fillStyle = '#00838F'; tCtx.fillRect(128, 0, 32, 32);
+            tCtx.fillStyle = '#006064'; tCtx.fillRect(144, 0, 16, 32); 
+            tCtx.strokeStyle = '#00E5FF'; tCtx.strokeRect(128, 0, 32, 32);
+
+            // พื้นดินม่วงเวทมนตร์ลายเฉียงประดับพุ่มหญ้าเรืองแสงเขียวสว่าง (Ground)
+            tCtx.fillStyle = '#311B92'; tCtx.fillRect(160, 0, 32, 32);
+            tCtx.strokeStyle = '#B388FF'; tCtx.lineWidth = 2;
+            for (let k = -32; k < 32; k += 8) {
+                tCtx.beginPath(); tCtx.moveTo(160 + k, 0); tCtx.lineTo(192 + k, 32); tCtx.stroke();
+            }
+            // ขอบดินด้านบนพืชหญ้าเรืองแสงสีเขียวนีออนแฟนตาซี
+            tCtx.fillStyle = '#00E676'; tCtx.fillRect(160, 0, 32, 6);
+
+            const iSheet = spriteSheets.items;
+            iSheet.width = 128; iSheet.height = 32;
+            const iCtx = iSheet.getContext('2d');
+
+            // เห็ดวิเศษแฟนตาซีสีน้ำเงินม่วง (Fantasy Mushroom) - 32x32
+            iCtx.fillStyle = '#BBDEFB'; iCtx.fillRect(4, 10, 24, 22); 
+            iCtx.fillStyle = '#1A237E'; iCtx.beginPath(); iCtx.arc(16, 16, 14, Math.PI, 0, false); iCtx.fill(); 
+            iCtx.fillStyle = '#00E5FF'; 
+            iCtx.fillRect(12, 6, 8, 4); iCtx.fillRect(4, 12, 4, 6); iCtx.fillRect(24, 12, 4, 6);
+
+            // ใบไม้ทอง (Super Leaf) - 32x32
+            iCtx.fillStyle = '#FFD54F'; 
+            iCtx.beginPath(); iCtx.ellipse(48, 16, 14, 10, Math.PI/4, 0, Math.PI*2); iCtx.fill();
+            iCtx.strokeStyle = '#FF6F00'; iCtx.lineWidth = 2;
+            iCtx.beginPath(); iCtx.moveTo(38, 26); iCtx.lineTo(58, 6); iCtx.stroke();
+        }
+
+        generateTileSheet();
+
+        // ====================================================================
+        // โครงสร้างหลักและฟิสิกส์ (Gameplay Coordinates & Objects - Scale x2)
+        // ====================================================================
+        let score = 0;
+        let coins = 0;
+        let lives = 3;
+        let timeLeft = 300;
+        let earnedCard = ''; 
+        const inventoryCards = []; 
+
+        const tileWidth = 32;  
+        const tileHeight = 32; 
+        let levelWidth = 160; 
+
+        // ขนาดกล่องฟิสิกส์การชนแบบ Chibi
+        const player = {
+            x: 64, y: 300,
+            vx: 0, vy: 0,
+            width: 28, height: 48, // สัดส่วนจริงเพิ่มเป็น 2 เท่าแต่รักษาขนาดที่กระโดดซอกแซกได้ดี
+            isGrounded: false,
+            powerState: 0, 
+            facingLeft: false,
+            invulnFrames: 0,
+            animFrame: 0,
+            animTimer: 0,
+            pMeter: 0,        
+            flightTimer: 0,   
+            isSpinning: false, 
+            spinTimer: 0
+        };
+
+        const GRAVITY = 0.44;   
+        const FRICTION = 0.85;
+        let keys = { left: false, right: false, jump: false, run: false };
+
+        class Particle {
+            constructor(x, y, vx, vy, color) {
+                this.x = x; this.y = y;
+                this.vx = vx; this.vy = vy;
+                this.color = color;
+                this.life = 20 + Math.random() * 15;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.16;
+                this.life--;
+            }
+            draw(ctx, camX) {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - camX, this.y + 80, 6, 6); 
+            }
+        }
+
+        let tiles = [];
+        let enemies = [];
+        let items = [];
+        let projectiles = []; 
+        let particles = [];
+        let cameraX = 0;
+        let gameState = 'TITLE'; 
+
+        // ออกแบบความสูงการกระโดดให้กระโดดปกติแล้วข้ามได้ง่าย ไม่มีช่องเหวมรณะที่ยากเกินไป
+        const levelLayout = [
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                  W W                                                                                 W W                                                       ",
+            "                                                                                                                                                                ",
+            "               M Q Q M                                                                             M M M M                                                      ",
+            "                                                                                                                                                                ",
+            "          Q    W B Q B W                               W B B Q W                              W B B B B W                                                       ",
+            "                                            M W                                                                                                                 ",
+            "                                            M W                                                                                                        X        ",
+            "          P             P                   M W                                                                                                      W W W      ",
+            "          P             P                   M W                                                                                                    W W W W W    ",
+            "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
+        ];
+
+        function buildLevel() {
+            tiles = [];
+            enemies = [];
+            items = [];
+            projectiles = [];
+            particles = [];
+            cameraX = 0;
+
+            const mapHeight = levelLayout.length;
+            for (let r = 0; r < mapHeight; r++) {
+                const row = levelLayout[r];
+                for (let c = 0; c < row.length; c++) {
+                    const char = row[c];
+                    const px = c * tileWidth;  
+                    const py = r * tileHeight; 
+
+                    if (char === 'G') {
+                        tiles.push({ x: px, y: py, type: 'GROUND', collidable: true, spriteX: 160 });
+                    } else if (char === 'B') {
+                        tiles.push({ x: px, y: py, type: 'BRICK', collidable: true, spriteX: 0 });
+                    } else if (char === 'W') {
+                        tiles.push({ x: px, y: py, type: 'WOOD_ORANGE', collidable: true, spriteX: 32 });
+                    } else if (char === 'M') {
+                        tiles.push({ x: px, y: py, type: 'WOOD_BLUE', collidable: true, spriteX: 64 });
+                    } else if (char === 'Q') {
+                        tiles.push({ x: px, y: py, type: 'QUESTION', collidable: true, spriteX: 96, hasItem: true });
+                    } else if (char === 'P') {
+                        tiles.push({ x: px, y: py, type: 'PIPE', collidable: true, spriteX: 128 });
+                    } else if (char === 'X') {
+                        tiles.push({ x: px, y: py, type: 'ROULETTE', collidable: true, currentIcon: 0, lastFlash: 0 });
+                    }
+                }
+            }
+
+            // จัดตำแหน่งศัตรูระดับโปร (ระยะห่างพอเหมาะท้าทายกำลังดี)
+            const placements = [
+                { x: 360, type: 'CROISSANT' },
+                { x: 640, type: 'TACO_CRAB' },
+                { x: 1000, type: 'EGG_TOAST' },
+                { x: 1300, type: 'BARFING_TOAST' },
+                { x: 1600, type: 'HEART_FIRE' },
+                { x: 1920, type: 'BROCCOLI' },
+                { x: 2200, type: 'CROISSANT' },
+                { x: 2500, type: 'TACO_CRAB' },
+                { x: 2800, type: 'BARFING_TOAST' }
+            ];
+
+            placements.forEach(p => {
+                enemies.push({
+                    x: p.x, y: 300, startY: 300,
+                    vx: -1.0, vy: 0,
+                    width: 28, height: 28, // สอดรับกับตัวละครอย่างสวยงาม
+                    type: p.type,
+                    isDead: false,
+                    isGrounded: false,
+                    barfTimer: 0,
+                    hopTimer: 0,
+                    floatAngle: Math.random() * Math.PI
+                });
+            });
+        }
+
+        // ====================================================================
+        // ดักสัญญาณและแผงปุ่มกด (Inputs Controllers)
+        // ====================================================================
+        function setupControls() {
+            window.addEventListener('keydown', (e) => {
+                if (gameState !== 'PLAYING') return;
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+                if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'k' || e.key === 'K') keys.jump = true;
+                if (e.key === 'Shift' || e.key === 'j' || e.key === 'J') {
+                    keys.run = true;
+                    triggerTailWhip();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+                if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'k' || e.key === 'K') keys.jump = false;
+                if (e.key === 'Shift' || e.key === 'j' || e.key === 'J') keys.run = false;
+            });
+
+            const addTouchAction = (elemId, keyName, onDownCallback) => {
+                const el = document.getElementById(elemId);
+                el.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    initAudio(); 
+                    if (gameState !== 'PLAYING') return;
+                    keys[keyName] = true;
+                    if (onDownCallback) onDownCallback();
+                });
+                el.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    keys[keyName] = false;
+                });
+            };
+
+            addTouchAction('ctrl-left', 'left');
+            addTouchAction('ctrl-right', 'right');
+            addTouchAction('ctrl-a', 'jump');
+            addTouchAction('ctrl-b', 'run', () => {
+                triggerTailWhip();
+            });
+        }
+
+        function triggerTailWhip() {
+            if (player.powerState === 2 && !player.isSpinning) {
+                player.isSpinning = true;
+                player.spinTimer = 12; 
+                playSound('tail_whip');
+
+                const hitRect = {
+                    x: player.facingLeft ? player.x - 32 : player.x + player.width,
+                    y: player.y + 8,
+                    width: 32,
+                    height: player.height - 8
+                };
+
+                // 1. ฟาดศัตรู
+                enemies.forEach(e => {
+                    if (!e.isDead && checkCollision(hitRect, e)) {
+                        e.isDead = true;
+                        e.vy = -6; e.vx = player.facingLeft ? -3.0 : 3.0;
+                        score += 200;
+                        playSound('stomp');
+                    }
+                });
+
+                // 2. ฟาดแยมส้มที่บินพุ่งมา
+                projectiles.forEach((p, idx) => {
+                    const pRect = { x: p.x, y: p.y, width: p.width, height: p.height };
+                    if (checkCollision(hitRect, pRect)) {
+                        createBrickBreakingEffect(p.x + 6, p.y + 6);
+                        projectiles.splice(idx, 1);
+                        playSound('stomp');
+                    }
+                });
+
+                // 3. ฟาดบล็อกอิฐคริสตัล
+                tiles.forEach((t, index) => {
+                    if (t.type === 'BRICK' && checkCollision(hitRect, t)) {
+                        createBrickBreakingEffect(t.x + 16, t.y + 16);
+                        tiles.splice(index, 1);
+                        playSound('brick_break');
+                    }
+                });
+            }
+        }
+
+        // ====================================================================
+        // พารามิเตอร์ฟิสิกส์การชน (Physics Loops)
+        // ====================================================================
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        function updatePlayer() {
+            // ปรับระดับความสูงตามพลัง (ร่างชิบิเล็กสูง 32px ร่างแปลงแรคคูนสูง 48px)
+            player.height = player.powerState > 0 ? 48 : 32;
+
+            const maxNormalSpeed = 3.2; 
+            const maxDashSpeed = 5.6;   
+            let currentMaxSpeed = keys.run ? maxDashSpeed : maxNormalSpeed;
+
+            if (keys.left) {
+                player.vx -= 0.24; 
+                player.facingLeft = true;
+                if (player.vx < -currentMaxSpeed) player.vx = -currentMaxSpeed;
+            } else if (keys.right) {
+                player.vx += 0.24; 
+                player.facingLeft = false;
+                if (player.vx > currentMaxSpeed) player.vx = currentMaxSpeed;
+            } else {
+                player.vx *= FRICTION;
+                if (Math.abs(player.vx) < 0.1) player.vx = 0;
+            }
+
+            if (player.isGrounded && Math.abs(player.vx) >= maxNormalSpeed && keys.run) {
+                if (player.pMeter < 60) {
+                    player.pMeter++;
+                }
+            } else {
+                if (player.pMeter > 0) {
+                    player.pMeter -= 0.5;
+                }
+            }
+
+            if (player.isGrounded) {
+                player.flightTimer = 0;
+                if (keys.jump) {
+                    player.vy = -8.6; 
+                    if (player.pMeter >= 58) {
+                        player.vy = -11.6; 
+                        if (player.powerState === 2) {
+                            player.flightTimer = 180; 
+                        }
+                    }
+                    player.isGrounded = false;
+                    playSound('jump');
+                }
+            } else {
+                if (keys.jump && player.vy < 0) {
+                    player.vy -= 0.16; 
+                }
+
+                if (player.powerState === 2 && keys.jump) {
+                    if (player.flightTimer > 0) {
+                        player.vy = -3.6; 
+                        player.flightTimer--;
+                        if (Math.floor(player.flightTimer) % 6 === 0) playSound('fly');
+                    } else if (player.vy > 0) {
+                        player.vy = 1.0; 
+                        if (Math.floor(Date.now() / 150) % 2 === 0) playSound('fly');
+                    }
+                }
+            }
+
+            player.vy += GRAVITY;
+            if (player.vy > 12) player.vy = 12; 
+
+            player.x += player.vx;
+            handleBlockCollisions('X');
+
+            player.y += player.vy;
+            player.isGrounded = false;
+            handleBlockCollisions('Y');
+
+            if (player.x < cameraX) {
+                player.x = cameraX;
+                player.vx = 0;
+            }
+
+            // ตกเหวตามอัตราส่วนความสูงใหม่ (ความสูงเกมเพลย์ 480px)
+            if (player.y > 480) {
+                loseLife();
+            }
+
+            if (player.vx !== 0 && player.isGrounded) {
+                player.animTimer++;
+                if (player.animTimer > 8 - (Math.abs(player.vx) * 0.75)) {
+                    player.animFrame = (player.animFrame + 1) % 2;
+                    player.animTimer = 0;
+                }
+            } else {
+                player.animFrame = 0;
+            }
+
+            if (player.invulnFrames > 0) player.invulnFrames--;
+
+            if (player.isSpinning) {
+                player.spinTimer--;
+                if (player.spinTimer <= 0) player.isSpinning = false;
+            }
+        }
+
+        function handleBlockCollisions(axis) {
+            const pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+
+            for (let i = 0; i < tiles.length; i++) {
+                const t = tiles[i];
+                if (!t.collidable) continue;
+
+                const tRect = { x: t.x, y: t.y, width: tileWidth, height: tileHeight };
+                if (checkCollision(pRect, tRect)) {
+                    if (t.type === 'ROULETTE') {
+                        triggerGoalWin(t);
+                        return;
+                    }
+
+                    if (axis === 'X') {
+                        if (player.vx > 0) {
+                            player.x = t.x - player.width;
+                            player.vx = 0;
+                        } else if (player.vx < 0) {
+                            player.x = t.x + tileWidth;
+                            player.vx = 0;
+                        }
+                    } else {
+                        if (player.vy > 0) {
+                            player.y = t.y - player.height;
+                            player.vy = 0;
+                            player.isGrounded = true;
+                        } else if (player.vy < 0) {
+                            player.y = t.y + tileHeight;
+                            player.vy = 0;
+
+                            if (t.type === 'BRICK') {
+                                if (player.powerState > 0) {
+                                    createBrickBreakingEffect(t.x + 16, t.y + 16);
+                                    tiles.splice(i, 1);
+                                    score += 50;
+                                    playSound('brick_break');
+                                    i--;
+                                } else {
+                                    playSound('stomp'); 
+                                }
+                            } 
+                            else if (t.type === 'QUESTION' && t.hasItem) {
+                                t.hasItem = false;
+                                t.spriteX = 64; // บล็อกยึดน็อตคริสตัลสีฟ้า
+                                
+                                if (player.powerState === 0) {
+                                    spawnItem(t.x, t.y, 'MUSHROOM');
+                                } else {
+                                    spawnItem(t.x, t.y, 'LEAF');
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        // ====================================================================
+        // พลังพิเศษและวายร้ายในฉาก (Scale x2)
+        // ====================================================================
+        function spawnItem(bx, by, type) {
+            items.push({
+                x: bx, y: by,
+                vx: type === 'MUSHROOM' ? 1.6 : 0.8, 
+                vy: -4,                              
+                width: 28, height: 28,               
+                type: type,
+                life: 300 
+            });
+            playSound('powerup_sprout');
+        }
+
+        function updateEntities() {
+            items.forEach((it, idx) => {
+                it.life--;
+                if (it.life <= 0) { items.splice(idx, 1); return; }
+
+                if (it.type === 'MUSHROOM') {
+                    it.vy += GRAVITY;
+                    it.x += it.vx; it.y += it.vy;
+
+                    tiles.forEach(t => {
+                        if (t.collidable) {
+                            const tRect = { x: t.x, y: t.y, width: tileWidth, height: tileHeight };
+                            const iRect = { x: it.x, y: it.y, width: it.width, height: it.height };
+                            if (checkCollision(iRect, tRect)) {
+                                if (it.vy > 0) { it.y = t.y - it.height; it.vy = 0; } 
+                                else if (it.vx > 0) { it.vx *= -1; }
+                            }
+                        }
+                    });
+                } else if (it.type === 'LEAF') {
+                    it.y += 1.0; 
+                    it.x += Math.sin(Date.now() / 150) * 2.2;
+                }
+
+                const iRect = { x: it.x, y: it.y, width: it.width, height: it.height };
+                const pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+                if (checkCollision(pRect, iRect)) {
+                    if (it.type === 'MUSHROOM') {
+                        if (player.powerState === 0) player.powerState = 1; 
+                    } else if (it.type === 'LEAF') {
+                        player.powerState = 2; 
+                    }
+                    score += 1000;
+                    playSound('powerup');
+                    items.splice(idx, 1);
+                }
+            });
+
+            enemies.forEach((en, idx) => {
+                if (en.isDead) {
+                    en.vy += GRAVITY; en.x += en.vx; en.y += en.vy;
+                    if (en.y > 480) enemies.splice(idx, 1);
+                    return;
+                }
+
+                if (en.type === 'HEART_FIRE') {
+                    en.floatAngle += 0.05;
+                    en.y = en.startY + Math.sin(en.floatAngle) * 40; 
+                    en.x += en.vx;
+                } else if (en.type === 'EGG_TOAST') {
+                    en.vy += GRAVITY; en.x += en.vx; en.y += en.vy;
+                    if (en.isGrounded) {
+                        en.hopTimer++;
+                        if (en.hopTimer > 60) { en.vy = -6.4; en.isGrounded = false; en.hopTimer = 0; } 
+                    }
+                } else if (en.type === 'BARFING_TOAST') {
+                    en.barfTimer++;
+                    if (en.barfTimer > 120) {
+                        projectiles.push({
+                            x: en.x - 8, y: en.y + 8,
+                            vx: -3.6, vy: 0, 
+                            width: 12, height: 12
+                        });
+                        en.barfTimer = 0;
+                        playSound('stomp');
+                    }
+                } else {
+                    en.vy += GRAVITY; en.x += en.vx; en.y += en.vy;
+
+                    if (en.type === 'BROCCOLI' && en.isGrounded && Math.random() < 0.01) {
+                        en.vy = -7.0; en.isGrounded = false; 
+                    }
+                }
+
+                en.isGrounded = false;
+
+                tiles.forEach(t => {
+                    if (t.collidable) {
+                        const tRect = { x: t.x, y: t.y, width: tileWidth, height: tileHeight };
+                        const eRect = { x: en.x, y: en.y, width: en.width, height: en.height };
+                        if (checkCollision(eRect, tRect)) {
+                            if (en.vy > 0) {
+                                en.y = t.y - en.height;
+                                en.vy = 0;
+                                en.isGrounded = true;
+                            } else {
+                                en.vx *= -1; 
+                            }
+                        }
+                    }
+                });
+
+                const eRect = { x: en.x, y: en.y, width: en.width, height: en.height };
+                const pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+                if (checkCollision(pRect, eRect)) {
+                    if (player.vy > 0.2) {
+                        en.isDead = true; en.vy = -5.0; en.vx = 1.0;
+                        player.vy = -5.0;
+                        score += 200;
+                        playSound('stomp');
+                    } else if (player.invulnFrames <= 0) {
+                        if (player.powerState > 0) {
+                            player.powerState--;
+                            player.invulnFrames = 90; 
+                            playSound('hurt');
+                        } else {
+                            loseLife();
+                        }
+                    }
+                }
+            });
+
+            projectiles.forEach((p, pIdx) => {
+                p.x += p.vx;
+                const pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+                const projRect = { x: p.x, y: p.y, width: p.width, height: p.height };
+                
+                if (checkCollision(pRect, projRect)) {
+                    if (player.invulnFrames <= 0) {
+                        if (player.powerState > 0) {
+                            player.powerState--; player.invulnFrames = 90; playSound('hurt');
+                        } else {
+                            loseLife();
+                        }
+                    }
+                    projectiles.splice(pIdx, 1);
+                    return;
+                }
+
+                if (p.x < cameraX || p.x > cameraX + 640) {
+                    projectiles.splice(pIdx, 1);
+                }
+            });
+
+            particles.forEach((p, idx) => {
+                p.update();
+                if (p.life <= 0) particles.splice(idx, 1);
+            });
+        }
+
+        function createBrickBreakingEffect(x, y) {
+            const colors = ['#8c5230', '#fcddc8', '#e53935'];
+            for (let i = 0; i < 8; i++) {
+                const vx = (Math.random() - 0.5) * 6;
+                const vy = -3.0 - Math.random() * 4;
+                particles.push(new Particle(x, y, vx, vy, colors[Math.floor(Math.random() * colors.length)]));
+            }
+        }
+
+        // ====================================================================
+        // ระบบผ่านด่านและตายคืนชีพ
+        // ====================================================================
+        function loseLife() {
+            lives--;
+            playSound('pipe');
+            if (lives <= 0) {
+                gameState = 'GAMEOVER';
+                stopBGM();
+                document.getElementById('gameover-screen').classList.remove('hidden');
+            } else {
+                player.x = Math.max(64, player.x - 120);
+                player.y = 200;
+                player.vx = 0; player.vy = 0;
+                player.powerState = 0;
+                player.invulnFrames = 120;
+            }
+        }
+
+        function triggerGoalWin(rouletteTile) {
+            gameState = 'CARD_WON';
+            stopBGM();
+            playSound('win');
+
+            const cardIcons = ['🍄', '🌸', '⭐'];
+            earnedCard = cardIcons[rouletteTile.currentIcon];
+            
+            if (inventoryCards.length < 3) {
+                inventoryCards.push(earnedCard);
+            } else {
+                inventoryCards.shift();
+                inventoryCards.push(earnedCard);
+            }
+
+            score += 5000;
+
+            document.getElementById('earned-card-display').innerText = earnedCard;
+            document.getElementById('card-alert').classList.remove('hidden');
+
+            setTimeout(() => {
+                document.getElementById('card-alert').classList.add('hidden');
+                restartGame();
+            }, 4000);
+        }
+
+        function restartGame() {
+            score = 0;
+            coins = 0;
+            lives = 3;
+            timeLeft = 300;
+            player.x = 64; player.y = 300;
+            player.vx = 0; player.vy = 0;
+            player.powerState = 0;
+            player.pMeter = 0;
+            player.isSpinning = false;
+            
+            buildLevel();
+            document.getElementById('gameover-screen').classList.add('hidden');
+            gameState = 'PLAYING';
+            startBGM();
+        }
+
+        // ====================================================================
+        // ระบบวาดแคนวาส 640x560 (Gameplay & HUD Rendering)
+        // ====================================================================
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            cameraX = player.x - canvas.width / 2 + player.width / 2;
+            if (cameraX < 0) cameraX = 0;
+            const maxCamX = levelWidth * tileWidth - canvas.width;
+            if (cameraX > maxCamX) cameraX = maxCamX;
+
+            // --- ส่วนที่ 1: การวาดตัวเกมเพลย์ทั้งหมดภายใต้พิกัดเลื่อน 80px หลบแถบ HUD ---
+            ctx.save();
+            ctx.translate(0, 80); 
+
+            // 1.1 วาดท้องฟ้ายามราตรีเวทมนตร์สีม่วงคราม (Fantasy Starry Sky Gradients)
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, 480);
+            skyGrad.addColorStop(0, '#0a0316');   // ม่วงมืดสนิท
+            skyGrad.addColorStop(0.5, '#2c0c45'); // ม่วงสว่างนีออน
+            skyGrad.addColorStop(1, '#4e1461');   // ชมพูอมม่วงสว่างฉากล่าง
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, 480);
+
+            // วาดดวงดาวระยิบระยับแฟนตาซี 8-Bit
+            ctx.fillStyle = '#FFF59D';
+            for (let i = 0; i < 30; i++) {
+                let starX = (i * 73 + cameraX * 0.1) % canvas.width;
+                let starY = (i * 29) % 150;
+                ctx.fillRect(starX, starY, 3, 3);
+            }
+            
+            // วาดดวงจันทร์แฟนตาซีสีทองส่องแสงคลาสสิก
+            ctx.fillStyle = '#FFD54F';
+            ctx.beginPath(); ctx.arc(520 - cameraX * 0.15, 80, 24, 0, Math.PI*2); ctx.fill();
+            // ซ้อนทับเสี้ยวพระจันทร์
+            ctx.fillStyle = '#0a0316';
+            ctx.beginPath(); ctx.arc(508 - cameraX * 0.15, 80, 24, 0, Math.PI*2); ctx.fill();
+
+            // 1.2 วาดก้อนเมฆฉากหลังพาสเทลสีชมพูนวลชิบิ
+            ctx.fillStyle = '#F8BBD0';
+            for (let i = 0; i < levelWidth; i += 8) {
+                let cloudX = i * tileWidth - cameraX * 0.2 + 40;
+                ctx.beginPath();
+                ctx.arc(cloudX, 80, 24, 0, Math.PI * 2);
+                ctx.arc(cloudX + 20, 70, 30, 0, Math.PI * 2);
+                ctx.arc(cloudX + 40, 80, 24, 0, Math.PI * 2);
+                ctx.fill();
+
+                // ดวงตาเมฆสีดำ
+                ctx.fillStyle = '#000';
+                ctx.fillRect(cloudX + 12, 64, 4, 8);
+                ctx.fillRect(cloudX + 24, 64, 4, 8);
+                ctx.fillStyle = '#F8BBD0';
+            }
+
+            // 1.3 วาดบล็อกและพื้นดินหญ้าเวทมนตร์เรืองแสง 32x32
+            tiles.forEach(t => {
+                ctx.drawImage(spriteSheets.tiles, t.spriteX, 0, 32, 32, t.x - cameraX, t.y, 32, 32);
+
+                if (t.type === 'ROULETTE') {
+                    if (Date.now() - t.lastFlash > 120 && gameState === 'PLAYING') {
+                        t.currentIcon = (t.currentIcon + 1) % 3;
+                        t.lastFlash = Date.now();
+                    }
+                    const icons = ['🍄', '🌸', '⭐'];
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(t.x - cameraX + 2, t.y + 2, 28, 28);
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 18px Arial';
+                    ctx.fillText(icons[t.currentIcon], t.x - cameraX + 4, t.y + 22);
+                }
+            });
+
+            // 1.4 วาดไอเทมโบนัส (32x32)
+            items.forEach(it => {
+                const sheetX = it.type === 'MUSHROOM' ? 0 : 32;
+                ctx.drawImage(spriteSheets.items, sheetX, 0, 32, 32, it.x - cameraX, it.y, 32, 32);
+            });
+
+            // 1.5 วาดศัตรูความละเอียดสูง (64x64) - แก้ไขตำแหน่งเท้าจมดินสมบูรณ์แบบ
+            enemies.forEach(en => {
+                let enemyCanvas = null;
+                if (en.type === 'CROISSANT') enemyCanvas = renderHighResCroissant(player.animFrame);
+                else if (en.type === 'TACO_CRAB') enemyCanvas = renderHighResTacoCrab(player.animFrame);
+                else if (en.type === 'EGG_TOAST') enemyCanvas = renderHighResEggToast(player.animFrame);
+                else if (en.type === 'BARFING_TOAST') enemyCanvas = renderHighResBarfingToast(player.animFrame);
+                else if (en.type === 'HEART_FIRE') enemyCanvas = renderHighResHeartFire(player.animFrame);
+                else if (en.type === 'BROCCOLI') enemyCanvas = renderHighResBroccoli(player.animFrame);
+
+                if (enemyCanvas) {
+                    // จัดตำแหน่งวาดโดยอิงพิกัดล่างสุดของกล่องชนทางฟิสิกส์ เพื่อป้องกันอาการจมดินและให้สัมผัสพื้นพอดี
+                    const visualWidth = 64;
+                    const visualHeight = 64;
+                    const drawX = en.x - cameraX - (visualWidth - en.width) / 2;
+                    const drawY = (en.y + en.height) - visualHeight;
+
+                    ctx.save();
+                    if (en.isDead) {
+                        ctx.translate(drawX + 32, drawY + 32);
+                        ctx.scale(1, -1);
+                        ctx.drawImage(enemyCanvas, -32, -32, 64, 64);
+                    } else if (en.vx > 0) {
+                        ctx.translate(drawX + 32, drawY + 32);
+                        ctx.scale(-1, 1);
+                        ctx.drawImage(enemyCanvas, -32, -32, 64, 64);
+                    } else {
+                        ctx.drawImage(enemyCanvas, drawX, drawY, 64, 64);
+                    }
+                    ctx.restore();
+                }
+            });
+
+            // 1.6 วาดกระสุนแยมส้มขนาดใหญ่ขึ้น 2 เท่า
+            projectiles.forEach(p => {
+                ctx.fillStyle = '#FF5722';
+                ctx.fillRect(p.x - cameraX, p.y, p.width, p.height);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(p.x - cameraX + 2, p.y + 2, 4, 4);
+            });
+
+            // 1.7 วาดพาร์ติเคิลอิฐเวทมนตร์สีชมพูส่องสว่าง
+            particles.forEach(p => p.draw(ctx, cameraX));
+
+            // 1.8 วาดตัวเอกพิกเซลความละเอียดสูงแบบยักษ์ชิบิ (64x80 พิกเซล) - แก้ไขตำแหน่งเท้าจมดินสมบูรณ์แบบ
+            if (player.invulnFrames === 0 || Math.floor(player.invulnFrames / 4) % 2 === 0) {
+                const actionType = !player.isGrounded ? 'jump' : (player.vx !== 0 ? 'walk' : 'idle');
+                const characterCanvas = renderHighResPlayer(player.animFrame, player.powerState, player.facingLeft, actionType);
+
+                // ปรับแกนวาดโดยอ้างอิงจากฐานล่างของกล่องฟิสิกส์ เพื่อให้เท้าเหยียบบนหน้าหญ้าอัญมณีพอดี
+                const visualWidth = 64;
+                const visualHeight = player.powerState > 0 ? 80 : 64; // ร่างชิบิปกติสูง 64px ร่างโตสูง 80px
+                const drawX = player.x - cameraX - (visualWidth - player.width) / 2;
+                const drawY = (player.y + player.height) - visualHeight;
+
+                ctx.save();
+                if (player.facingLeft) {
+                    ctx.translate(drawX + 32, drawY + visualHeight / 2);
+                    ctx.scale(-1, 1);
+                    if (player.powerState === 0) {
+                        ctx.drawImage(characterCanvas, 0, 16, 64, 64, -32, -32, 64, 64);
+                    } else {
+                        ctx.drawImage(characterCanvas, -32, -visualHeight / 2, 64, 80);
+                    }
+                } else {
+                    if (player.powerState === 0) {
+                        ctx.drawImage(characterCanvas, 0, 16, 64, 64, drawX, drawY, 64, 64);
+                    } else {
+                        ctx.drawImage(characterCanvas, drawX, drawY, 64, 80);
+                    }
+                }
+                ctx.restore();
+            }
+
+            ctx.restore(); // สิ้นสุดการวาดพื้นที่เกมเพลย์
+
+            // --- ส่วนที่ 2: วาดแถบอินเตอร์เฟสสถานะ (HUD) ด้านบนสุดของหน้าจอพอดี (0 ถึง 80px) ---
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, 80); 
+            ctx.strokeStyle = '#8E24AA'; ctx.lineWidth = 2; ctx.strokeRect(8, 4, canvas.width - 16, 72);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '16px monospace';
+            ctx.fillText('WORLD 1', 24, 26);
+            ctx.fillText(`M x${lives}`, 24, 52);
+
+            // เกจวิ่งเร็ว [▶▶▶▶▶▶ [P]] ขนาดใหญ่สีเวทมนตร์ชมพูสะท้อน
+            ctx.fillStyle = '#555555';
+            ctx.fillText('▶▶▶▶▶▶', 116, 26);
+            const activeArrows = Math.floor(player.pMeter / 10);
+            if (activeArrows > 0) {
+                ctx.fillStyle = '#E040FB'; 
+                ctx.fillText('▶'.repeat(activeArrows), 116, 26);
+            }
+            if (player.pMeter >= 58 && Math.floor(Date.now() / 100) % 2 === 0) {
+                ctx.fillStyle = '#FFD54F';
+                ctx.fillRect(188, 10, 20, 18);
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 14px monospace';
+                ctx.fillText('P', 193, 24);
+            } else {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeRect(188, 10, 20, 18);
+                ctx.font = 'bold 14px monospace';
+                ctx.fillText('P', 193, 24);
+            }
+
+            // แสดงเหรียญ, คะแนน, เวลา
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '16px monospace';
+            ctx.fillText(`🪙 x${String(coins).padStart(2, '0')}`, 230, 26);
+            ctx.fillText(String(score).padStart(6, '0'), 116, 52);
+            ctx.fillText(`⏰ ${String(timeLeft).padStart(3, '0')}`, 230, 52);
+
+            // กล่องเก็บการ์ดโบนัส 3 ช่องด้านขวา ขยายขนาดใหญ่ 2 เท่า
+            for (let cIdx = 0; cIdx < 3; cIdx++) {
+                const cx = 350 + cIdx * 32;
+                ctx.fillStyle = '#111111';
+                ctx.fillRect(cx, 12, 28, 36);
+                ctx.strokeStyle = '#8E24AA';
+                ctx.strokeRect(cx, 12, 28, 36);
+
+                if (inventoryCards[cIdx]) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(cx + 2, 14, 24, 32);
+                    ctx.fillStyle = '#000000';
+                    ctx.font = '20px Arial';
+                    ctx.fillText(inventoryCards[cIdx], cx + 2, 38);
+                }
+            }
+        }
+
+        // ====================================================================
+        // ระบบริเริ่มลูปเกม (Loops Setup)
+        // ====================================================================
+        function gameLoop(timestamp) {
+            if (gameState === 'PLAYING') {
+                updatePlayer();
+                updateEntities();
+            }
+
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        setInterval(() => {
+            if (gameState === 'PLAYING') {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    loseLife();
+                }
+            }
+        }, 1000);
+
+        const titleScreen = document.getElementById('title-screen');
+        const handleStartGame = (e) => {
+            e.preventDefault();
+            initAudio(); 
+            titleScreen.classList.add('hidden'); 
+            restartGame();
+        };
+
+        titleScreen.addEventListener('click', handleStartGame);
+        titleScreen.addEventListener('touchstart', handleStartGame);
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            initAudio();
+            restartGame();
+        });
+
+        window.onload = () => {
+            buildLevel();
+            setupControls();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
+
+```
