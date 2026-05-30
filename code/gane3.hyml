@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Super Tokyo Boy 3 - Classic Retro 2D</title>
+    <!-- นำเข้า Tailwind CSS สำหรับ UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #fff;
+            overflow-x: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        /* คุมภาพให้เป็นแบบ Pixel Art ไม่เบลอ และแสดงผลเต็มพื้นที่อย่างถูกต้อง */
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            display: block;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 4 / 3;
+            background-color: #8cdcd6; /* สีฟ้าสไตล์ Super Mario Bros 3 */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+        }
+        .nes-btn {
+            background-color: #ff4500;
+            border: 4px solid #fff;
+            box-shadow: 0 4px 0 #801000;
+            image-rendering: pixelated;
+        }
+        .nes-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start min-h-screen p-4">
+
+    <!-- ส่วนจำลองกรอบทีวีโบราณแบบย้อนยุค -->
+    <div class="relative flex flex-col items-center w-full max-w-[640px]">
+        <!-- แถบด้านบน: เปิด-ปิดเพลงและควบคุม -->
+        <div class="w-full flex justify-between px-2 py-1 text-xs text-yellow-400 font-bold mb-1">
+            <span>📺 RETRO NES MODE</span>
+            <button id="bgm-toggle" class="bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded border border-yellow-400 cursor-pointer">🔊 เปิด/ปิดดนตรี 8-bit</button>
+        </div>
+
+        <!-- หน้าจอหลักของเกมด้วย HTML5 Canvas -->
+        <div class="relative w-full border-8 border-gray-800 rounded-lg overflow-hidden bg-black shadow-2xl">
+            <canvas id="gameCanvas" width="320" height="240"></canvas>
+
+            <!-- ฉากเริ่มต้นของเกม (Title Screen) - แก้ไขให้กระชับ และกดตรงไหนก็เล่นได้เลยเพื่อป้องกันปุ่มล้น -->
+            <div id="title-screen" class="absolute inset-0 bg-[#fce4a0] flex flex-col items-center justify-between p-4 z-50 cursor-pointer">
+                <div class="text-center my-auto">
+                    <h1 class="text-red-600 font-black text-2xl tracking-widest drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">SUPER</h1>
+                    <h2 class="text-blue-600 font-black text-3xl tracking-tight drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">TOKYO BOY 3</h2>
+                    
+                    <div class="my-4 animate-bounce flex justify-center gap-4 text-3xl">
+                        <span>🍄</span>
+                        <span>🌟</span>
+                        <span>🌸</span>
+                    </div>
+
+                    <div class="bg-red-600 text-white font-black text-xs py-3 px-6 rounded-md border-2 border-white shadow-md inline-block animate-pulse">
+                        แตะหน้าจอเพื่อเริ่มเล่นเกม! (TOUCH TO START)
+                    </div>
+                </div>
+                <div class="text-[9px] text-gray-700 font-bold">
+                    © 1988 TOKYO BOY / RETRO GAME STUDIO
+                </div>
+            </div>
+
+            <!-- ข้อความแจ้งเตือนเมื่อได้การ์ดท้ายด่าน -->
+            <div id="card-alert" class="absolute inset-x-0 top-1/4 hidden flex flex-col items-center justify-center pointer-events-none z-40">
+                <div class="bg-black border-4 border-white p-3 text-center text-white space-y-1 animate-bounce">
+                    <p class="text-yellow-400 font-black text-lg">YOU GOT A CARD!</p>
+                    <div id="earned-card-display" class="w-12 h-12 bg-white border-2 border-black mx-auto flex items-center justify-center text-2xl">🍄</div>
+                    <p class="text-xs text-gray-300">ผ่านด่านแรกสำเร็จแล้ว!</p>
+                </div>
+            </div>
+
+            <!-- ฉากพ่ายแพ้ (Game Over Screen) -->
+            <div id="gameover-screen" class="absolute inset-0 bg-black/90 hidden flex flex-col items-center justify-center text-center p-4 z-50">
+                <h2 class="text-red-500 font-black text-4xl mb-4 tracking-wider">GAME OVER</h2>
+                <button id="restart-btn" class="nes-btn text-white text-base font-bold px-6 py-2 rounded cursor-pointer">
+                    ลองใหม่อีกครั้ง
+                </button>
+            </div>
+        </div>
+
+        <!-- แผงควบคุมเสมือนจริงบนมือถือ (Touch Overlay) -->
+        <div id="mobile-controls" class="w-full flex justify-between p-4 mt-2 select-none">
+            <!-- ปุ่มควบคุมการเดินซ้าย-ขวา -->
+            <div class="flex gap-4">
+                <button id="ctrl-left" class="w-16 h-16 rounded-full bg-gray-800/80 border-2 border-gray-600 text-white font-bold flex items-center justify-center text-2xl active:bg-gray-600 active:scale-95">◀</button>
+                <button id="ctrl-right" class="w-16 h-16 rounded-full bg-gray-800/80 border-2 border-gray-600 text-white font-bold flex items-center justify-center text-2xl active:bg-gray-600 active:scale-95">▶</button>
+            </div>
+            <!-- ปุ่มแอคชั่น B (วิ่ง/สะบัดหาง) & A (กระโดด/บิน) -->
+            <div class="flex gap-4">
+                <button id="ctrl-b" class="w-16 h-16 rounded-full bg-red-600/90 border-2 border-white text-white font-black flex flex-col items-center justify-center active:bg-red-500 active:scale-95">
+                    <span class="text-lg">B</span>
+                    <span class="text-[8px]">วิ่ง/หาง</span>
+                </button>
+                <button id="ctrl-a" class="w-16 h-16 rounded-full bg-yellow-500/90 border-2 border-white text-black font-black flex flex-col items-center justify-center active:bg-yellow-400 active:scale-95">
+                    <span class="text-lg">A</span>
+                    <span class="text-[8px]">กระโดด</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ย้ายคู่มือการเล่นมาแสดงผลด้านล่างจอเกมอย่างละเอียด สไตล์คู่มือ NES ย้อนยุค -->
+        <div class="w-full mt-2 bg-yellow-50 border-4 border-orange-400 rounded-xl p-4 text-gray-800 shadow-lg text-xs md:text-sm">
+            <h3 class="font-black text-orange-600 text-sm md:text-base mb-2 border-b-2 border-orange-300 pb-1 flex items-center gap-2">
+                📖 คู่มือสูตรการเล่นย้อนยุค (Super Tokyo Boy 3)
+            </h3>
+            <ul class="space-y-1.5 list-disc list-inside font-sans">
+                <li><b class="text-red-600">พลังใบไม้ทองแรคคูน (Raccoon Power):</b> เก็บใบไม้ทองเพื่อแปลงร่าง! เมื่อวิ่งเร็วเกจ <b>[P]</b> จะเพิ่มขึ้นเรื่อยๆ เมื่อเกจเต็มจะมีเสียงแจ้งเตือน ให้กดปุ่ม <b>A (กระโดด) รัวๆ</b> เพื่อบินขึ้นฟ้า</li>
+                <li><b class="text-blue-600">การร่อนลงช้าๆ:</b> ขณะตกจากที่สูง ให้กดปุ่ม <b>A ค้างไว้</b> เพื่อสะบัดหางช่วยพยุงตัวร่อนลงอย่างปลอดภัย</li>
+                <li><b class="text-green-600">การสะบัดหางโจมตี:</b> กดปุ่ม <b>B (วิ่ง/หาง)</b> เพื่อสะบัดหางฟาดทำลายบล็อกอิฐหรือกำจัดศัตรู</li>
+                <li><b class="text-yellow-600">การควบคุมบนคอมพิวเตอร์:</b> เดิน [← / →] หรือ [A / D] | วิ่งเร็ว/สะบัดหาง [Shift / J] | กระโดด/บิน [Spacebar / K]</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // ====================================================================
+        // ระบบเสียง Chiptune 8-bit & ซินธิไซเซอร์แบบปลอดภัยสูง (Safe AudioContext Setup)
+        // ====================================================================
+        let audioCtx = null;
+        let bgmInterval = null;
+        let isBgmPlaying = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    console.error("Audio Context is not supported in this browser.", e);
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            initAudio();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+
+            if (type === 'jump') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(650, now + 0.18);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                osc.start(now); osc.stop(now + 0.18);
+            } 
+            else if (type === 'coin') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now); 
+                osc.frequency.setValueAtTime(1318.51, now + 0.08); 
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now); osc.stop(now + 0.25);
+            } 
+            else if (type === 'stomp') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(110, now);
+                osc.frequency.linearRampToValueAtTime(20, now + 0.1);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                osc.start(now); osc.stop(now + 0.12);
+            } 
+            else if (type === 'powerup_sprout') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(330, now);
+                osc.frequency.linearRampToValueAtTime(660, now + 0.3);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            }
+            else if (type === 'powerup') {
+                const notes = [330, 392, 659, 523, 587, 784];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.type = 'square';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.06);
+                    g.gain.setValueAtTime(0.08, now + idx * 0.06);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.06 + 0.15);
+                    o.start(now + idx * 0.06); o.stop(now + idx * 0.06 + 0.15);
+                });
+            }
+            else if (type === 'tail_whip') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.08);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now); osc.stop(now + 0.08);
+            }
+            else if (type === 'fly') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.setValueAtTime(300, now + 0.05);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            }
+            else if (type === 'brick_break') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(80, now);
+                osc.frequency.linearRampToValueAtTime(10, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            }
+            else if (type === 'pipe') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.setValueAtTime(100, now + 0.1);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
+            }
+            else if (type === 'win') {
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.type = 'triangle';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    g.gain.setValueAtTime(0.1, now + idx * 0.08);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.3);
+                    o.start(now + idx * 0.08); o.stop(now + idx * 0.08 + 0.3);
+                });
+            }
+        }
+
+        // เมโลดี้ดนตรี 8-bit วนลูปหลังเริ่มเกมสไตล์มาริโอ้
+        function startBGM() {
+            initAudio();
+            if (isBgmPlaying || !audioCtx) return;
+            isBgmPlaying = true;
+            let noteIdx = 0;
+            const melody = [
+                330, 330, 0, 330, 0, 261, 330, 0, 392, 0, 0, 0, 196, 0, 0, 0,
+                261, 0, 0, 196, 0, 0, 164, 0, 220, 0, 246, 0, 233, 220, 0, 196
+            ];
+            
+            bgmInterval = setInterval(() => {
+                if (!audioCtx || audioCtx.state === 'suspended') return;
+                const freq = melody[noteIdx % melody.length];
+                if (freq > 0) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+                }
+                noteIdx++;
+            }, 150);
+        }
+
+        function stopBGM() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+            }
+            isBgmPlaying = false;
+        }
+
+        document.getElementById('bgm-toggle').addEventListener('click', (e) => {
+            e.stopPropagation(); // กันไม่ให้ไปโดนอีเวนต์กดเริ่มเกมของหน้าจอใหญ่
+            initAudio();
+            if (isBgmPlaying) {
+                stopBGM();
+            } else {
+                startBGM();
+            }
+        });
+
+        // ====================================================================
+        // ระบบภาพสไปรท์และเอ็นจิ้นการวาด (Canvas Rendering System)
+        // ====================================================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false; // ปิดการเบลอเพื่อให้อารมณ์แบบพิกเซลดิบๆ
+
+        const spriteSheets = {
+            player: document.createElement('canvas'),
+            tiles: document.createElement('canvas'),
+            enemies: document.createElement('canvas'),
+            items: document.createElement('canvas')
+        };
+
+        function generateSprites() {
+            // 1. สไปรท์ผู้เล่น (เด็กแว่นแดงผมบลอนด์จมูกเขียว)
+            const pSheet = spriteSheets.player;
+            pSheet.width = 128; pSheet.height = 32;
+            const pCtx = pSheet.getContext('2d');
+            
+            const drawPlayerModel = (ctx, x, y, isBig, isRaccoon, animWalkFrame) => {
+                const height = isBig ? 24 : 16;
+                const width = 16;
+
+                if (isRaccoon) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(x - 2, y + height - 8, 6, 6);
+                    ctx.fillStyle = '#CD853F';
+                    ctx.fillRect(x - 4, y + height - 7, 4, 4);
+                }
+
+                ctx.fillStyle = '#D32F2F';
+                ctx.fillRect(x + 3, y + height - 8, 10, 8);
+                
+                ctx.fillStyle = '#5D4037'; 
+                ctx.fillRect(x + 3 + (animWalkFrame ? 2 : 0), y + height - 2, 4, 2);
+                ctx.fillRect(x + 9 - (animWalkFrame ? 2 : 0), y + height - 2, 4, 2);
+
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(x + 1, y + height - 8, 2, 5);
+                ctx.fillRect(x + 13, y + height - 8, 2, 5);
+                ctx.fillStyle = '#FF5722';
+                ctx.fillRect(x, y + height - 4, 3, 3);
+                ctx.fillRect(x + 13, y + height - 4, 3, 3);
+
+                ctx.fillStyle = '#FFE082';
+                ctx.fillRect(x + 3, y + (isBig ? 4 : 2), 10, 10);
+
+                ctx.fillStyle = '#FFEB3B';
+                ctx.fillRect(x + 3, y + (isBig ? 2 : 0), 10, 4);
+                
+                if (isRaccoon) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(x + 2, y + (isBig ? 0 : -2), 3, 3);
+                    ctx.fillRect(x + 11, y + (isBig ? 0 : -2), 3, 3);
+                }
+
+                ctx.fillStyle = '#D50000';
+                ctx.fillRect(x + 4, y + (isBig ? 6 : 4), 3, 3);
+                ctx.fillRect(x + 9, y + (isBig ? 6 : 4), 3, 3);
+                ctx.fillStyle = '#000000'; 
+                ctx.fillRect(x + 5, y + (isBig ? 7 : 5), 1, 1);
+                ctx.fillRect(x + 10, y + (isBig ? 7 : 5), 1, 1);
+
+                ctx.fillStyle = '#4CAF50';
+                ctx.fillRect(x + 7, y + (isBig ? 7 : 5), 2, 2);
+
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x + 7, y + (isBig ? 11 : 9), 2, 1);
+            };
+
+            drawPlayerModel(pCtx, 0, 8, false, false, false);   
+            drawPlayerModel(pCtx, 16, 8, false, false, true);   
+            drawPlayerModel(pCtx, 32, 0, true, false, false);   
+            drawPlayerModel(pCtx, 48, 0, true, false, true);    
+            drawPlayerModel(pCtx, 64, 0, true, true, false);    
+            drawPlayerModel(pCtx, 80, 0, true, true, true);     
+            drawPlayerModel(pCtx, 96, 0, true, true, false);    
+
+            // 2. แผ่นพื้นและบล็อกต่างๆ
+            const tSheet = spriteSheets.tiles;
+            tSheet.width = 128; tSheet.height = 32;
+            const tCtx = tSheet.getContext('2d');
+
+            tCtx.fillStyle = '#8c5230'; tCtx.fillRect(0, 0, 16, 16);
+            tCtx.strokeStyle = '#421a08'; tCtx.lineWidth = 1;
+            tCtx.strokeRect(0, 0, 16, 16);
+            tCtx.beginPath(); tCtx.moveTo(0, 8); tCtx.lineTo(16, 8); tCtx.moveTo(8, 0); tCtx.lineTo(8, 16); tCtx.stroke();
+
+            tCtx.fillStyle = '#fdb888'; tCtx.fillRect(16, 0, 16, 16);
+            tCtx.fillStyle = '#fcddc8'; tCtx.fillRect(17, 1, 14, 1); tCtx.fillRect(17, 1, 1, 14); 
+            tCtx.strokeStyle = '#944018'; tCtx.lineWidth = 1;
+            tCtx.strokeRect(16, 0, 16, 16);
+            tCtx.fillStyle = '#944018';
+            tCtx.fillRect(18, 2, 2, 2); tCtx.fillRect(28, 2, 2, 2);
+            tCtx.fillRect(18, 12, 2, 2); tCtx.fillRect(28, 12, 2, 2);
+
+            tCtx.fillStyle = '#88c8fd'; tCtx.fillRect(32, 0, 16, 16);
+            tCtx.fillStyle = '#c8e5fd'; tCtx.fillRect(33, 1, 14, 1); tCtx.fillRect(33, 1, 1, 14);
+            tCtx.strokeStyle = '#185094'; tCtx.lineWidth = 1;
+            tCtx.strokeRect(32, 0, 16, 16);
+            tCtx.fillStyle = '#185094';
+            tCtx.fillRect(34, 2, 2, 2); tCtx.fillRect(44, 2, 2, 2);
+            tCtx.fillRect(34, 12, 2, 2); tCtx.fillRect(44, 12, 2, 2);
+
+            tCtx.fillStyle = '#fc9c10'; tCtx.fillRect(48, 0, 16, 16);
+            tCtx.strokeStyle = '#944000'; tCtx.lineWidth = 1; tCtx.strokeRect(48, 0, 16, 16);
+            tCtx.fillStyle = '#fff'; tCtx.font = 'bold 11px monospace'; tCtx.fillText('?', 53, 12);
+
+            tCtx.fillStyle = '#2bb812'; tCtx.fillRect(64, 0, 16, 16);
+            tCtx.fillStyle = '#1b7808'; tCtx.fillRect(72, 0, 8, 16); 
+            tCtx.strokeStyle = '#053000'; tCtx.strokeRect(64, 0, 16, 16);
+
+            tCtx.fillStyle = '#fce4a0'; tCtx.fillRect(80, 0, 16, 16);
+            tCtx.strokeStyle = '#9c7c30'; tCtx.lineWidth = 1;
+            for (let k = -16; k < 16; k += 4) {
+                tCtx.beginPath(); tCtx.moveTo(80 + k, 0); tCtx.lineTo(96 + k, 16); tCtx.stroke();
+            }
+            tCtx.fillStyle = '#109400'; tCtx.fillRect(80, 0, 16, 3);
+
+            // 3. ศัตรู
+            const eSheet = spriteSheets.enemies;
+            eSheet.width = 64; eSheet.height = 16;
+            const eCtx = eSheet.getContext('2d');
+
+            eCtx.fillStyle = '#ffa726';
+            eCtx.fillRect(0, 4, 16, 12); 
+            eCtx.fillStyle = '#e65100'; 
+            eCtx.fillRect(0, 1, 3, 5); eCtx.fillRect(13, 1, 3, 5);
+            eCtx.fillStyle = '#ffffff'; eCtx.fillRect(5, 6, 6, 6); 
+            eCtx.fillStyle = '#000000'; eCtx.fillRect(7, 8, 2, 2);
+
+            eCtx.fillStyle = '#ffcc80'; eCtx.fillRect(16, 6, 16, 10); 
+            eCtx.fillStyle = '#e53935'; eCtx.fillRect(18, 1, 3, 5); eCtx.fillRect(27, 1, 3, 5); 
+            eCtx.fillStyle = '#4caf50'; eCtx.fillRect(20, 5, 8, 3); 
+            eCtx.fillStyle = '#000'; eCtx.fillRect(21, 9, 2, 2); eCtx.fillRect(25, 9, 2, 2); 
+
+            // 4. ของวิเศษ
+            const iSheet = spriteSheets.items;
+            iSheet.width = 64; iSheet.height = 16;
+            const iCtx = iSheet.getContext('2d');
+
+            iCtx.fillStyle = '#ffd54f'; iCtx.fillRect(2, 4, 12, 12); 
+            iCtx.fillStyle = '#e53935'; iCtx.beginPath(); iCtx.arc(8, 8, 7, Math.PI, 0, false); iCtx.fill(); 
+            iCtx.fillStyle = '#ffffff'; iCtx.fillRect(4, 3, 2, 2); iCtx.fillRect(10, 3, 2, 2); 
+
+            iCtx.fillStyle = '#e65100'; 
+            iCtx.beginPath(); iCtx.ellipse(8, 8, 7, 5, Math.PI/4, 0, Math.PI*2); iCtx.fill();
+            iCtx.strokeStyle = '#ffcc80'; iCtx.lineWidth = 1; tCtx.beginPath(); iCtx.moveTo(3, 13); iCtx.lineTo(13, 3); iCtx.stroke(); 
+        }
+
+        generateSprites();
+
+        // ====================================================================
+        // โครงสร้างและข้อมูลตัวเกมหลัก (Game Setup)
+        // ====================================================================
+        let score = 0;
+        let coins = 0;
+        let lives = 3;
+        let timeLeft = 300;
+        let earnedCard = ''; 
+        const inventoryCards = []; 
+
+        const tileWidth = 16;
+        const tileHeight = 16;
+        let levelWidth = 160; 
+
+        const player = {
+            x: 32, y: 150,
+            vx: 0, vy: 0,
+            width: 14, height: 16,
+            isGrounded: false,
+            powerState: 0, 
+            facingLeft: false,
+            invulnFrames: 0,
+            animFrame: 0,
+            animTimer: 0,
+            pMeter: 0,        
+            flightTimer: 0,   
+            isSpinning: false, 
+            spinTimer: 0
+        };
+
+        const GRAVITY = 0.22;
+        const FRICTION = 0.85;
+        let keys = { left: false, right: false, jump: false, run: false };
+
+        class Particle {
+            constructor(x, y, vx, vy, color) {
+                this.x = x; this.y = y;
+                this.vx = vx; this.vy = vy;
+                this.color = color;
+                this.life = 20 + Math.random() * 15;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.08;
+                this.life--;
+            }
+            draw(ctx, camX) {
+                ctx.fillStyle = this.color;
+                // บวกออฟเซ็ตแกน Y ของ Gameplay ที่ขยับลงมา 40px หลบ HUD
+                ctx.fillRect(this.x - camX, this.y + 40, 3, 3);
+            }
+        }
+
+        let tiles = [];
+        let enemies = [];
+        let items = [];
+        let particles = [];
+        let cameraX = 0;
+        let gameState = 'TITLE'; 
+
+        const levelLayout = [
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                                                                                                                                                                ",
+            "                  W W                                                                                 W W                                                       ",
+            "                                                                                                                                                                ",
+            "               M Q Q M                                                                             M M M M                                                      ",
+            "                                                                                                                                                                ",
+            "          Q    W B Q B W                               W B B Q W                              W B B B B W                                                       ",
+            "                                            M W                                                                                                                 ",
+            "                                            M W                                                                                                        X        ",
+            "          P             P                   M W                                                                                                      W W W      ",
+            "          P             P                   M W                                                                                                    W W W W W    ",
+            "GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG   GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"
+        ];
+
+        function buildLevel() {
+            tiles = [];
+            enemies = [];
+            items = [];
+            particles = [];
+            cameraX = 0;
+
+            const mapHeight = levelLayout.length;
+            for (let r = 0; r < mapHeight; r++) {
+                const row = levelLayout[r];
+                for (let c = 0; c < row.length; c++) {
+                    const char = row[c];
+                    const px = c * tileWidth;
+                    const py = r * tileHeight;
+
+                    if (char === 'G') {
+                        tiles.push({ x: px, y: py, type: 'GROUND', collidable: true, spriteX: 80 });
+                    } else if (char === 'B') {
+                        tiles.push({ x: px, y: py, type: 'BRICK', collidable: true, spriteX: 0 });
+                    } else if (char === 'W') {
+                        tiles.push({ x: px, y: py, type: 'WOOD_ORANGE', collidable: true, spriteX: 16 });
+                    } else if (char === 'M') {
+                        tiles.push({ x: px, y: py, type: 'WOOD_BLUE', collidable: true, spriteX: 32 });
+                    } else if (char === 'Q') {
+                        tiles.push({ x: px, y: py, type: 'QUESTION', collidable: true, spriteX: 48, hasItem: true });
+                    } else if (char === 'P') {
+                        tiles.push({ x: px, y: py, type: 'PIPE', collidable: true, spriteX: 64 });
+                    } else if (char === 'X') {
+                        tiles.push({ x: px, y: py, type: 'ROULETTE', collidable: true, currentIcon: 0, lastFlash: 0 });
+                    }
+                }
+            }
+
+            const enemyPlacements = [180, 320, 500, 720, 950, 1100, 1350, 1600];
+            enemyPlacements.forEach((ex, idx) => {
+                enemies.push({
+                    x: ex, y: 150,
+                    vx: idx % 2 === 0 ? -0.4 : -0.6,
+                    vy: 0,
+                    width: 14, height: 14,
+                    type: idx % 2 === 0 ? 'CROISSANT' : 'TACO_CRAB',
+                    isDead: false,
+                    deadTimer: 0
+                });
+            });
+        }
+
+        // ====================================================================
+        // ดักสัญญาณและปุ่มสัมผัส (Touch Setup)
+        // ====================================================================
+        function setupControls() {
+            window.addEventListener('keydown', (e) => {
+                if (gameState !== 'PLAYING') return;
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+                if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'k' || e.key === 'K') keys.jump = true;
+                if (e.key === 'Shift' || e.key === 'j' || e.key === 'J') {
+                    keys.run = true;
+                    triggerTailWhip();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+                if (e.key === 'ArrowUp' || e.key === ' ' || e.key === 'k' || e.key === 'K') keys.jump = false;
+                if (e.key === 'Shift' || e.key === 'j' || e.key === 'J') keys.run = false;
+            });
+
+            const addTouchAction = (elemId, keyName, onDownCallback) => {
+                const el = document.getElementById(elemId);
+                el.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    initAudio(); 
+                    if (gameState !== 'PLAYING') return;
+                    keys[keyName] = true;
+                    if (onDownCallback) onDownCallback();
+                });
+                el.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    keys[keyName] = false;
+                });
+            };
+
+            addTouchAction('ctrl-left', 'left');
+            addTouchAction('ctrl-right', 'right');
+            addTouchAction('ctrl-a', 'jump');
+            addTouchAction('ctrl-b', 'run', () => {
+                triggerTailWhip();
+            });
+        }
+
+        function triggerTailWhip() {
+            if (player.powerState === 2 && !player.isSpinning) {
+                player.isSpinning = true;
+                player.spinTimer = 12; 
+                playSound('tail_whip');
+
+                const hitRect = {
+                    x: player.facingLeft ? player.x - 12 : player.x + player.width,
+                    y: player.y + 4,
+                    width: 12,
+                    height: player.height - 4
+                };
+
+                enemies.forEach(e => {
+                    if (!e.isDead && checkCollision(hitRect, e)) {
+                        e.isDead = true;
+                        e.vy = -3; 
+                        e.vx = player.facingLeft ? -1.5 : 1.5;
+                        score += 200;
+                        playSound('stomp');
+                    }
+                });
+
+                tiles.forEach((t, index) => {
+                    if (t.type === 'BRICK' && checkCollision(hitRect, t)) {
+                        createBrickBreakingEffect(t.x + 8, t.y + 8);
+                        tiles.splice(index, 1);
+                        playSound('brick_break');
+                    }
+                });
+            }
+        }
+
+        // ====================================================================
+        // ระบบฟิสิกส์ การชนปะทะ (Platformer Physics Engine)
+        // ====================================================================
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + htmlHeightW(rect1) > rect2.x && // Helper width check
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // ตัวช่วยสัดส่วนความกว้าง
+        function htmlHeightW(r) {
+            return r.width || 0;
+        }
+
+        function updatePlayer() {
+            player.height = player.powerState > 0 ? 24 : 16;
+
+            const maxNormalSpeed = 1.6;
+            const maxDashSpeed = 2.8;
+            let currentMaxSpeed = keys.run ? maxDashSpeed : maxNormalSpeed;
+
+            if (keys.left) {
+                player.vx -= 0.12;
+                player.facingLeft = true;
+                if (player.vx < -currentMaxSpeed) player.vx = -currentMaxSpeed;
+            } else if (keys.right) {
+                player.vx += 0.12;
+                player.facingLeft = false;
+                if (player.vx > currentMaxSpeed) player.vx = currentMaxSpeed;
+            } else {
+                player.vx *= FRICTION;
+                if (Math.abs(player.vx) < 0.05) player.vx = 0;
+            }
+
+            if (player.isGrounded && Math.abs(player.vx) >= maxNormalSpeed && keys.run) {
+                if (player.pMeter < 60) {
+                    player.pMeter++;
+                }
+            } else {
+                if (player.pMeter > 0) {
+                    player.pMeter -= 0.5;
+                }
+            }
+
+            if (player.isGrounded) {
+                player.flightTimer = 0;
+                if (keys.jump) {
+                    player.vy = -4.3; 
+                    if (player.pMeter >= 58) {
+                        player.vy = -5.8;
+                        if (player.powerState === 2) {
+                            player.flightTimer = 180; 
+                        }
+                    }
+                    player.isGrounded = false;
+                    playSound('jump');
+                }
+            } else {
+                if (keys.jump && player.vy < 0) {
+                    player.vy -= 0.08;
+                }
+
+                if (player.powerState === 2 && keys.jump) {
+                    if (player.flightTimer > 0) {
+                        player.vy = -1.8;
+                        player.flightTimer--;
+                        if (Math.floor(player.flightTimer) % 6 === 0) playSound('fly');
+                    } else if (player.vy > 0) {
+                        player.vy = 0.5;
+                        if (Math.floor(Date.now() / 150) % 2 === 0) playSound('fly');
+                    }
+                }
+            }
+
+            player.vy += GRAVITY;
+            if (player.vy > 6) player.vy = 6; 
+
+            player.x += player.vx;
+            handleBlockCollisions('X');
+
+            player.y += player.vy;
+            player.isGrounded = false;
+            handleBlockCollisions('Y');
+
+            if (player.x < cameraX) {
+                player.x = cameraX;
+                player.vx = 0;
+            }
+
+            if (player.y > 240) {
+                loseLife();
+            }
+
+            if (player.vx !== 0 && player.isGrounded) {
+                player.animTimer++;
+                if (player.animTimer > 8 - (Math.abs(player.vx) * 1.5)) {
+                    player.animFrame = (player.animFrame + 1) % 2;
+                    player.animTimer = 0;
+                }
+            } else {
+                player.animFrame = 0;
+            }
+
+            if (player.invulnFrames > 0) player.invulnFrames--;
+
+            if (player.isSpinning) {
+                player.spinTimer--;
+                if (player.spinTimer <= 0) player.isSpinning = false;
+            }
+        }
+
+        function handleBlockCollisions(axis) {
+            const pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+
+            for (let i = 0; i < tiles.length; i++) {
+                const t = tiles[i];
+                if (!t.collidable) continue;
+
+                const tRect = { x: t.x, y: t.y, width: tileWidth, height: tileHeight };
+                if (checkCollision(pRect, tRect)) {
+                    if (t.type === 'ROULETTE') {
+                        triggerGoalWin(t);
+                        return;
+                    }
+
+                    if (axis === 'X') {
+                        if (player.vx > 0) {
+                            player.x = t.x - player.width;
+                            player.vx = 0;
+                        } else if (player.vx < 0) {
+                            player.x = t.x + tileWidth;
+                            player.vx = 0;
+                        }
+                    } else {
+                        if (player.vy > 0) {
+                            player.y = t.y - player.height;
+                            player.vy = 0;
+                            player.isGrounded = true;
+                        } else if (player.vy < 0) {
+                            player.y = t.y + tileHeight;
+                            player.vy = 0;
+
+                            if (t.type === 'BRICK') {
+                                if (player.powerState > 0) {
+                                    createBrickBreakingEffect(t.x + 8, t.y + 8);
+                                    tiles.splice(i, 1);
+                                    score += 50;
+                                    playSound('brick_break');
+                                    i--;
+                                } else {
+                                    playSound('stomp'); 
+                                }
+                            } 
+                            else if (t.type === 'QUESTION' && t.hasItem) {
+                                t.hasItem = false;
+                                t.spriteX = 32; 
+                                
+                                if (player.powerState === 0) {
+                                    spawnItem(t.x, t.y, 'MUSHROOM');
+                                } else {
+                                    spawnItem(t.x, t.y, 'LEAF');
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        // ====================================================================
+        // พลังพิเศษและวายร้ายในฉาก
+        // ====================================================================
+        function spawnItem(bx, by, type) {
+            items.push({
+                x: bx, y: by,
+                vx: type === 'MUSHROOM' ? 0.8 : 0.4,
+                vy: -2, 
+                width: 14, height: 14,
+                type: type,
+                life: 300 
+            });
+            playSound('powerup_sprout');
+        }
+
+        function updateEntities() {
+            items.forEach((it, idx) => {
+                it.life--;
+                if (it.life <= 0) {
+                    items.splice(idx, 1);
+                    return;
+                }
+
+                if (it.type === 'MUSHROOM') {
+                    it.vy += GRAVITY;
+                    it.x += it.vx;
+                    it.y += it.vy;
+
+                    tiles.forEach(t => {
+                        if (t.collidable) {
+                            const tRect = { x: t.x, y: t.y, width: tileWidth, height: tileHeight };
+                            const iRect = { x: it.x, y: it.y, width: it.width, height: it.height };
+                            if (checkCollision(iRect, tRect)) {
+                                if (it.vy > 0) {
+                                    it.y = t.y - it.height;
+                                    it.vy = 0;
+                                } else if (it.vx > 0) {
+                                    it.vx *= -1; 
+                                }
+                            }
+                        }
+                    });
+                } else if (it.type === 'LEAF') {
+                    it.y += 0.5;
+                    it.x += Math.sin(Date.now() / 150) * 1.1;
+                }
+
+                const iRect = { x: it.x, y: it.y, width: it.width, height: it.height };
+                const pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+                if (checkCollision(pRect, iRect)) {
+                    if (it.type === 'MUSHROOM') {
+                        if (player.powerState === 0) player.powerState = 1; 
+                    } else if (it.type === 'LEAF') {
+                        player.powerState = 2; 
+                    }
+                    score += 1000;
+                    playSound('powerup');
+                    items.splice(idx, 1);
+                }
+            });
+
+            enemies.forEach((en, idx) => {
+                if (en.isDead) {
+                    en.vy += GRAVITY;
+                    en.x += en.vx;
+                    en.y += en.vy;
+                    if (en.y > 240) enemies.splice(idx, 1);
+                    return;
+                }
+
+                en.vy += GRAVITY;
+                en.x += en.vx;
+                en.y += en.vy;
+
+                tiles.forEach(t => {
+                    if (t.collidable) {
+                        const tRect = { x: t.x, y: t.y, width: tileWidth, height: tileHeight };
+                        const eRect = { x: en.x, y: en.y, width: en.width, height: en.height };
+                        if (checkCollision(eRect, tRect)) {
+                            if (en.vy > 0) {
+                                en.y = t.y - en.height;
+                                en.vy = 0;
+                            } else {
+                                en.vx *= -1; 
+                            }
+                        }
+                    }
+                });
+
+                const eRect = { x: en.x, y: en.y, width: en.width, height: en.height };
+                const pRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+                if (checkCollision(pRect, eRect)) {
+                    if (player.vy > 0.1) {
+                        en.isDead = true;
+                        en.vy = -2.5;
+                        en.vx = 0.5;
+                        player.vy = -2.5;
+                        score += 200;
+                        playSound('stomp');
+                    } else if (player.invulnFrames <= 0) {
+                        if (player.powerState > 0) {
+                            player.powerState--;
+                            player.invulnFrames = 90; 
+                            playSound('hurt');
+                        } else {
+                            loseLife();
+                        }
+                    }
+                }
+            });
+
+            particles.forEach((p, idx) => {
+                p.update();
+                if (p.life <= 0) particles.splice(idx, 1);
+            });
+        }
+
+        function createBrickBreakingEffect(x, y) {
+            const colors = ['#8c5230', '#fcddc8', '#e53935'];
+            for (let i = 0; i < 8; i++) {
+                const vx = (Math.random() - 0.5) * 3;
+                const vy = -1.5 - Math.random() * 2;
+                particles.push(new Particle(x, y, vx, vy, colors[Math.floor(Math.random() * colors.length)]));
+            }
+        }
+
+        // ====================================================================
+        // ระบบผ่านด่านและพ่ายแพ้
+        // ====================================================================
+        function loseLife() {
+            lives--;
+            playSound('pipe');
+            if (lives <= 0) {
+                gameState = 'GAMEOVER';
+                stopBGM();
+                document.getElementById('gameover-screen').classList.remove('hidden');
+            } else {
+                player.x = Math.max(32, player.x - 60);
+                player.y = 100;
+                player.vx = 0; player.vy = 0;
+                player.powerState = 0;
+                player.invulnFrames = 120;
+            }
+        }
+
+        function triggerGoalWin(rouletteTile) {
+            gameState = 'CARD_WON';
+            stopBGM();
+            playSound('win');
+
+            const cardIcons = ['🍄', '🌸', '⭐'];
+            earnedCard = cardIcons[rouletteTile.currentIcon];
+            
+            if (inventoryCards.length < 3) {
+                inventoryCards.push(earnedCard);
+            } else {
+                inventoryCards.shift();
+                inventoryCards.push(earnedCard);
+            }
+
+            score += 5000;
+
+            document.getElementById('earned-card-display').innerText = earnedCard;
+            document.getElementById('card-alert').classList.remove('hidden');
+
+            setTimeout(() => {
+                document.getElementById('card-alert').classList.add('hidden');
+                restartGame();
+            }, 4000);
+        }
+
+        function restartGame() {
+            score = 0;
+            coins = 0;
+            lives = 3;
+            timeLeft = 300;
+            player.x = 32; player.y = 150;
+            player.vx = 0; player.vy = 0;
+            player.powerState = 0;
+            player.pMeter = 0;
+            player.isSpinning = false;
+            
+            buildLevel();
+            document.getElementById('gameover-screen').classList.add('hidden');
+            gameState = 'PLAYING';
+            startBGM();
+        }
+
+        // ====================================================================
+        // ระบบวาดองค์ประกอบหลัก (Draw Loop)
+        // ====================================================================
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            cameraX = player.x - canvas.width / 2 + player.width / 2;
+            if (cameraX < 0) cameraX = 0;
+            const maxCamX = levelWidth * tileWidth - canvas.width;
+            if (cameraX > maxCamX) cameraX = maxCamX;
+
+            // --- ส่วนที่ 1: วาดตัวเกมเพลย์ (Y-offset = 40 เพื่อหลบหลีก HUD ที่อยู่ด้านบน) ---
+            ctx.save();
+            ctx.translate(0, 40);
+
+            // 1.1 วาดก้อนเมฆและวิวฉากหลัง
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < levelWidth; i += 8) {
+                ctx.beginPath();
+                ctx.arc(i * tileWidth - cameraX * 0.2 + 20, 60, 12, 0, Math.PI * 2);
+                ctx.arc(i * tileWidth - cameraX * 0.2 + 30, 55, 15, 0, Math.PI * 2);
+                ctx.arc(i * tileWidth - cameraX * 0.2 + 40, 60, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#000';
+                ctx.fillRect(i * tileWidth - cameraX * 0.2 + 26, 52, 2, 4);
+                ctx.fillRect(i * tileWidth - cameraX * 0.2 + 32, 52, 2, 4);
+                ctx.fillStyle = '#ffffff';
+            }
+
+            // 1.2 วาดบล็อกและกระเบื้องพื้นหญ้าลายเฉียง
+            tiles.forEach(t => {
+                ctx.drawImage(spriteSheets.tiles, t.spriteX, 0, 16, 16, t.x - cameraX, t.y, 16, 16);
+
+                if (t.type === 'ROULETTE') {
+                    if (Date.now() - t.lastFlash > 120 && gameState === 'PLAYING') {
+                        t.currentIcon = (t.currentIcon + 1) % 3;
+                        t.lastFlash = Date.now();
+                    }
+                    const icons = ['🍄', '🌸', '⭐'];
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(t.x - cameraX + 1, t.y + 1, 14, 14);
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 9px Arial';
+                    ctx.fillText(icons[t.currentIcon], t.x - cameraX + 2, t.y + 11);
+                }
+            });
+
+            // 1.3 วาดเห็ดวิเศษ / ใบไม้ทองลอยร่อน
+            items.forEach(it => {
+                const sheetX = it.type === 'MUSHROOM' ? 0 : 16;
+                ctx.drawImage(spriteSheets.items, sheetX, 0, 16, 16, it.x - cameraX, it.y, 16, 16);
+            });
+
+            // 1.4 วาดศัตรู (ปูทาโก้แสนดุ และ ครัวซองต์กล้ามโต)
+            enemies.forEach(en => {
+                const sheetX = en.type === 'CROISSANT' ? 0 : 16;
+                if (en.isDead) {
+                    ctx.save();
+                    ctx.translate(en.x - cameraX + 8, en.y + 8);
+                    ctx.scale(1, -1);
+                    ctx.drawImage(spriteSheets.enemies, sheetX, 0, 16, 16, -8, -8, 16, 16);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(spriteSheets.enemies, sheetX, 0, 16, 16, en.x - cameraX, en.y, 16, 16);
+                }
+            });
+
+            // 1.5 วาดสะเก็ดบล็อกแตกละเอียด
+            particles.forEach(p => p.draw(ctx, cameraX));
+
+            // 1.6 วาดผู้เล่นหลักแสนกวน
+            if (player.invulnFrames === 0 || Math.floor(player.invulnFrames / 4) % 2 === 0) {
+                let sX = 0;
+                let sY = player.powerState > 0 ? 0 : 8; 
+                let sW = 16;
+                let sH = player.powerState > 0 ? 24 : 16;
+
+                if (player.powerState === 0) {
+                    sX = player.animFrame * 16;
+                } else if (player.powerState === 1) {
+                    sX = 32 + (player.animFrame * 16);
+                } else if (player.powerState === 2) {
+                    if (player.isSpinning) {
+                        sX = 96; 
+                    } else if (!player.isGrounded) {
+                        sX = 96; 
+                    } else {
+                        sX = 64 + (player.animFrame * 16);
+                    }
+                }
+
+                ctx.save();
+                if (player.facingLeft) {
+                    ctx.translate(player.x - cameraX + player.width/2 + 8, player.y);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(spriteSheets.player, sX, sY, sW, sH, 0, 0, 16, sH);
+                } else {
+                    ctx.drawImage(spriteSheets.player, sX, sY, sW, sH, player.x - cameraX - 1, player.y, 16, sH);
+                }
+                ctx.restore();
+            }
+
+            ctx.restore(); // สิ้นสุดการวาดตัวเกมหลัก
+
+            // --- ส่วนที่ 2: วาดแถบอินเตอร์เฟสสถานะ (HUD) ที่ย้ายมา "ด้านบนสุด" (0 ถึง 40px) ---
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, 40); 
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(4, 2, canvas.width - 8, 36);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px monospace';
+            ctx.fillText('WORLD 1', 12, 13);
+            ctx.fillText(`M x${lives}`, 12, 26);
+
+            // เกจวิ่งเร็ว [▶▶▶▶▶▶ [P]] อยู่ด้านบนอย่างสวยงาม
+            ctx.fillStyle = '#555555';
+            ctx.fillText('▶▶▶▶▶▶', 58, 13);
+            const activeArrows = Math.floor(player.pMeter / 10);
+            if (activeArrows > 0) {
+                ctx.fillStyle = '#ff4500'; 
+                ctx.fillText('▶'.repeat(activeArrows), 58, 13);
+            }
+            if (player.pMeter >= 58 && Math.floor(Date.now() / 100) % 2 === 0) {
+                ctx.fillStyle = '#ffcc00';
+                ctx.fillRect(94, 5, 10, 9);
+                ctx.fillStyle = '#000';
+                ctx.fillText('P', 97, 12);
+            } else {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeRect(94, 5, 10, 9);
+                ctx.fillText('P', 97, 12);
+            }
+
+            // แสดงเหรียญ, คะแนน, เวลา
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(`🪙 x${String(coins).padStart(2, '0')}`, 115, 13);
+            ctx.fillText(String(score).padStart(6, '0'), 58, 26);
+            ctx.fillText(`⏰ ${String(timeLeft).padStart(3, '0')}`, 115, 26);
+
+            // กล่องเก็บการ์ดโบนัส 3 ช่อง
+            for (let cIdx = 0; cIdx < 3; cIdx++) {
+                const cx = 175 + cIdx * 16;
+                ctx.fillStyle = '#111111';
+                ctx.fillRect(cx, 6, 14, 18);
+                ctx.strokeStyle = '#555555';
+                ctx.strokeRect(cx, 6, 14, 18);
+
+                if (inventoryCards[cIdx]) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(cx + 1, 7, 12, 16);
+                    ctx.fillStyle = '#000000';
+                    ctx.font = '10px Arial';
+                    ctx.fillText(inventoryCards[cIdx], cx + 1, 19);
+                }
+            }
+        }
+
+        // ====================================================================
+        // ระบบริเริ่มลูปเกม (Loops Setup)
+        // ====================================================================
+        function gameLoop(timestamp) {
+            if (gameState === 'PLAYING') {
+                updatePlayer();
+                updateEntities();
+            }
+
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        setInterval(() => {
+            if (gameState === 'PLAYING') {
+                timeLeft--;
+                if (timeLeft <= 0) {
+                    loseLife();
+                }
+            }
+        }, 1000);
+
+        // ดักจับการเริ่มเกมของไตเติลสกรีน: แตะหน้าจอสตาร์ทได้ทันที
+        const titleScreen = document.getElementById('title-screen');
+        const handleStartGame = (e) => {
+            e.preventDefault();
+            initAudio(); 
+            titleScreen.classList.add('hidden'); 
+            restartGame();
+        };
+
+        titleScreen.addEventListener('click', handleStartGame);
+        titleScreen.addEventListener('touchstart', handleStartGame);
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            initAudio();
+            restartGame();
+        });
+
+        window.onload = () => {
+            buildLevel();
+            setupControls();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
+
+```
