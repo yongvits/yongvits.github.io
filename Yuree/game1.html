@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>เกมกำจัดมอดในกระสอบข้าวสาร - Fullscreen</title>
+    <title>เกมกำจัดมอดในกระสอบข้าวสาร - Fullscreen & Bright Ghost Effect</title>
     <!-- นำเข้า Tailwind CSS สำหรับสไตล์ UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -32,9 +32,9 @@
 
     <!-- ส่วนแสดงหน้าจอโหลดดิ้ง (Loading Screen) -->
     <div id="loading-screen" class="absolute inset-0 bg-[#3a1c0e] flex flex-col justify-center items-center z-50 transition-opacity duration-500">
-        <div class="animate-pulse mb-4 text-6xl">🌾🐜🌾</div>
+        <div class="animate-pulse mb-4 text-6xl">🌾🐜👻🌾</div>
         <h1 class="text-2xl font-extrabold text-amber-100 tracking-wider text-center px-4">กำลังเทข้าวสารแบบเต็มกระสอบ...</h1>
-        <p class="text-amber-200/60 mt-2 text-xs text-center">จัดวางตำแหน่งตัวมอดแบบกระจายตัวสมบูรณ์แบบ</p>
+        <p class="text-amber-200/60 mt-2 text-xs text-center">จัดวางตำแหน่งตัวมอดและระบบวิญญาณเรืองแสงสว่างจ้า</p>
     </div>
 
     <!-- Canvas แสดงผลเกมหลักแบบเต็มหน้าจอ (Fullscreen Play Area) -->
@@ -57,7 +57,7 @@
 
     <!-- แถบแนะนำการเล่นขนาดเล็กกะทัดรัดที่มุมขวาบน -->
     <div class="absolute top-4 right-4 z-10 bg-black/45 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] md:text-xs text-amber-200/90 pointer-events-none shadow-sm">
-        💡 แตะตัวมอดเพื่อกำจัด
+        💡 แตะตัวมอดเพื่อปลดปล่อยวิญญาณ
     </div>
 
     <!-- ป๊อปอัปเมื่อชนะเกม (Victory Modal) -->
@@ -65,7 +65,7 @@
         <div class="bg-gradient-to-b from-amber-900 to-amber-950 p-8 rounded-3xl border border-amber-500/30 shadow-2xl text-center max-w-sm w-full relative overflow-hidden">
             <div class="text-6xl mb-3 animate-bounce">🌾🏆✨</div>
             <h2 class="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-400">กำจัดมอดหมดเกลี้ยง!</h2>
-            <p class="text-amber-100 mt-2 text-sm">คุณกำจัดตัวมอดทั้งหมด <span id="victory-total" class="font-bold text-amber-300 text-base">0</span> ตัว ได้สำเร็จ!</p>
+            <p class="text-amber-100 mt-2 text-sm">คุณช่วยส่งวิญญาณมอดทั้งหมด <span id="victory-total" class="font-bold text-amber-300 text-base">0</span> ตัว ไปสู่สุคติแล้ว!</p>
             
             <div class="mt-5 flex flex-col space-y-2">
                 <button id="btn-play-again" class="bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 font-bold py-3 px-6 rounded-xl shadow-lg transition duration-200 active:scale-95 text-sm text-white">
@@ -100,6 +100,34 @@
             osc.stop(audioCtx.currentTime + 0.12);
         }
 
+        // เอฟเฟกต์เสียงวิญญาณมอดลอยลิ่ว (Ascension Sound Effect)
+        function playGhostSound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(280, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(950, audioCtx.currentTime + 0.55);
+            
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(400, audioCtx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.55);
+
+            gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.55);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
         function playVictorySound() {
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
@@ -126,13 +154,14 @@
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
 
-        // ข้อมูลตัวแปรหลัก
+        // ตัวแปรเก็บข้อมูล
         let weevils = [];
         let particles = [];
+        let ghosts = []; // แถวลำดับเก็บข้อมูลวิญญาณมอด (Weevil Ghosts)
         let initialWeevilCount = 45; 
         let remainingCount = 45;
 
-        // ระบบ Canvas สำรองสำหรับวาดพื้นหลังล่วงหน้าเพื่อความลื่นไหลระดับสูง (60FPS)
+        // ระบบ Canvas สำหรับวาดพื้นหลังและข้าวสารเลเยอร์เพื่อประสิทธิภาพสูง
         const bgCanvas = document.createElement('canvas');
         const bgCtx = bgCanvas.getContext('2d');
         const fgCanvas = document.createElement('canvas');
@@ -140,36 +169,35 @@
 
         let riceGrains = [];
 
-        // --- สุ่มสร้างข้อมูลข้าวสารแบบหนาแน่นพิเศษครอบคลุมพื้นที่ฟูลสกรีน ---
+        // --- สุ่มสร้างข้อมูลข้าวสารแบบหนาแน่นพิเศษ ---
         function generateRiceGrains(width, height) {
             riceGrains = [];
-            // คำนวณความหนาแน่นให้สัมพันธ์กับความกว้างคูณความสูงของหน้าจอสัมผัสจริง
             const totalGrains = Math.floor((width * height) / 38); 
             
             const shades = [
-                '#ffffff', // ขาวสว่างมะลิ
-                '#fefcf6', // ขาวนวลสะอาด
-                '#fcf8ea', // ขาวนวลมีแสงเงา
-                '#f6edd2', // ขาวเหลืองอบอุ่น
-                '#f0e6c7', // ขาวเก่าปนจางๆ
-                '#eae0bd', // สีข้าวหักชั้นล่างช่วยบังพื้นหลัง
-                '#ded4b0'  // สีเงาข้าวชั้นล่างสุด
+                '#ffffff', 
+                '#fefcf6', 
+                '#fcf8ea', 
+                '#f6edd2', 
+                '#f0e6c7', 
+                '#eae0bd', 
+                '#ded4b0'  
             ];
 
             for (let i = 0; i < totalGrains; i++) {
                 riceGrains.push({
                     x: Math.random() * width,
                     y: Math.random() * height,
-                    rx: 7.0 + Math.random() * 4.5, // ความยาวเมล็ดข้าวสาร
-                    ry: 2.5 + Math.random() * 1.3, // ความหนาเมล็ดข้าวสาร
+                    rx: 7.0 + Math.random() * 4.5, 
+                    ry: 2.5 + Math.random() * 1.3, 
                     rot: Math.random() * Math.PI * 2,
                     shade: shades[Math.floor(Math.random() * shades.length)],
-                    isForeground: Math.random() < 0.22 // 22% วาดไว้เลเยอร์หน้าสุดเพื่อทับตัวมอด
+                    isForeground: Math.random() < 0.22 
                 });
             }
         }
 
-        // --- สั่งวาดเม็ดข้าวสารสะสมลงใน Canvas สำรอง ---
+        // --- วาดข้าวสารลงใน Offscreen Canvas ---
         function renderOffscreenRice() {
             if (canvas.width <= 0 || canvas.height <= 0) return;
 
@@ -178,11 +206,9 @@
             fgCanvas.width = canvas.width;
             fgCanvas.height = canvas.height;
 
-            // เทสีพื้นหลังเป็นกระสอบป่าน
             bgCtx.fillStyle = '#b09477'; 
             bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
             
-            // วาดลายเส้นถักทอของใยกระสอบป่านเพื่อความสมจริง
             bgCtx.strokeStyle = 'rgba(92, 64, 51, 0.2)';
             bgCtx.lineWidth = 1.2;
             const step = 8;
@@ -201,20 +227,18 @@
 
             fgCtx.clearRect(0, 0, fgCanvas.width, fgCanvas.height);
 
-            // วาดเมล็ดข้าวทั้งหมด
             riceGrains.forEach(g => {
                 const targetCtx = g.isForeground ? fgCtx : bgCtx;
                 drawRiceGrain(targetCtx, g);
             });
         }
 
-        // --- ฟังก์ชันวาดเม็ดข้าวเดี่ยว ---
+        // --- วาดเมล็ดข้าวสารเดี่ยว ---
         function drawRiceGrain(targetCtx, g) {
             targetCtx.save();
             targetCtx.translate(g.x, g.y);
             targetCtx.rotate(g.rot);
             
-            // วาดเงาของข้าวสร้างสัมผัสความลึก 3 มิติ
             targetCtx.shadowColor = 'rgba(42, 28, 12, 0.3)';
             targetCtx.shadowBlur = 2.5;
             targetCtx.shadowOffsetX = 1.0;
@@ -229,7 +253,6 @@
             targetCtx.closePath();
             targetCtx.fill();
 
-            // ไฮไลท์แสงสีขาวตกกระทบ
             targetCtx.shadowColor = 'transparent';
             targetCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             targetCtx.beginPath();
@@ -239,21 +262,22 @@
             targetCtx.restore();
         }
 
-        // --- ระบบสุ่มเกิดตัวมอดแบบกระจายตัว 100% ไม่ทับซ้อนเกาะกลุ่มกัน ---
+        // --- สุ่มเกิดตัวมอดแบบกระจายตัว 100% ไม่ทับซ้อนเกาะกลุ่มกัน ---
         function spawnWeevils(count) {
             weevils = [];
+            ghosts = [];
+            particles = [];
             remainingCount = count;
             document.getElementById('remaining-count').innerText = count;
             document.getElementById('total-count').innerText = count;
 
             const w = canvas.width > 0 ? canvas.width : window.innerWidth;
             const h = canvas.height > 0 ? canvas.height : window.innerHeight;
-            const padding = 35; // ขอบเขตที่ปลอดภัยจากขอบจอสุด
+            const padding = 35; 
 
-            // ประเมินระยะห่างความหนาแน่นที่เหมาะสมเพื่อการกระจายตัวที่ดีที่สุด
             const playableArea = (w - padding * 2) * (h - padding * 2);
             let minDistance = Math.sqrt(playableArea / count) * 0.85;
-            minDistance = Math.min(minDistance, 100); // กำหนดค่าห่างสูงสุดไม่ให้บีบพื้นที่เกินไป
+            minDistance = Math.min(minDistance, 100); 
 
             for (let i = 0; i < count; i++) {
                 let spawnX = 0;
@@ -266,7 +290,6 @@
                     spawnY = padding + Math.random() * (h - padding * 2);
                     tooClose = false;
 
-                    // วัดระยะห่างจากมอดตัวอื่นๆ ที่สปอนลงไปก่อนแล้วเพื่อไม่ให้เกิดกระจุกร่วมกลุ่ม
                     for (let j = 0; j < weevils.length; j++) {
                         const other = weevils[j];
                         const dist = Math.hypot(spawnX - other.x, spawnY - other.y);
@@ -277,7 +300,6 @@
                     }
 
                     attempts++;
-                    // ค่อยๆ ลดข้อจำกัดลงเล็กน้อยในกรณีที่จอแคบมากและมอดล้นพื้นที่
                     if (attempts % 45 === 0) {
                         minDistance *= 0.85;
                     }
@@ -301,7 +323,7 @@
             }
         }
 
-        // --- วาดลักษณะและรูปร่างของมอด (2D Vector Drawing) ---
+        // --- วาดลักษณะและรูปร่างของมอดปกติ ---
         function drawWeevil(w) {
             ctx.save();
             ctx.translate(w.x, w.y);
@@ -311,13 +333,11 @@
 
             const size = w.size;
 
-            // เงาตกกระทบพื้นข้าว
             ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
             ctx.shadowBlur = 4;
             ctx.shadowOffsetX = 1.5;
             ctx.shadowOffsetY = 2.5;
 
-            // วาดขา 6 ขาพร้อมแอนิเมชันขยับจังหวะเดินสลับ
             ctx.strokeStyle = '#1b0d05'; 
             ctx.lineWidth = size * 0.12;
             ctx.lineCap = 'round';
@@ -326,19 +346,16 @@
             const legWiggle = Math.sin(w.legsPhase) * 0.45;
             
             for (let i = -1; i <= 1; i += 2) { 
-                // ขาคู่หน้า
                 ctx.beginPath();
                 ctx.moveTo(0, -size * 0.1);
                 ctx.lineTo(i * size * 0.8, -size * 0.45 + (legWiggle * i));
                 ctx.stroke();
 
-                // ขาคู่กลาง
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
                 ctx.lineTo(i * size * 0.9, (legWiggle * -i));
                 ctx.stroke();
 
-                // ขาคู่หลัง
                 ctx.beginPath();
                 ctx.moveTo(0, size * 0.25);
                 ctx.lineTo(i * size * 0.8, size * 0.55 + (legWiggle * i));
@@ -347,13 +364,11 @@
 
             ctx.shadowColor = 'transparent';
 
-            // ส่วนท้อง (Abdomen)
             ctx.fillStyle = '#5c2d16'; 
             ctx.beginPath();
             ctx.ellipse(0, size * 0.15, size * 0.45, size * 0.65, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // ลายปล้องแนวขวางของท้อง
             ctx.strokeStyle = '#32180b';
             ctx.lineWidth = size * 0.055;
             for (let offset = -0.1; offset <= 0.5; offset += 0.25) {
@@ -362,19 +377,16 @@
                 ctx.stroke();
             }
 
-            // อกมอด (Thorax)
             ctx.fillStyle = '#3a1c0e'; 
             ctx.beginPath();
             ctx.ellipse(0, -size * 0.35, size * 0.35, size * 0.3, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // ส่วนหัว (Head)
             ctx.fillStyle = '#210f07';
             ctx.beginPath();
             ctx.ellipse(0, -size * 0.62, size * 0.18, size * 0.18, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // งวงมอดอันยาวที่เป็นเอกลักษณ์ (Long Snout)
             ctx.strokeStyle = '#210f07';
             ctx.lineWidth = size * 0.09;
             ctx.beginPath();
@@ -382,16 +394,13 @@
             ctx.lineTo(0, -size * 1.25);
             ctx.stroke();
 
-            // หนวดหักงอสองข้าง (Antennae)
             ctx.lineWidth = size * 0.045;
             ctx.strokeStyle = '#3a1c0e';
-            // หนวดซ้าย
             ctx.beginPath();
             ctx.moveTo(-size * 0.04, -size * 0.85);
             ctx.lineTo(-size * 0.25, -size * 0.95);
             ctx.lineTo(-size * 0.32, -size * 0.78);
             ctx.stroke();
-            // หนวดขวา
             ctx.beginPath();
             ctx.moveTo(size * 0.04, -size * 0.85);
             ctx.lineTo(size * 0.25, -size * 0.95);
@@ -401,7 +410,90 @@
             ctx.restore();
         }
 
-        // --- ระบบผงรำแป้งและเศษข้าวสารกระจายเมื่อกำจัดมอด (Squish Particles) ---
+        // --- วาดวิญญาณมอดน้อยเรืองแสงเด่นชัดพิเศษ (Ultra-Bright Weevil Ghost Renderer) ---
+        function drawGhost(g) {
+            ctx.save();
+            ctx.translate(g.x, g.y);
+            ctx.rotate(g.rotation);
+            ctx.scale(g.scale, g.scale);
+            ctx.globalAlpha = g.opacity;
+
+            const size = g.size;
+
+            // 1. เพิ่มขอบเขตแสงนีออนเรืองรอบตัววิญญาณให้จัดจ้า (Neon Cyan Glow Aura)
+            ctx.shadowColor = '#00ffff'; 
+            ctx.shadowBlur = 28;
+
+            // 2. ปรับเนื้อวิญญาณเป็นโทนฟ้าพาสเทลเนื้อสว่างแน่นขึ้น (Opaque Luminous Blue & White Core) 
+            // เพื่อตัดกับฉากข้าวสารสีขาวสว่างได้อย่างลงตัว คมชัดสูงขึ้น
+            ctx.fillStyle = '#bdf1ff'; 
+            ctx.strokeStyle = '#00d5f0'; // เส้นขอบสีฟ้านีออนคมเข้ม
+            ctx.lineWidth = size * 0.085;
+
+            // ส่วนท้อง (Abdomen)
+            ctx.beginPath();
+            ctx.ellipse(0, size * 0.15, size * 0.45, size * 0.65, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // อก (Thorax)
+            ctx.beginPath();
+            ctx.ellipse(0, -size * 0.35, size * 0.35, size * 0.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // ส่วนหัว (Head)
+            ctx.beginPath();
+            ctx.ellipse(0, -size * 0.62, size * 0.18, size * 0.18, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // งวงเจาะข้าวสารโปร่งแสงแบบมีโครงร่างเรืองรอง (Snout)
+            ctx.beginPath();
+            ctx.moveTo(0, -size * 0.68);
+            ctx.lineTo(0, -size * 1.25);
+            ctx.stroke();
+
+            // 3. ปรับปีกให้เด่นสว่างสะดุดตาเป็นโทนฟ้าเข้มข้น (Bright Luminous Wings)
+            ctx.shadowColor = 'transparent'; // เคลียร์แสงวาดปีกชั้นบนไม่ให้ปีกกลืนกับลำตัว
+            ctx.fillStyle = 'rgba(0, 225, 255, 0.88)'; // สีฟ้านีออนเนื้อสีอิ่มเด่น
+            ctx.strokeStyle = '#ffffff'; // ขอบปีกสีขาวสะท้อนตัดความหนา
+            ctx.lineWidth = size * 0.045;
+            
+            const wingWiggle = Math.sin(g.wingPhase) * 0.3;
+
+            // ปีกนางฟ้าซ้าย
+            ctx.save();
+            ctx.translate(-size * 0.35, -size * 0.1);
+            ctx.rotate(-0.4 + wingWiggle);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, size * 0.45, size * 0.22, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // ปีกนางฟ้ารวมขวา
+            ctx.save();
+            ctx.translate(size * 0.35, -size * 0.1);
+            ctx.rotate(0.4 - wingWiggle);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, size * 0.45, size * 0.22, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // 4. ดวงตาของดวงวิญญาณกลมโตปรับเป็นสีฟ้าน้ำทะเลเข้มจัดเพื่อเพิ่มคอนทราสต์ที่น่ารักและเห็นชัดเจน
+            ctx.fillStyle = '#004c5e';
+            ctx.beginPath();
+            ctx.arc(-size * 0.08, -size * 0.62, size * 0.05, 0, Math.PI * 2);
+            ctx.arc(size * 0.08, -size * 0.62, size * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+            ctx.globalAlpha = 1.0;
+        }
+
+        // --- ระบบอนุภาคผงรำข้าวสารร่วงหลังระเบิด ---
         function createSquishParticles(x, y) {
             const count = 18;
             const colors = ['#4a2411', '#7d4526', '#c9a175', '#fcfaf2']; 
@@ -419,10 +511,9 @@
             }
         }
 
-        // --- อัปเดตพิกัดแรงผลักและพฤติกรรมมอด (Weevil AI Update) ---
+        // --- อัปเดตพิกัด แรงผลัก และวิถีวิญญาณ (Game Logic Update) ---
         function update() {
-            // อัลกอริทึม 'แรงผลักระยะห่างทางกายภาพ' (Social Distancing / Anti-Clumping Force)
-            // คอยช่วยผลักมอดออกจากกันเบาๆ ตลอดเวลาการเล่น เพื่อให้พวกมันกระจายตัวทั่วหน้าจอ ไม่ทับถมรวมกัน
+            // ระบบ "แรงผลักระหว่างมอดป้องกันรวมกระจุกตัว"
             for (let i = 0; i < weevils.length; i++) {
                 const w1 = weevils[i];
                 if (w1.isDying) continue;
@@ -434,7 +525,7 @@
                     const dx = w2.x - w1.x;
                     const dy = w2.y - w1.y;
                     const dist = Math.hypot(dx, dy);
-                    const personalSpace = (w1.size + w2.size) * 1.5; // รัศมีขอบเขตพื้นที่ปลอดภัย
+                    const personalSpace = (w1.size + w2.size) * 1.5; 
 
                     if (dist < personalSpace && dist > 0) {
                         const force = (personalSpace - dist) / personalSpace * 0.12;
@@ -449,7 +540,7 @@
                 }
             }
 
-            // คำนวณความเร็วและการขยับขา
+            // อัปเดตพฤติกรรมมอดปกติ
             weevils.forEach(w => {
                 if (w.isDying) {
                     w.scale -= 0.14;
@@ -483,13 +574,32 @@
                 w.x += w.vx;
                 w.y += w.vy;
 
-                // ชนกระสอบ/ขอบจอแล้วเลี้ยวโค้งกลับ
                 const pad = w.size;
                 if (w.x < pad) { w.x = pad; w.vx *= -1; w.changeDirTimer = 0; }
                 if (w.x > canvas.width - pad) { w.x = canvas.width - pad; w.vx *= -1; w.changeDirTimer = 0; }
                 if (w.y < pad) { w.y = pad; w.vy *= -1; w.changeDirTimer = 0; }
                 if (w.y > canvas.height - pad) { w.y = canvas.height - pad; w.vy *= -1; w.changeDirTimer = 0; }
             });
+
+            // อัปเดตระบบวิญญาณมอดลอยลิ่ว (Floating towards screen & zooming out)
+            for (let i = ghosts.length - 1; i >= 0; i--) {
+                const g = ghosts[i];
+                g.y -= g.floatSpeed; // ลอยขึ้นฟ้าอย่างนุ่มนวล
+                g.scale += g.zoomSpeed; // ขยายขนาดเลียนแบบการลอยพุ่งเข้ามาหากล้อง
+                g.opacity -= g.fadeSpeed; // ค่อยๆ สลายความชัดเจน
+
+                // คดเคี้ยวไปทางซ้ายขวานิดๆ
+                g.wavePhase += 0.04;
+                g.x += Math.sin(g.wavePhase) * 1.2;
+
+                // อัปเดตเฟสขยับปีกดุ๊กดิ๊ก
+                g.wingPhase += 0.28;
+
+                // ลบวิญญาณออกจากระบบเมื่อมองไม่เห็นแล้ว
+                if (g.opacity <= 0) {
+                    ghosts.splice(i, 1);
+                }
+            }
 
             // อัปเดตสะเก็ดฝุ่นรำข้าว
             for (let i = particles.length - 1; i >= 0; i--) {
@@ -505,22 +615,22 @@
             }
         }
 
-        // --- ลูปการเรนเดอร์ในแต่ละเฟรม (Draw Call) ---
+        // --- เรนเดอร์กองข้าวสาร มอด และจิตวิญญาณลงบนกระสอบ (Draw Loop) ---
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (canvas.width <= 0 || canvas.height <= 0) return;
 
-            // 1. วาดเลเยอร์ข้าวพื้นหลังหนาปึก
+            // 1. วาดเลเยอร์ข้าวพื้นหลังหนาตา
             ctx.drawImage(bgCanvas, 0, 0);
 
-            // 2. วาดตัวมอด (กระจายตัวสมบูรณ์)
+            // 2. วาดตัวมอดปกติที่ยังมีชีวิต
             weevils.forEach(w => drawWeevil(w));
 
-            // 3. วาดเมล็ดข้าวเลเยอร์หน้านำมาบดบังส่วนท้องมอดเพื่อความกลมกลืนเชิงลึก
+            // 3. วาดเมล็ดข้าวเลเยอร์หน้านำมาทับถมมอดให้ดูมีเลเยอร์เชิงลึก
             ctx.drawImage(fgCanvas, 0, 0);
 
-            // 4. วาดฝุ่นรำข้าวบดกระจาย
+            // 4. วาดฝุ่นรำข้าวหลังแตะระเบิด
             particles.forEach(p => {
                 ctx.fillStyle = p.color;
                 ctx.globalAlpha = p.life;
@@ -529,12 +639,14 @@
                 ctx.fill();
             });
             ctx.globalAlpha = 1.0; 
+
+            // 5. วาดวิญญาณมอดลอยละลิ่ว (ต้องวาดอยู่บนสุดเหนือข้าวทุกชั้นเพื่อเอฟเฟกต์ 3D Zoom)
+            ghosts.forEach(g => drawGhost(g));
         }
 
-        // --- ตรวจสอบพิกัดการจิ้มบี้ตัวมอด (Touch Interface) ---
+        // --- ตรวจสอบพิกัดเมื่อแตะสัมผัส (Touch & Click Target Event) ---
         function handleInput(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
-            // แมปค่าสัมผัสพิกัดอินพุตให้สอดรับกับขนาดของพื้นที่ Canvas จริงอย่างเที่ยงตรง
             const tapX = (clientX - rect.left) * (canvas.width / rect.width);
             const tapY = (clientY - rect.top) * (canvas.height / rect.height);
 
@@ -545,15 +657,36 @@
                 if (w.isDying) continue;
 
                 const dist = Math.hypot(w.x - tapX, w.y - tapY);
-                const hitRadius = w.size * 2.3; // เพิ่มอัตราความแม่นยำในการสัมผัสช่วยให้จิ้มโดนได้ง่าย
+                const hitRadius = w.size * 2.3; 
 
                 if (dist < hitRadius) {
                     w.isDying = true;
                     w.vx = 0;
                     w.vy = 0;
                     
+                    // 1. ปล่อยผงแป้งกระเด็น
                     createSquishParticles(w.x, w.y);
+                    
+                    // 2. เรียกเสียงบี้สควอชแคร็กเกอร์
                     playSquishSound();
+
+                    // 3. ปลดปล่อยวิญญาณมอดลอยมาข้างหน้าและขึ้นบน
+                    ghosts.push({
+                        x: w.x,
+                        y: w.y,
+                        floatSpeed: 2.5 + Math.random() * 1.5, // ความเร็วลอยขึ้นด้านบน
+                        zoomSpeed: 0.05 + Math.random() * 0.03, // ความเร็วการลอยพุ่งเข้ามาหากล้อง (ขยายขนาดขึ้น)
+                        scale: 1.0, // ขนาดตั้งต้น
+                        rotation: w.rotation, // ทิศการหันตามตำแหน่งชีวิตสุดท้าย
+                        opacity: 0.95, // ความชัดเจนตอนเริ่มออกเดินทาง
+                        fadeSpeed: 0.016 + Math.random() * 0.005, // อัตราสลายวิญญาณ
+                        wavePhase: Math.random() * Math.PI, // อัตราคดเคี้ยวซ้ายขวา
+                        wingPhase: Math.random() * 10, // ตีปีกดุ๊กดิ๊ก
+                        size: w.size
+                    });
+
+                    // 4. สั่งเสียงเอฟเฟกต์ลอยขึ้น
+                    playGhostSound();
 
                     remainingCount--;
                     document.getElementById('remaining-count').innerText = remainingCount;
@@ -567,7 +700,7 @@
                 }
             }
 
-            // จิ้มพลาดเฉียดๆ ทำให้มอดที่อยู่ในแนวรัศมีตกใจตื่นกลัวและเร่งฝีเท้าวิ่งเตลิดออกจากจุดสัมผัส
+            // หากแตะวืด มอดรอบรัศมีตกใจจะวิ่งเตลิดหนี
             if (!hitDetected) {
                 weevils.forEach(w => {
                     const dist = Math.hypot(w.x - tapX, w.y - tapY);
@@ -582,7 +715,7 @@
             }
         }
 
-        // --- ชนะเกมและแสดงผลสรุป (Victory Phase) ---
+        // --- ชนะเกมส่งวิญญาณหมดกระสอบ (Victory Screen) ---
         function triggerVictory() {
             playVictorySound();
             setTimeout(() => {
@@ -592,7 +725,7 @@
             }, 500);
         }
 
-        // --- ปรับขนาดข้าวสารและ Canvas ให้สมบูรณ์แบบเต็มพิกัดจอ (Robust Fullscreen Resize) ---
+        // --- ปรับขอบเขตข้าวสารและ Canvas ให้สมดุลหน้าจอ ---
         function resizeGame() {
             const width = window.innerWidth;
             const height = window.innerHeight;
@@ -600,12 +733,11 @@
             canvas.width = width;
             canvas.height = height;
 
-            // เทข้าวสารใหม่ให้เรียงสวยงามสะใจทั่วผืนจอตามพิกัด
             generateRiceGrains(width, height);
             renderOffscreenRice();
         }
 
-        // --- การจัดวางพิกัดมอดใหม่กรณีผู้เล่นเอียงหมุนหน้าจอโทรศัพท์มือถือ ---
+        // --- ฟังก์ชันจัดการย้ายตำแหน่งมอดตอนเอียงหมุนจอโทรศัพท์มือถือ ---
         function handleResize() {
             const oldWidth = canvas.width;
             const oldHeight = canvas.height;
@@ -616,7 +748,6 @@
                 const scaleX = canvas.width / oldWidth;
                 const scaleY = canvas.height / oldHeight;
 
-                // อัปเดตพิกัดตัวมอดปัจจุบันให้กระจายขยายตัวตามขอบใหม่โดยไม่ผิดเพี้ยนไปกองกัน
                 weevils.forEach(w => {
                     w.x *= scaleX;
                     w.y *= scaleY;
@@ -626,9 +757,8 @@
             }
         }
 
-        // --- ลูปการขับเคลื่อนแอนิเมชัน (Main Game Loop) ---
+        // --- ลูปการทำงานต่อเนื่อง (Main Game Loop) ---
         function loop() {
-            // ระบบตรวจสอบความปลอดภัยหาก Canvas เสียสมมาตร ให้จัดระเบียบใหม่ทันที
             if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
                 resizeGame();
             }
@@ -644,7 +774,7 @@
             spawnWeevils(initialWeevilCount);
         }
 
-        // ลิงก์ช่องทางการแตะอินพุตแบบไร้แรงหน่วง
+        // เชื่อมโยงสัญญาณอินพุต
         canvas.addEventListener('mousedown', (e) => {
             handleInput(e.clientX, e.clientY);
         });
@@ -656,7 +786,7 @@
             }
         }, { passive: false });
 
-        // ปุ่มคำสั่งย่อยเริ่มเล่นใหม่ใน HUD กล่องมินิ
+        // ปุ่มคำสั่งย่อยในกล่อง HUD มินิ
         document.getElementById('btn-restart').addEventListener('click', () => {
             spawnWeevils(initialWeevilCount);
         });
@@ -668,7 +798,7 @@
 
         window.addEventListener('resize', handleResize);
 
-        // รอจนเว็บบอร์ดโหลดทรัพยากรพื้นผิวเสร็จสิ้น
+        // รอเว็บบอร์ดโหลดเสร็จสมบูรณ์
         window.addEventListener('load', () => {
             setupGame();
             
