@@ -1,0 +1,655 @@
+```html
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกมกำจัดมอดในกระสอบข้าวสาร</title>
+    <!-- นำเข้า Tailwind CSS สำหรับ UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="bg-[#2b170c] text-slate-100 overflow-hidden w-screen h-screen relative flex flex-col justify-between">
+
+    <!-- ส่วนแสดงหน้าจอโหลดดิ้ง (Loading Screen) -->
+    <div id="loading-screen" class="absolute inset-0 bg-[#422415] flex flex-col justify-center items-center z-50 transition-opacity duration-500">
+        <div class="animate-pulse mb-4 text-6xl">🌾🐜🌾</div>
+        <h1 class="text-3xl font-extrabold text-amber-100 tracking-wider text-center px-4">กำลังเทข้าวสารแบบหนาแน่น...</h1>
+        <p class="text-amber-200/60 mt-2 text-sm text-center">จำลองการกระจายตัวของมอดและเมล็ดข้าวสารนับพัน</p>
+    </div>
+
+    <!-- แผงควบคุมด้านบน (HUD) -->
+    <div class="p-4 w-full flex justify-between items-center z-10 pointer-events-none">
+        <!-- ตัวนับจำนวนมอดที่เหลืออยู่ -->
+        <div class="bg-amber-950/95 backdrop-blur-md border border-amber-600/30 px-5 py-2.5 rounded-2xl shadow-2xl pointer-events-auto flex items-center space-x-3">
+            <span class="text-2xl md:text-3xl animate-bounce">🐜</span>
+            <div>
+                <p class="text-[10px] text-amber-400 font-semibold tracking-wide uppercase">ตัวมอดที่เหลืออยู่</p>
+                <p class="text-xl md:text-2xl font-black text-white" id="counter-display">
+                    <span id="remaining-count" class="text-amber-300 text-2xl md:text-3xl">0</span> / <span id="total-count">0</span> ตัว
+                </p>
+            </div>
+        </div>
+
+        <!-- ปุ่มรีสตาร์ท และเมนู -->
+        <div class="flex space-x-2 pointer-events-auto">
+            <button id="btn-restart" class="bg-gradient-to-r from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 font-bold px-4 py-2.5 rounded-2xl shadow-lg transition duration-200 active:scale-95 flex items-center space-x-2 border border-amber-500/20 text-xs md:text-sm">
+                <span>🌾 เริ่มใหม่</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- กระสอบข้าวสารจำลอง (Canvas Container) -->
+    <div class="flex-grow w-full max-w-4xl mx-auto px-4 pb-4 flex justify-center items-center relative">
+        <div class="w-full h-full rounded-3xl overflow-hidden border-8 border-amber-900/60 shadow-inner bg-[#eadeca] relative">
+            <!-- Canvas แสดงผลเกมแบบ Absolute เพื่อบังคับให้ขนาดขยายตัวเต็มกล่องอย่างมั่นคง -->
+            <canvas id="game-canvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+        </div>
+    </div>
+
+    <!-- แผงแนะนำการเล่นด้านล่าง -->
+    <div class="pb-6 px-4 text-center text-xs md:text-sm text-amber-200/70 z-10 pointer-events-none">
+        💡 <span class="font-semibold text-amber-300">วิธีเล่น:</span> แตะหรือคลิกที่ <span class="text-amber-400 font-bold">"ตัวมอดสีน้ำตาล"</span> ที่แอบเดินและซ่อนอยู่ใต้เมล็ดข้าวสารเพื่อกำจัดพวกมัน!
+    </div>
+
+    <!-- ป๊อปอัปเมื่อชนะเกม (Victory Modal) -->
+    <div id="victory-modal" class="absolute inset-0 bg-amber-950/90 backdrop-blur-md flex flex-col justify-center items-center z-40 hidden transition-all duration-500 px-6">
+        <div class="bg-gradient-to-b from-amber-900 to-amber-950 p-8 rounded-3xl border border-amber-500/30 shadow-2xl text-center max-w-md w-full relative overflow-hidden">
+            <div class="text-7xl mb-4 animate-bounce">🌾🏆✨</div>
+            <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-400">กระสอบข้าวสะอาดแล้ว!</h2>
+            <p class="text-amber-100 mt-3 text-base">คุณกำจัดตัวมอดทั้งหมดออกไป <span id="victory-total" class="font-bold text-amber-300 text-lg">0</span> ตัว ได้สำเร็จ!</p>
+            
+            <div class="mt-6 flex flex-col space-y-3">
+                <button id="btn-play-again" class="bg-gradient-to-r from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 font-bold py-3.5 px-6 rounded-2xl shadow-lg transition duration-200 active:scale-95 text-base text-white">
+                    เริ่มภารกิจใหม่ 🌾
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ระบบเสียงสังเคราะห์ผ่าน Web Audio API ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSquishSound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.1);
+            
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.12);
+        }
+
+        function playVictorySound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const melody = [261.63, 329.63, 392.00, 523.25, 659.25];
+            melody.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.08);
+                
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.08 + 0.25);
+                
+                osc.start(audioCtx.currentTime + i * 0.08);
+                osc.stop(audioCtx.currentTime + i * 0.08 + 0.3);
+            });
+        }
+
+        // --- ตั้งค่าระบบ 2D Canvas ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // ตัวแปรเก็บข้อมูลมอดและฝุ่น
+        let weevils = [];
+        let particles = [];
+        let initialWeevilCount = 45; 
+        let remainingCount = 45;
+
+        // ระบบวาด Offscreen เพื่อประหยัด CPU/GPU (ประสิทธิภาพสูง วาดทีเดียวกดเล่นได้ลื่นๆ)
+        const bgCanvas = document.createElement('canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const fgCanvas = document.createElement('canvas');
+        const fgCtx = fgCanvas.getContext('2d');
+
+        let riceGrains = [];
+
+        // --- สุ่มสร้างข้อมูลข้าวสาร (เพิ่มความหนาแน่นขึ้น 3 เท่า) ---
+        function generateRiceGrains(width, height) {
+            riceGrains = [];
+            // ปรับอัตราส่วนตัวหารจาก 200 เหลือ 65 ทำให้ความหนาแน่นของเมล็ดข้าวสารเพิ่มขึ้นอย่างมหาศาล!
+            const totalGrains = Math.floor((width * height) / 65); 
+            
+            const shades = [
+                '#ffffff', // ขาวสว่างมะลิมะลิ
+                '#fcfaf2', // ขาวนวลสะอาด
+                '#f7f3e3', // ขาวนวลมีมิติ
+                '#f3ebd3', // ขาวอบอุ่น
+                '#eae3cf', // สีข้าวเก่าปนจางๆ
+                '#dfd5be'  // สีเม็ดหักหรือเงาข้าวชั้นล่าง
+            ];
+
+            for (let i = 0; i < totalGrains; i++) {
+                riceGrains.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    rx: 7.5 + Math.random() * 4.5, // ความยาวเมล็ดข้าว
+                    ry: 2.6 + Math.random() * 1.2, // ความอ้วนกลมเมล็ดข้าว
+                    rot: Math.random() * Math.PI * 2,
+                    shade: shades[Math.floor(Math.random() * shades.length)],
+                    isForeground: Math.random() < 0.22 // 22% อยู่ข้างหน้าเพื่อทับมอดเพิ่มมิติความลึก
+                });
+            }
+        }
+
+        // --- วาดข้าวสารลงใน Offscreen Canvas ---
+        function renderOffscreenRice() {
+            if (canvas.width <= 0 || canvas.height <= 0) return;
+
+            bgCanvas.width = canvas.width;
+            bgCanvas.height = canvas.height;
+            fgCanvas.width = canvas.width;
+            fgCanvas.height = canvas.height;
+
+            // พื้นหลังสีรำข้าวและกระสอบป่านแบบดั้งเดิม
+            bgCtx.fillStyle = '#b09477'; 
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            
+            // ลวดลายถักทอเส้นใยของกระสอบ
+            bgCtx.strokeStyle = 'rgba(92, 64, 51, 0.16)';
+            bgCtx.lineWidth = 1.2;
+            const step = 8;
+            for (let x = 0; x < bgCanvas.width; x += step) {
+                bgCtx.beginPath();
+                bgCtx.moveTo(x, 0);
+                bgCtx.lineTo(x, bgCanvas.height);
+                bgCtx.stroke();
+            }
+            for (let y = 0; y < bgCanvas.height; y += step) {
+                bgCtx.beginPath();
+                bgCtx.moveTo(0, y);
+                bgCtx.lineTo(bgCanvas.width, y);
+                bgCtx.stroke();
+            }
+
+            fgCtx.clearRect(0, 0, fgCanvas.width, fgCanvas.height);
+
+            // วาดข้าวสารลงทีละเลเยอร์ (สุ่มวาดข้าวซ้อนกันจนไม่เห็นกระสอบด้านหลัง)
+            riceGrains.forEach(g => {
+                const targetCtx = g.isForeground ? fgCtx : bgCtx;
+                drawRiceGrain(targetCtx, g);
+            });
+        }
+
+        // --- วาดเมล็ดข้าวสารแบบเวกเตอร์ทรงรีหัวแหลมเรียงรายทับซ้อน ---
+        function drawRiceGrain(targetCtx, g) {
+            targetCtx.save();
+            targetCtx.translate(g.x, g.y);
+            targetCtx.rotate(g.rot);
+            
+            // เงาของเมล็ดข้าวเพิ่มมิติความนูนหนาของกองข้าวสาร
+            targetCtx.shadowColor = 'rgba(40, 25, 10, 0.28)';
+            targetCtx.shadowBlur = 3;
+            targetCtx.shadowOffsetX = 1.2;
+            targetCtx.shadowOffsetY = 1.2;
+
+            targetCtx.fillStyle = g.shade;
+            targetCtx.beginPath();
+            
+            targetCtx.moveTo(-g.rx, 0);
+            targetCtx.quadraticCurveTo(0, -g.ry, g.rx, 0);
+            targetCtx.quadraticCurveTo(0, g.ry, -g.rx, 0);
+            targetCtx.closePath();
+            targetCtx.fill();
+
+            // ลบเงาก่อนวาดส่วนไฮไลท์แสงเงาสะท้อนขาววิ้งบนเมล็ดข้าว
+            targetCtx.shadowColor = 'transparent';
+            targetCtx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            targetCtx.beginPath();
+            targetCtx.ellipse(-g.rx * 0.2, -g.ry * 0.35, g.rx * 0.35, g.ry * 0.18, 0.1, 0, Math.PI * 2);
+            targetCtx.fill();
+
+            targetCtx.restore();
+        }
+
+        // --- สุ่มสร้างตัวมอดข้าวสารให้กระจายตัวเต็มพื้นที่ 100% ไม่กระจุกตัว ---
+        function spawnWeevils(count) {
+            weevils = [];
+            remainingCount = count;
+            document.getElementById('remaining-count').innerText = count;
+            document.getElementById('total-count').innerText = count;
+
+            // กำหนดความกว้างและความสูงจริงที่เสถียรแล้วของพื้นที่กระสอบข้าว
+            const w = canvas.width > 0 ? canvas.width : window.innerWidth;
+            const h = canvas.height > 0 ? canvas.height : window.innerHeight;
+
+            const padding = 35; // ป้องกันมอดสปอนเกิดทับขอบกระสอบป่าน
+
+            for (let i = 0; i < count; i++) {
+                // คำนวณสุ่มตำแหน่งกระจายตัวเต็มพื้นที่กระสอบอย่างทั่วถึง
+                const spawnX = padding + Math.random() * (w - padding * 2);
+                const spawnY = padding + Math.random() * (h - padding * 2);
+
+                weevils.push({
+                    x: spawnX,
+                    y: spawnY,
+                    vx: (Math.random() - 0.5) * 1.3,
+                    vy: (Math.random() - 0.5) * 1.3,
+                    baseSpeed: 0.35 + Math.random() * 0.65,
+                    scurryTimer: 0, 
+                    size: 10 + Math.random() * 4, // สุ่มขนาดตัวมอดให้มีตัวเล็กใหญ่ไม่เท่ากันเพื่อความสมจริง
+                    rotation: Math.random() * Math.PI * 2,
+                    legsPhase: Math.random() * 100, 
+                    opacity: 1,
+                    isDying: false,
+                    scale: 1,
+                    changeDirTimer: Math.random() * 100
+                });
+            }
+        }
+
+        // --- วาดตัวมอด 2D แบบสมจริง (เห็นหัว อก ท้อง ปล้องงวงเดินดุ๊กดิ๊ก) ---
+        function drawWeevil(w) {
+            ctx.save();
+            ctx.translate(w.x, w.y);
+            ctx.rotate(w.rotation);
+            ctx.scale(w.scale, w.scale);
+            ctx.globalAlpha = w.opacity;
+
+            const size = w.size;
+
+            // เงาของตัวมอดตกสะท้อนลงบนเมล็ดข้าวสารด้านล่าง
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 1.5;
+            ctx.shadowOffsetY = 2.5;
+
+            // วาดขา 6 ข้างแบบเคลื่อนไหวสลับกันตามระยะก้าว
+            ctx.strokeStyle = '#1b0d05'; 
+            ctx.lineWidth = size * 0.12;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            const legWiggle = Math.sin(w.legsPhase) * 0.45;
+            
+            for (let i = -1; i <= 1; i += 2) { 
+                // ขาคู่หน้า
+                ctx.beginPath();
+                ctx.moveTo(0, -size * 0.1);
+                ctx.lineTo(i * size * 0.8, -size * 0.45 + (legWiggle * i));
+                ctx.stroke();
+
+                // ขาคู่กลาง
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(i * size * 0.9, (legWiggle * -i));
+                ctx.stroke();
+
+                // ขาคู่หลัง
+                ctx.beginPath();
+                ctx.moveTo(0, size * 0.25);
+                ctx.lineTo(i * size * 0.8, size * 0.55 + (legWiggle * i));
+                ctx.stroke();
+            }
+
+            ctx.shadowColor = 'transparent';
+
+            // ส่วนท้อง (Abdomen) ใช้สีน้ำตาลแดงเปลือกมอด
+            ctx.fillStyle = '#5c2d16'; 
+            ctx.beginPath();
+            ctx.ellipse(0, size * 0.15, size * 0.45, size * 0.65, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ลายเส้นปล้องแนวขวางของท้องมอด
+            ctx.strokeStyle = '#32180b';
+            ctx.lineWidth = size * 0.055;
+            for (let offset = -0.1; offset <= 0.5; offset += 0.25) {
+                ctx.beginPath();
+                ctx.arc(0, size * (offset - 0.1), size * 0.38, 0.1, Math.PI - 0.1);
+                ctx.stroke();
+            }
+
+            // อกมอด (Thorax)
+            ctx.fillStyle = '#3a1c0e'; 
+            ctx.beginPath();
+            ctx.ellipse(0, -size * 0.35, size * 0.35, size * 0.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ส่วนหัว (Head)
+            ctx.fillStyle = '#210f07';
+            ctx.beginPath();
+            ctx.ellipse(0, -size * 0.62, size * 0.18, size * 0.18, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // งวงเจาะข้าวสารอันเป็นเอกลักษณ์ (Long Snout)
+            ctx.strokeStyle = '#210f07';
+            ctx.lineWidth = size * 0.09;
+            ctx.beginPath();
+            ctx.moveTo(0, -size * 0.68);
+            ctx.lineTo(0, -size * 1.25);
+            ctx.stroke();
+
+            // หนวดหักงอสองข้าง (Antennae)
+            ctx.lineWidth = size * 0.045;
+            ctx.strokeStyle = '#3a1c0e';
+            // หนวดซ้าย
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.04, -size * 0.85);
+            ctx.lineTo(-size * 0.25, -size * 0.95);
+            ctx.lineTo(-size * 0.32, -size * 0.78);
+            ctx.stroke();
+            // หนวดขวา
+            ctx.beginPath();
+            ctx.moveTo(size * 0.04, -size * 0.85);
+            ctx.lineTo(size * 0.25, -size * 0.95);
+            ctx.lineTo(size * 0.32, -size * 0.78);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // --- ระบบสะเก็ดรำแป้งข้าวกระเด็นเมื่อจิ้มโดนมอด (Squish Particles) ---
+        function createSquishParticles(x, y) {
+            const count = 18;
+            const colors = ['#4a2411', '#7d4526', '#c9a175', '#fcfaf2']; 
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    size: 1.5 + Math.random() * 3.5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1.0,
+                    decay: 0.03 + Math.random() * 0.04
+                });
+            }
+        }
+
+        // --- ระบบคำนวณตำแหน่งและพฤติกรรมมอด (Game Logic Update) ---
+        function update() {
+            weevils.forEach(w => {
+                if (w.isDying) {
+                    w.scale -= 0.14;
+                    w.opacity -= 0.14;
+                    if (w.scale <= 0) {
+                        const idx = weevils.indexOf(w);
+                        if (idx !== -1) weevils.splice(idx, 1);
+                    }
+                    return;
+                }
+
+                w.changeDirTimer--;
+                if (w.changeDirTimer <= 0) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = w.scurryTimer > 0 ? w.baseSpeed * 2.8 : w.baseSpeed;
+                    w.vx = Math.cos(angle) * speed;
+                    w.vy = Math.sin(angle) * speed;
+                    w.changeDirTimer = 60 + Math.random() * 90;
+                }
+
+                if (w.scurryTimer > 0) {
+                    w.scurryTimer--;
+                }
+
+                // สั่นสะเทือนการก้าวขาก้าววิ่ง
+                const currentSpeed = Math.sqrt(w.vx * w.vx + w.vy * w.vy);
+                if (currentSpeed > 0.05) {
+                    w.legsPhase += currentSpeed * 0.45;
+                    w.rotation = Math.atan2(w.vy, w.vx) + Math.PI / 2;
+                }
+
+                w.x += w.vx;
+                w.y += w.vy;
+
+                // ชนขอบกระสอบข้าวแล้วเลี้ยวหลบกลับเข้าในแบบนุ่มนวล
+                const pad = w.size;
+                if (w.x < pad) { w.x = pad; w.vx *= -1; w.changeDirTimer = 0; }
+                if (w.x > canvas.width - pad) { w.x = canvas.width - pad; w.vx *= -1; w.changeDirTimer = 0; }
+                if (w.y < pad) { w.y = pad; w.vy *= -1; w.changeDirTimer = 0; }
+                if (w.y > canvas.height - pad) { w.y = canvas.height - pad; w.vy *= -1; w.changeDirTimer = 0; }
+            });
+
+            // อัปเดตสะเก็ดฝุ่นแป้งข้าว
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= 0.91; 
+                p.vy *= 0.91;
+                p.life -= p.decay;
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // --- เรนเดอร์ภาพลงบนกระสอบในแต่ละเฟรม (Render Loop) ---
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (canvas.width <= 0 || canvas.height <= 0) return;
+
+            // 1. วาดเลเยอร์ข้าวสารพื้นหลังแบบหนาแน่นมาก
+            ctx.drawImage(bgCanvas, 0, 0);
+
+            // 2. วาดตัวมอดข้าวสาร (กระจายตัวทั่วทิศ)
+            weevils.forEach(w => drawWeevil(w));
+
+            // 3. วาดเมล็ดข้าวเลเยอร์บนมาบดบังตัวมอด
+            ctx.drawImage(fgCanvas, 0, 0);
+
+            // 4. วาดอนุภาคฝุ่นแป้ง
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0; 
+        }
+
+        // --- จัดการอินพุตการแตะจอ (Touch & Click Interaction) ---
+        function handleInput(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            // แปลงพิกัดการสัมผัสจริงให้สอดคล้องกับขนาดวาดของ Canvas
+            const tapX = (clientX - rect.left) * (canvas.width / rect.width);
+            const tapY = (clientY - rect.top) * (canvas.height / rect.height);
+
+            let hitDetected = false;
+
+            for (let i = weevils.length - 1; i >= 0; i--) {
+                const w = weevils[i];
+                if (w.isDying) continue;
+
+                const dist = Math.hypot(w.x - tapX, w.y - tapY);
+                const hitRadius = w.size * 2.2; // พื้นที่ตอบรับการกดเพื่อให้นิ้วจิ้มบนมือถือได้ง่าย
+
+                if (dist < hitRadius) {
+                    w.isDying = true;
+                    w.vx = 0;
+                    w.vy = 0;
+                    
+                    createSquishParticles(w.x, w.y);
+                    playSquishSound();
+
+                    remainingCount--;
+                    document.getElementById('remaining-count').innerText = remainingCount;
+
+                    hitDetected = true;
+
+                    if (remainingCount <= 0) {
+                        triggerVictory();
+                    }
+                    break; 
+                }
+            }
+
+            // ถ้าจิ้มวืดเฉียดๆ จะส่งผลให้มอดในขอบรัศมีตกใจแล้ววิ่งกระจายเตลิด (Scurry Instinct)
+            if (!hitDetected) {
+                weevils.forEach(w => {
+                    const dist = Math.hypot(w.x - tapX, w.y - tapY);
+                    if (dist < 115 && !w.isDying) {
+                        const angle = Math.atan2(w.y - tapY, w.x - tapX) + (Math.random() - 0.5) * 0.7;
+                        w.scurryTimer = 160;
+                        w.vx = Math.cos(angle) * w.baseSpeed * 3.2;
+                        w.vy = Math.sin(angle) * w.baseSpeed * 3.2;
+                        w.changeDirTimer = 160; 
+                    }
+                });
+            }
+        }
+
+        // --- ชนะภารกิจกำจัดมอดเรียบร้อย (Victory) ---
+        function triggerVictory() {
+            playVictorySound();
+            setTimeout(() => {
+                const modal = document.getElementById('victory-modal');
+                document.getElementById('victory-total').innerText = initialWeevilCount;
+                modal.classList.remove('hidden');
+            }, 500);
+        }
+
+        // --- ระบบปรับขนาดกระสอบข้าวสารและสร้างภาพพื้นหลังแบบสมดุล ---
+        function resizeGame() {
+            const container = canvas.parentElement;
+            if (!container) return;
+
+            let width = container.clientWidth;
+            let height = container.clientHeight;
+            
+            // ตรวจสอบพิกัดสำรองกรณีอุปกรณ์ยังคำนวณไม่สมบูรณ์ในช่วงแรก
+            if (width === 0 || height === 0) {
+                const rect = container.getBoundingClientRect();
+                width = rect.width || window.innerWidth - 32;
+                height = rect.height || (window.innerHeight * 0.65);
+            }
+
+            width = Math.max(width, 100);
+            height = Math.max(height, 100);
+
+            // กำหนดขนาดพิกัดจริงให้ตรงกับความกว้างหน้าจอแสดงผล
+            canvas.width = width;
+            canvas.height = height;
+
+            // วาดกองข้าวสารแบบหนาแน่นนับพันเมล็ดเต็มพื้นหลัง
+            generateRiceGrains(width, height);
+            renderOffscreenRice();
+        }
+
+        // --- ระบบฟื้นฟูตำแหน่งมอดเมื่อปรับขนาดหน้าจอ (Proportional Relocation) ---
+        function handleResize() {
+            const oldWidth = canvas.width;
+            const oldHeight = canvas.height;
+
+            resizeGame();
+
+            if (oldWidth > 0 && oldHeight > 0) {
+                const scaleX = canvas.width / oldWidth;
+                const scaleY = canvas.height / oldHeight;
+
+                // ขยับมอดให้กระจายอยู่ทั่วจอในพิกัดใหม่ทันที ป้องกันการซ้อนกระจุกที่มุมซ้าย
+                weevils.forEach(w => {
+                    w.x *= scaleX;
+                    w.y *= scaleY;
+                    w.x = Math.max(w.size, Math.min(canvas.width - w.size, w.x));
+                    w.y = Math.max(w.size, Math.min(canvas.height - w.size, w.y));
+                });
+            }
+        }
+
+        // --- ลูปการรันแบบต่อเนื่อง (Continuous Game Loop) ---
+        function loop() {
+            // ระบบตรวจสอบความปลอดภัย Layout หากเกิดข้อบกพร่องจากการพับหน้าจอ ให้บังคับอัปเดตใหม่
+            if (canvas.width <= 150 || canvas.height <= 150) {
+                resizeGame();
+            }
+
+            update();
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        // --- เตรียมเริ่มต้นหน้าต่างระบบ ---
+        function setupGame() {
+            resizeGame();
+            spawnWeevils(initialWeevilCount);
+        }
+
+        // ผูกการสัมผัสจอรองรับ Multi-touch และ Mouse
+        canvas.addEventListener('mousedown', (e) => {
+            handleInput(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches && e.touches.length > 0) {
+                handleInput(e.touches[0].clientX, e.touches[0].clientY);
+                e.preventDefault(); 
+            }
+        }, { passive: false });
+
+        // ผูกปุ่มคำสั่งควบคุมต่างๆ
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            spawnWeevils(initialWeevilCount);
+        });
+
+        document.getElementById('btn-play-again').addEventListener('click', () => {
+            document.getElementById('victory-modal').classList.add('hidden');
+            spawnWeevils(initialWeevilCount);
+        });
+
+        // หากมีการปรับขนาดหรือหมุนจอในระหว่างเล่นเกม
+        window.addEventListener('resize', handleResize);
+
+        // สั่งเริ่มงานเมื่อโหลดเสร็จสิ้น
+        window.addEventListener('load', () => {
+            setupGame();
+            
+            // ปิดหน้าจอโหลดอย่างนิ่มนวลหลังทุกอย่างวาดเสร็จสมบูรณ์
+            setTimeout(() => {
+                const ls = document.getElementById('loading-screen');
+                if (ls) {
+                    ls.classList.add('opacity-0');
+                    setTimeout(() => ls.style.display = 'none', 500);
+                }
+            }, 600);
+
+            // เริ่มรันการทำงานของลูปแอนิเมชันหลัก
+            loop();
+        });
+    </script>
+</body>
+</html>
+
+```
