@@ -3,1956 +3,836 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ghost Try-on - Real-time Halloween Filters</title>
-    <!-- Tailwind CSS -->
+    <title>GHOST AI STUDIO - Hollywood Ghost Generator</title>
+    <!-- Tailwind CSS for Premium Gothic UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts for Creepy Header and Clean Text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Mitr:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap');
-        
-        .font-creep {
-            font-family: 'Creepster', cursive;
-        }
-        .font-mitr {
-            font-family: 'Mitr', sans-serif;
-        }
         body {
-            font-family: 'Outfit', 'Mitr', sans-serif;
-            background-color: #06070a;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #030305;
+            color: #f1f5f9;
         }
-        
-        /* Custom scrollbar to match dark aesthetic */
+        .spooky-title {
+            font-family: 'Creepster', cursive;
+            letter-spacing: 0.1em;
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.5), 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #090a0f;
+            background: #08080c;
         }
         ::-webkit-scrollbar-thumb {
-            background: #1c1e29;
+            background: #1e1b4b;
             border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #ef4444;
+            background: #6d28d9;
         }
-
-        /* Ambient scanline distortion effect */
-        .crt-scanlines {
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-            background-size: 100% 4px;
+        /* Custom Pulse glow for processing */
+        @keyframes spooky-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
+            50% { box-shadow: 0 0 35px rgba(139, 92, 246, 0.5); }
         }
-
-        /* Pulse animation for record button */
-        @keyframes pulse-red {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.9); }
-        }
-        .pulse-record {
-            animation: pulse-red 1.8s infinite;
+        .ai-processing-glow {
+            animation: spooky-glow 2.5s infinite ease-in-out;
         }
     </style>
 </head>
-<body class="text-gray-200 min-h-screen flex flex-col justify-between overflow-x-hidden relative selection:bg-red-900 selection:text-white">
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden bg-[#030305]">
 
-    <!-- Ambient Spooky Web Overlays -->
-    <div class="absolute top-0 left-0 w-48 h-48 opacity-[0.06] pointer-events-none select-none z-0">
-        <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="0.5" class="text-white">
-            <path d="M0,0 L100,100 M0,0 L50,100 M0,0 L100,50 M0,0 L100,25 M0,0 L25,100" />
-            <path d="M10,10 Q20,15 15,20 Q25,30 20,35 Q35,45 30,50" stroke-dasharray="1 1" />
-            <path d="M20,20 Q40,30 30,40 Q50,60 40,70" stroke-dasharray="1 1" />
-        </svg>
-    </div>
-    <div class="absolute top-0 right-0 w-48 h-48 opacity-[0.06] pointer-events-none select-none z-0" style="transform: scaleX(-1);">
-        <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="0.5" class="text-white">
-            <path d="M0,0 L100,100 M0,0 L50,100 M0,0 L100,50 M0,0 L100,25 M0,0 L25,100" />
-            <path d="M10,10 Q20,15 15,20 Q25,30 20,35 Q35,45 30,50" stroke-dasharray="1 1" />
-        </svg>
-    </div>
-
-    <!-- Top Navigation Header -->
-    <header class="border-b border-gray-950 bg-[#08090d]/90 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            <!-- Left Header: Title -->
-            <div class="flex items-center gap-3.5">
-                <div class="animate-bounce duration-[4000ms] text-purple-500">
-                    <svg class="w-9 h-9 fill-current" viewBox="0 0 24 24">
-                        <path d="M12 2A9 9 0 0 0 3 11v8a3 3 0 0 0 5.12 2.12l1.38-1.38 1.38 1.38a3 3 0 0 0 4.24 0l1.38-1.38 1.38 1.38A3 3 0 0 0 21 19v-8a9 9 0 0 0-9-9zm-3 8a1.5 1.5 0 1 1 1.5-1.5A1.5 1.5 0 0 1 9 10zm6 0a1.5 1.5 0 1 1 1.5-1.5A1.5 1.5 0 0 1 15 10z"/>
-                    </svg>
-                </div>
-                <div class="text-center md:text-left">
-                    <h1 class="text-3xl md:text-4xl font-creep tracking-widest text-white drop-shadow-[0_2px_10px_rgba(255,255,255,0.15)] leading-none">GHOST TRY-ON</h1>
-                    <p class="text-[11px] text-gray-400 font-mitr mt-1.5 uppercase tracking-wider">Halloween Ghost Filter • Real-time WebGL Engine</p>
-                </div>
-                <div class="animate-bounce duration-[4000ms] text-purple-500 delay-300">
-                    <svg class="w-9 h-9 fill-current" viewBox="0 0 24 24" style="transform: scaleX(-1);">
-                        <path d="M12 2A9 9 0 0 0 3 11v8a3 3 0 0 0 5.12 2.12l1.38-1.38 1.38 1.38a3 3 0 0 0 4.24 0l1.38-1.38 1.38 1.38A3 3 0 0 0 21 19v-8a9 9 0 0 0-9-9zm-3 8a1.5 1.5 0 1 1 1.5-1.5A1.5 1.5 0 0 1 9 10zm6 0a1.5 1.5 0 1 1 1.5-1.5A1.5 1.5 0 0 1 15 10z"/>
-                    </svg>
-                </div>
+    <!-- HEADER BAR -->
+    <header class="border-b border-purple-950/40 bg-[#06060a] px-6 py-4 flex items-center justify-between z-50">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl animate-pulse">🔮</span>
+            <div>
+                <h1 class="text-3xl font-bold text-purple-400 spooky-title">GHOST AI STUDIO</h1>
+                <p class="text-xs text-zinc-400 font-medium tracking-wide">Pure Generative AI Ghost Transformer (No Stickers)</p>
             </div>
-
-            <!-- Right Header: Actions -->
-            <div class="flex items-center gap-3">
-                <button id="btnAbout" class="bg-[#12131a] hover:bg-[#1a1c29] border border-gray-800 text-gray-300 px-4 py-2 rounded-xl text-xs font-semibold font-mitr transition duration-200">
-                    ABOUT
-                </button>
-                <button id="btnSoundToggle" class="bg-[#12131a] hover:bg-red-950/40 border border-gray-800 text-gray-300 p-2.5 rounded-xl transition duration-200" title="เปิด/ปิด เสียงบรรยากาศ">
-                    <i data-lucide="volume-x" class="w-4 h-4" id="soundIcon"></i>
-                </button>
-            </div>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <button onclick="toggleAboutModal()" class="px-4 py-2 bg-purple-950/30 hover:bg-purple-900/50 border border-purple-800/50 text-purple-300 rounded-lg text-sm transition flex items-center gap-2">
+                <i data-lucide="help-circle" class="w-4 h-4"></i>
+                <span>แนะนำวิธีใช้</span>
+            </button>
+            <button id="btn-sound" onclick="toggleSpookySound()" class="p-2.5 bg-zinc-900 hover:bg-purple-900/40 border border-zinc-800 text-purple-400 rounded-lg transition" title="เปิด/ปิด เสียงหลอน">
+                <i id="sound-icon" data-lucide="volume-x" class="w-5 h-5"></i>
+            </button>
         </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="max-w-7xl mx-auto w-full px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow relative z-10">
+    <!-- MAIN APP INTERFACE -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
-        <!-- LEFT PANEL: CHOOSE YOUR GHOST (3 Cols) -->
-        <section class="lg:col-span-3 flex flex-col bg-[#0b0c11]/90 border border-gray-900 rounded-2xl p-4 backdrop-blur-md max-h-[85vh]">
-            <div class="flex items-center gap-2 mb-4">
-                <i data-lucide="ghost" class="text-purple-400 w-4 h-4"></i>
-                <h2 class="text-sm font-semibold tracking-wider font-mitr text-gray-200 uppercase">CHOOSE YOUR GHOST</h2>
+        <!-- COLUMN 1: PORTRAIT INPUT & PRESETS (lg:col-span-4) -->
+        <section class="lg:col-span-4 bg-[#08080d] border border-zinc-900 rounded-2xl p-4 flex flex-col gap-4">
+            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900">
+                <i data-lucide="image" class="text-purple-400 w-5 h-5"></i>
+                <h2 class="font-bold text-zinc-200 tracking-wide">1. ภาพต้นฉบับ (ORIGINAL PHOTO)</h2>
             </div>
 
-            <!-- Ghost Categories Tab -->
-            <div class="flex gap-1 overflow-x-auto pb-3 mb-3 border-b border-gray-900 scrollbar-thin">
-                <button class="category-btn text-[11px] font-mitr px-3 py-1.5 rounded-lg whitespace-nowrap transition bg-[#181922] text-white border border-purple-500/30" data-cat="all">All</button>
-                <button class="category-btn text-[11px] font-mitr px-3 py-1.5 rounded-lg whitespace-nowrap transition bg-[#0f1016] text-gray-400 hover:text-white" data-cat="classic">Classic</button>
-                <button class="category-btn text-[11px] font-mitr px-3 py-1.5 rounded-lg whitespace-nowrap transition bg-[#0f1016] text-gray-400 hover:text-white" data-cat="asian">Asian Ghost</button>
-                <button class="category-btn text-[11px] font-mitr px-3 py-1.5 rounded-lg whitespace-nowrap transition bg-[#0f1016] text-gray-400 hover:text-white" data-cat="horror">Horror</button>
-                <button class="category-btn text-[11px] font-mitr px-3 py-1.5 rounded-lg whitespace-nowrap transition bg-[#0f1016] text-gray-400 hover:text-white" data-cat="cute">Cute</button>
+            <!-- Original Image Display Frame -->
+            <div class="relative aspect-[4/5] bg-black border border-zinc-800/80 rounded-xl overflow-hidden flex items-center justify-center group" id="upload-zone">
+                <img id="input-preview" src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800" class="w-full h-full object-cover transition-all" alt="Input Face">
+                
+                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center pointer-events-none">
+                    <i data-lucide="upload-cloud" class="w-10 h-10 text-purple-400 mb-2"></i>
+                    <p class="text-xs text-zinc-300 font-semibold">ลากรูปภาพใบหน้ามาวางตรงนี้</p>
+                    <p class="text-[10px] text-zinc-500 mt-1">หรือใช้วิธีเปลี่ยนโมเดลด้านล่าง</p>
+                </div>
+
+                <!-- Small Tag -->
+                <div class="absolute bottom-3 left-3 px-2.5 py-1 bg-black/80 border border-zinc-800 rounded-md text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
+                    ก่อนแปลงร่าง (Before)
+                </div>
             </div>
 
-            <!-- Ghost List Grid -->
-            <div id="ghostGrid" class="grid grid-cols-3 gap-2 overflow-y-auto pr-1 flex-grow scrollbar-thin">
-                <!-- Ghost items will be injected here dynamically -->
+            <!-- Actions Panel for Input -->
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="triggerImageUpload()" class="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-300 rounded-xl transition flex items-center justify-center gap-1.5">
+                    <i data-lucide="upload" class="w-4 h-4 text-purple-400"></i>
+                    <span>อัปโหลดภาพตนเอง</span>
+                </button>
+                <button onclick="useWebcam()" class="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-300 rounded-xl transition flex items-center justify-center gap-1.5">
+                    <i data-lucide="camera" class="w-4 h-4 text-purple-400"></i>
+                    <span id="camera-btn-text">เปิดกล้องถ่ายหน้า</span>
+                </button>
             </div>
-        </section>
-
-        <!-- CENTER PANEL: LIVE VIEWPORT (6 Cols) -->
-        <section class="lg:col-span-6 flex flex-col items-center justify-between gap-4 bg-[#08090d]/30 border border-gray-900 rounded-2xl p-4 relative backdrop-blur-sm">
             
-            <!-- Shutter top bar info -->
-            <div class="w-full flex justify-between items-center z-10">
-                <div class="flex items-center gap-2 bg-red-950/40 border border-red-900/50 px-3 py-1.5 rounded-full text-red-500 text-xs font-semibold">
-                    <span class="w-2.5 h-2.5 rounded-full bg-red-600 pulse-record"></span>
-                    REC
+            <input type="file" id="image-loader" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+            <video id="webcam" autoplay playsinline class="hidden"></video>
+
+            <!-- PRESET PORTRAITS (To run instant transformation) -->
+            <div class="space-y-2 border-t border-zinc-900 pt-3 mt-auto">
+                <span class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">ใบหน้าทดสอบ (Portrait Presets)</span>
+                <div class="grid grid-cols-4 gap-2">
+                    <div onclick="selectPreset('asian-girl', this)" class="preset-card border-2 border-purple-500 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
+                        <img src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 1">
+                    </div>
+                    <div onclick="selectPreset('mysterious-guy', this)" class="preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
+                        <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 2">
+                    </div>
+                    <div onclick="selectPreset('gothic-queen', this)" class="preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 3">
+                    </div>
+                    <div onclick="selectPreset('cute-boy', this)" class="preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
+                        <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 4">
+                    </div>
                 </div>
-                
+            </div>
+        </section>
+
+        <!-- COLUMN 2: REAL-TIME AI RESULT (lg:col-span-5) -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900 justify-between">
                 <div class="flex items-center gap-2">
-                    <!-- Custom Image File Upload -->
-                    <button id="btnUploadImage" class="bg-[#12131a] hover:bg-gray-800 border border-gray-800 p-2.5 rounded-xl text-gray-300 hover:text-white transition flex items-center gap-1.5" title="อัปโหลดรูปภาพส่วนตัว">
-                        <i data-lucide="upload" class="w-4 h-4"></i>
-                        <span class="text-xs font-mitr font-medium hidden md:inline">ใช้รูปของคุณเอง</span>
-                    </button>
-                    <!-- Simulated / Webcam Toggle -->
-                    <button id="btnSourceToggle" class="bg-[#12131a] hover:bg-gray-800 border border-gray-800 p-2.5 rounded-xl text-gray-300 hover:text-white transition" title="เปิดกล้องเว็บแคมของคุณ">
-                        <i data-lucide="camera" class="w-4 h-4"></i>
-                    </button>
+                    <i data-lucide="sparkles" class="text-purple-400 w-5 h-5"></i>
+                    <h2 class="font-bold text-zinc-200 tracking-wide">2. ภาพแปลงกายโดย AI (AI TRANSFORMATION)</h2>
+                </div>
+                <div class="bg-purple-950/40 text-purple-300 border border-purple-800/40 text-[10px] px-2 py-0.5 rounded-full font-semibold animate-pulse">
+                    Realistic Generative
                 </div>
             </div>
 
-            <!-- Canvas Viewport Box -->
-            <div class="relative w-full max-w-md aspect-[3/4] bg-black rounded-xl overflow-hidden border border-gray-900 shadow-2xl flex items-center justify-center group">
-                <!-- Camera stream element (hidden) -->
-                <video id="webStream" class="hidden" autoplay playsinline></video>
+            <!-- AI Render Output Window -->
+            <div class="relative aspect-[4/5] bg-black border-2 border-purple-950 rounded-2xl overflow-hidden flex items-center justify-center shadow-2xl ai-processing-glow" id="output-viewport">
+                <!-- Glitch noise layer for eerie feeling -->
+                <div class="absolute inset-0 pointer-events-none bg-transparent opacity-[0.06] z-10" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;100&quot; height=&quot;100&quot; viewBox=&quot;0 0 100 100&quot;><filter id=&quot;noise&quot;><feTurbulence type=&quot;fractalNoise&quot; baseFrequency=&quot;0.9&quot; numOctaves=&quot;3&quot; stitchTiles=&quot;stitch&quot;/></filter><rect width=&quot;100&quot; height=&quot;100&quot; filter=&quot;url(%23noise)&quot;/></svg>');"></div>
                 
-                <!-- Filter Processing & Rendering Canvas -->
-                <canvas id="viewCanvas" class="w-full h-full object-cover"></canvas>
+                <!-- CCTV scanning line -->
+                <div class="absolute top-0 left-0 right-0 h-0.5 bg-purple-500/10 shadow-[0_0_10px_rgba(168,85,247,0.4)] pointer-events-none z-15 animate-pulse" style="animation-duration: 4s;"></div>
 
-                <!-- Screen Flash Capture Overlay -->
-                <div id="flashScreen" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-150 z-30"></div>
+                <!-- Final Output Ghost Image -->
+                <img id="output-image" src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800" class="w-full h-full object-cover transition-all" alt="AI Ghost Output" style="filter: brightness(80%) saturate(20%) hue-rotate(180deg) contrast(120%);">
 
-                <!-- Live Interaction Helper Text Overlay -->
-                <div class="absolute inset-x-4 top-4 bg-black/75 border border-gray-800 p-2 rounded-lg text-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
-                    <p class="text-[10px] text-gray-300 font-mitr">💡 คลิกค้างที่ชุดผีแล้วลากเพื่อขยับตำแหน่ง / เลื่อนเมาส์หรือใช้แถบเลื่อนด้านล่างเพื่อปรับขนาดชุดได้ตามรูปคุณ</p>
+                <!-- Tag -->
+                <div class="absolute bottom-3 right-3 px-2.5 py-1 bg-purple-950/90 border border-purple-500/40 rounded-md text-[10px] font-mono text-purple-300 uppercase tracking-widest z-20">
+                    หลังแปลงร่าง (After)
                 </div>
 
-                <!-- Custom Costume Scale Control (Floats inside Viewport) -->
-                <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md border border-gray-800 px-3 py-1.5 rounded-full flex items-center gap-2 z-20 shadow-lg">
-                    <span class="text-[10px] font-mitr text-gray-400">ขนาดชุด:</span>
-                    <input type="range" id="slideCostumeScale" min="0.3" max="2.0" step="0.05" value="1.0" class="w-20 accent-purple-600 bg-gray-900 rounded-lg appearance-none h-1">
-                </div>
-
-                <!-- Camera Access Alert banner -->
-                <div id="cameraStatusBanner" class="absolute inset-x-4 bottom-12 bg-purple-950/90 border border-purple-500/40 p-3 rounded-xl flex items-center gap-3 text-xs text-gray-200 z-20 transition-all duration-300 hidden">
-                    <i data-lucide="alert-circle" class="text-purple-400 w-5 h-5 shrink-0"></i>
-                    <div>
-                        <p class="font-semibold font-mitr">เปิดใช้งานกล้องเรียบร้อย!</p>
-                        <p class="text-[10px] text-gray-300 font-mitr">คุณสามารถทดลองถ่ายรูปสดและปรับแต่งตำแหน่งชุดผีได้ตามสบาย</p>
+                <!-- AI RENDER LOADING SCREEN -->
+                <div id="ai-loading" class="absolute inset-0 bg-black/95 z-40 hidden flex-col items-center justify-center p-6 text-center">
+                    <div class="relative w-28 h-28 mb-6">
+                        <!-- Outer rotating eerie portal -->
+                        <div class="absolute inset-0 rounded-full border-4 border-dashed border-purple-800/60 animate-spin" style="animation-duration: 12s;"></div>
+                        <!-- Inner spinning magical orb -->
+                        <div class="absolute inset-2 rounded-full border-4 border-t-purple-400 border-r-transparent animate-spin"></div>
+                        <div class="absolute inset-4 rounded-full border border-zinc-800 animate-ping" style="animation-duration: 2s;"></div>
+                        <!-- Floating spooky entity -->
+                        <div class="absolute inset-0 flex items-center justify-center text-4xl animate-bounce" style="animation-duration: 3s;">🧛</div>
+                    </div>
+                    
+                    <h3 class="text-xl font-bold text-purple-400 spooky-title tracking-widest animate-pulse" id="loading-title">SUMMONING GHOST AI</h3>
+                    <p class="text-xs text-zinc-400 mt-2 max-w-sm font-medium" id="loading-subtitle">กำลังปรับปรุงโครงสร้างใบหน้าตามข้อมูลสยองขวัญ...</p>
+                    
+                    <!-- Dynamic Spooky Tip of the Day -->
+                    <div class="mt-6 px-4 py-2.5 bg-zinc-950 border border-purple-950 rounded-xl text-[11px] text-purple-300 font-mono tracking-wide" id="spooky-tips">
+                        "กำลังชโลมสารเคมีขจัดเลือดเนื้อและผิวหนัง..."
                     </div>
                 </div>
             </div>
 
-            <!-- Capture / Download Control Elements -->
-            <div class="w-full flex justify-around items-center gap-4 z-10">
-                <!-- Flip Camera Button -->
-                <button id="btnFlipCam" class="bg-[#12131a] hover:bg-gray-800 border border-gray-800 rounded-full p-4 text-gray-300 hover:text-white transition transform active:scale-95" title="สลับกล้อง หน้า/หลัง">
-                    <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+            <!-- Action buttons below viewport -->
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="downloadMasterpiece()" class="py-3 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white rounded-xl transition flex items-center justify-center gap-2 shadow-md">
+                    <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                    <span>บันทึกรูปผลงาน (Download)</span>
                 </button>
-
-                <!-- Big Shutter Shutter Trigger -->
-                <button id="btnShutter" class="group relative flex items-center justify-center p-1.5 rounded-full border-4 border-white bg-transparent hover:border-red-600 transition-all duration-300 transform active:scale-90 shadow-lg">
-                    <span class="w-14 h-14 rounded-full bg-white group-hover:bg-red-600 transition-all duration-300 flex items-center justify-center">
-                        <i data-lucide="camera" class="w-7 h-7 text-black group-hover:text-white transition duration-300"></i>
-                    </span>
-                </button>
-
-                <!-- Instant Download Link -->
-                <button id="btnInstantDownload" class="bg-[#12131a] hover:bg-gray-800 border border-gray-800 rounded-full p-4 text-gray-300 hover:text-white transition transform active:scale-95" title="ดาวน์โหลดรูปภาพผลลัพธ์">
-                    <i data-lucide="download" class="w-5 h-5"></i>
+                <button onclick="resetAIStudio()" class="py-3 px-4 bg-zinc-900 hover:bg-red-950/20 border border-zinc-900 hover:border-red-900/30 text-xs font-bold text-zinc-400 hover:text-red-400 rounded-xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span>เริ่มต้นแต่งใหม่</span>
                 </button>
             </div>
         </section>
 
-        <!-- RIGHT PANEL: ADJUST FILTER (3 Cols) -->
-        <section class="lg:col-span-3 flex flex-col bg-[#0b0c11]/90 border border-gray-900 rounded-2xl p-4 backdrop-blur-md max-h-[85vh] overflow-y-auto scrollbar-thin">
-            <div class="flex items-center gap-2 mb-4 pb-3 border-b border-gray-900">
-                <i data-lucide="sliders" class="text-purple-400 w-4 h-4"></i>
-                <h2 class="text-sm font-semibold tracking-wider font-mitr text-gray-200 uppercase">ADJUST FILTER</h2>
+        <!-- COLUMN 3: AI PARAMETERS & STYLES (lg:col-span-3) -->
+        <section class="lg:col-span-3 bg-[#08080d] border border-zinc-900 rounded-2xl p-4 flex flex-col gap-4">
+            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900">
+                <i data-lucide="sliders" class="text-purple-400 w-5 h-5"></i>
+                <h2 class="font-bold text-zinc-200 tracking-wide">3. ตั้งค่าวิญญาณ (AI SETTINGS)</h2>
             </div>
 
-            <!-- Live Filter Options -->
-            <div class="space-y-4 text-xs font-mitr">
-                
-                <!-- Beauty Slider -->
+            <div class="space-y-4 flex-1 overflow-y-auto max-h-[450px] pr-1">
+                <!-- Ghost Type Selector -->
                 <div>
-                    <div class="flex justify-between text-gray-400 mb-1">
-                        <span>Beauty (ความเนียนใบหน้า)</span>
-                        <span id="labelBeauty" class="text-purple-400 font-semibold">20</span>
-                    </div>
-                    <input type="range" id="valBeauty" min="0" max="100" value="20" class="w-full accent-purple-600 bg-[#161722] rounded-lg appearance-none h-1">
-                </div>
-
-                <!-- Pale Skin Slider -->
-                <div>
-                    <div class="flex justify-between text-gray-400 mb-1">
-                        <span>Pale Skin (ความซีดเซียว)</span>
-                        <span id="labelPale" class="text-blue-400 font-semibold">60</span>
-                    </div>
-                    <input type="range" id="valPale" min="0" max="100" value="60" class="w-full accent-blue-500 bg-[#161722] rounded-lg appearance-none h-1">
-                </div>
-
-                <!-- Dark Circles Slider -->
-                <div>
-                    <div class="flex justify-between text-gray-400 mb-1">
-                        <span>Dark Circles (ขอบตาดำคล้ำลึก)</span>
-                        <span id="labelDarkCircles" class="text-red-400 font-semibold">70</span>
-                    </div>
-                    <input type="range" id="valDarkCircles" min="0" max="100" value="70" class="w-full accent-red-600 bg-[#161722] rounded-lg appearance-none h-1">
-                </div>
-
-                <!-- Ghost Tint Color Picker & presets -->
-                <div>
-                    <div class="flex justify-between text-gray-400 mb-1.5">
-                        <span>Ghost Tint (สีโทนวิญญาณ)</span>
-                    </div>
-                    <div class="flex gap-2 items-center">
-                        <input type="color" id="valGhostTint" value="#cfd2ff" class="w-10 h-7 rounded border border-gray-800 bg-transparent cursor-pointer">
-                        <div class="flex gap-1">
-                            <button class="preset-color w-5 h-5 rounded-full bg-[#cfd2ff]" data-col="#cfd2ff" title="ฟ้ายะเยือก"></button>
-                            <button class="preset-color w-5 h-5 rounded-full bg-[#ff003c]" data-col="#ff003c" title="แดงตายโหง"></button>
-                            <button class="preset-color w-5 h-5 rounded-full bg-[#10b981]" data-col="#10b981" title="เขียวพรายกุมาร"></button>
-                            <button class="preset-color w-5 h-5 rounded-full bg-[#d97706]" data-col="#d97706" title="เหลืองทองโบราณ"></button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Blood Dropping Density Slider -->
-                <div>
-                    <div class="flex justify-between text-gray-400 mb-1">
-                        <span>Blood (คราบเลือดนอง)</span>
-                        <span id="labelBlood" class="text-red-500 font-semibold">50</span>
-                    </div>
-                    <input type="range" id="valBlood" min="0" max="100" value="50" class="w-full accent-red-600 bg-[#161722] rounded-lg appearance-none h-1">
-                </div>
-
-                <!-- Background Scene Select Dropdown -->
-                <div>
-                    <label class="block text-gray-400 mb-1">Background (ฉากหลังสุดหลอน)</label>
-                    <select id="valBackground" class="w-full bg-[#12131a] border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500">
-                        <option value="haunted">Haunted Room (ห้องเฮี้ยนสะกดวิญญาณ)</option>
-                        <option value="graveyard">Graveyard (ป่าช้าเงียบอับแสง)</option>
-                        <option value="forest">Misty Forest (ป่าหมอกลอยต่ำ)</option>
-                        <option value="none">None (ใช้พื้นหลังกล้องหรือรูปของคุณ)</option>
+                    <label class="block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wide">ประเภทผีต้นแบบ (Ghost Archetype)</label>
+                    <select id="ghost-archetype" onchange="updatePromptPreview()" class="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2.5 text-xs font-medium text-zinc-200 focus:outline-none focus:border-purple-500">
+                        <option value="vengeful-onryo" selected>ผีคายาโกะอาฆาต (Vengeful Onryo)</option>
+                        <option value="gothic-vampire">แวมไพร์ยุคโกธิก (Gothic Vampire)</option>
+                        <option value="decayed-corpse">ซากศพเน่าเปื่อย (Decayed Zombie)</option>
+                        <option value="ancient-demon">ปีศาจอเวจีโบราณ (Ancient Pit Demon)</option>
+                        <option value="spectral-phantom">วิญญาณโปร่งใสลอยคว้าง (Spectral Phantom)</option>
                     </select>
                 </div>
 
-                <!-- Vignette Slider -->
+                <!-- Cinematic Horror Filter style -->
                 <div>
-                    <div class="flex justify-between text-gray-400 mb-1">
-                        <span>Vignette (ขอบมืดสยองขวัญ)</span>
-                        <span id="labelVignette" class="text-gray-400">40</span>
-                    </div>
-                    <input type="range" id="valVignette" min="0" max="100" value="40" class="w-full accent-gray-500 bg-[#161722] rounded-lg appearance-none h-1">
+                    <label class="block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wide">สไตล์ภาพยนตร์ (Visual Film Style)</label>
+                    <select id="film-style" onchange="updatePromptPreview()" class="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2.5 text-xs font-medium text-zinc-200 focus:outline-none focus:border-purple-500">
+                        <option value="found-footage"> Found Footage (CCTV เกลนสั่นไหว)</option>
+                        <option value="hollywood-35mm" selected> Hollywood Cinematic (ฟิล์ม 35 มม.)</option>
+                        <option value="vintage-polaroid"> Vintage Polaroid (ภาพถ่ายผียุค 1970)</option>
+                        <option value="creepypasta"> Creepypasta Web (ความสยองเว็บบอร์ด)</option>
+                    </select>
                 </div>
 
-                <!-- Grain Noise Slider -->
-                <div>
-                    <div class="flex justify-between text-gray-400 mb-1">
-                        <span>Grain (เม็ดฟิล์มหยาบโบราณ)</span>
-                        <span id="labelGrain" class="text-gray-400">30</span>
-                    </div>
-                    <input type="range" id="valGrain" min="0" max="100" value="30" class="w-full accent-gray-500 bg-[#161722] rounded-lg appearance-none h-1">
-                </div>
-
-                <!-- Contrast / Saturation Group -->
-                <div class="grid grid-cols-2 gap-2 pt-1">
+                <!-- Sliders directly modulating the Prompt -->
+                <div class="space-y-3.5 border-t border-zinc-900 pt-3">
+                    <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">ความหนาแน่นมวลวิญญาณ (Fleshy Details)</span>
+                    
+                    <!-- Skin Pallor -->
                     <div>
-                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
-                            <span>Saturation (สีสด)</span>
-                            <span id="labelSaturation" class="text-purple-300">-20</span>
+                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>ความขาวซีดผิวหนัง (Skin Pallor)</span>
+                            <span class="text-purple-400 font-bold" id="lbl-pale">80%</span>
                         </div>
-                        <input type="range" id="valSaturation" min="-100" max="100" value="-20" class="w-full accent-purple-500 bg-[#161722] rounded-lg appearance-none h-1">
+                        <input type="range" id="param-pale" min="10" max="100" value="80" oninput="updateParamValue('pale')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
                     </div>
+
+                    <!-- Eye Hollows -->
                     <div>
-                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
-                            <span>Contrast (ต่างสี)</span>
-                            <span id="labelContrast" class="text-purple-300">10</span>
+                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>รอยคล้ำเบ้าตา (Corpse Eye Hollows)</span>
+                            <span class="text-purple-400 font-bold" id="lbl-eyes">75%</span>
                         </div>
-                        <input type="range" id="valContrast" min="-100" max="100" value="10" class="w-full accent-purple-500 bg-[#161722] rounded-lg appearance-none h-1">
+                        <input type="range" id="param-eyes" min="10" max="100" value="75" oninput="updateParamValue('eyes')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Blood Intensity -->
+                    <div>
+                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>บาดแผลเหวอะ/เลือด (Flesh Decay & Blood)</span>
+                            <span class="text-purple-400 font-bold" id="lbl-blood">60%</span>
+                        </div>
+                        <input type="range" id="param-blood" min="0" max="100" value="60" oninput="updateParamValue('blood')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Supernatural Glow -->
+                    <div>
+                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
+                            <span>ดวงตาเรืองแสงหลอน (Supernatural Glow)</span>
+                            <span class="text-purple-400 font-bold" id="lbl-glow">50%</span>
+                        </div>
+                        <input type="range" id="param-glow" min="0" max="100" value="50" oninput="updateParamValue('glow')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
                     </div>
                 </div>
 
-                <!-- Advanced Toggles -->
-                <div class="border-t border-gray-900 pt-3 space-y-3">
-                    <!-- Scanline Toggle -->
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-300">Scanline (เส้นสแกนวิญญาณ)</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggleScanline" class="sr-only peer">
-                            <div class="w-9 h-5 bg-gray-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
-                        </label>
-                    </div>
-
-                    <!-- Glitch Toggle -->
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-300">Glitch (สั่นไหวสยองขวัญ)</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggleGlitch" class="sr-only peer" checked>
-                            <div class="w-9 h-5 bg-gray-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
-                        </label>
-                    </div>
-
-                    <!-- Fog Toggle -->
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-300">Fog (ไอหมอกลอยต่ำ)</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggleFog" class="sr-only peer" checked>
-                            <div class="w-9 h-5 bg-gray-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
-                        </label>
+                <!-- Real-time Live Prompt preview (Tells user what AI gets) -->
+                <div class="border-t border-zinc-900 pt-3 space-y-1">
+                    <span class="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">คำสั่งคาถา AI (Current Prompt)</span>
+                    <div class="bg-black/90 p-2.5 rounded-xl border border-purple-950/30 text-[10px] font-mono text-zinc-400 leading-relaxed max-h-[85px] overflow-y-auto" id="prompt-preview">
+                        Loading spell...
                     </div>
                 </div>
-
-                <!-- Reset Button -->
-                <button id="btnResetFilters" class="w-full mt-2 bg-[#12131a] hover:bg-red-950/40 border border-gray-800 hover:border-red-900/50 py-2.5 rounded-xl text-xs font-semibold text-gray-300 hover:text-red-400 transition flex items-center justify-center gap-2">
-                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                    Reset All
-                </button>
             </div>
+
+            <!-- MAGIC TRIGGER BUTTON -->
+            <button onclick="summonSpookyAI()" class="relative group mt-auto bg-gradient-to-r from-purple-700 to-fuchsia-800 hover:from-purple-600 hover:to-fuchsia-700 border border-purple-400/40 text-white font-bold py-3 px-4 rounded-xl text-xs transition shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2 overflow-hidden">
+                <span class="absolute inset-0 w-full h-full bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition duration-500"></span>
+                <i data-lucide="wand2" class="w-4 h-4 animate-pulse text-purple-200"></i>
+                <span class="tracking-widest uppercase">ส่ง AI แปลงโฉมสยอง!</span>
+            </button>
         </section>
+
     </main>
 
-    <!-- Hidden native inputs for handling custom file upload -->
-    <input type="file" id="nativeImageUploader" accept="image/*" class="hidden">
-
-    <!-- About Spooky modal explanation -->
-    <div id="infoModal" class="fixed inset-0 bg-black/85 backdrop-blur-md hidden items-center justify-center z-[100] p-4">
-        <div class="bg-[#0b0c11] border border-gray-800 rounded-2xl p-6 max-w-md w-full relative">
-            <button id="btnCloseInfoModal" class="absolute top-4 right-4 text-gray-400 hover:text-white transition">
+    <!-- ABOUT MODAL -->
+    <div id="about-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-[#0b0b12] border border-purple-950/80 max-w-md w-full rounded-2xl p-6 relative shadow-2xl">
+            <button onclick="toggleAboutModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
-            <h3 class="text-2xl font-creep text-red-500 mb-2">GHOST TRY-ON</h3>
-            <p class="text-xs text-gray-400 mb-4 font-mitr">นวัตกรรมแปลงร่างเป็นผีเสมือนจริงเรียลไทม์</p>
-            <div class="space-y-3 text-xs text-gray-300 font-mitr">
-                <p>ยินดีต้อนรับสู่โปรแกรมตกแต่งฟิลเตอร์แต่งกายผีคืนวันปล่อยผี โดยระบบนี้ประมวลผลผ่าน GPU แบบเรียลไทม์เพื่อมอบผลลัพธ์ที่ดีที่สุด</p>
-                <div class="bg-gray-950 p-3 rounded-xl space-y-1.5 text-gray-400">
-                    <p class="text-white font-semibold">👻 เคล็ดลับเด็ดการแต่งผี:</p>
-                    <p>• <strong>ใช้รูปภาพของคุณเอง:</strong> คลิกที่ปุ่ม <strong>"ใช้รูปของคุณเอง"</strong> เพื่ออัปโหลดรูปเซลฟี่สุดน่ารักของคุณมาตกแต่งได้ตามสบาย!</p>
-                    <p>• <strong>จัดวางตำแหน่งได้อย่างอิสระ:</strong> หากรูปภาพของคุณไม่ได้อยู่ตรงกึ่งกลาง คุณสามารถใช้เมาส์คลิกลากหรือสัมผัสบนชุดผีบนจอเพื่อขยับไปมา และหมุนหรือย่อขนาดชุดผีได้</p>
-                    <p>• <strong>จำลองเสียงหลอน:</strong> แนะนำให้เปิดปุ่มเสียงที่ด้านบนสุดเพื่อฟังเพลงและซาวด์เสียงหวีดหวิวสยองขวัญสังเคราะห์</p>
+            <h3 class="text-2xl font-bold text-purple-400 spooky-title mb-4">🔮 แนะนำวิธีใช้งาน AI GHOST STUDIO</h3>
+            
+            <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
+                <div class="bg-purple-950/40 p-3 rounded-lg border border-purple-500/20 text-xs text-purple-200">
+                    <span class="font-bold">🌌 ปฏิวัติสู่ระบบ Generative ปัญญาประดิษฐ์แท้:</span>
+                    ตัดระบบสติกเกอร์การ์ตูนราคาถูกออกทั้งหมด! ระบบใหม่จะนำสัดส่วนโครงหน้าของคุณ ผสมกับพารามิเตอร์ที่คุณสไลด์ปรับแต่ง ส่งไปประมวลผลวาดใหม่ผ่านโมเดล <strong>Gemini 2.5 Flash Image Model</strong> เพื่อให้ผลลัพธ์เนียนกลืนกับแสงเงาอย่างสมจริงที่สุด
+                </div>
+
+                <div class="flex items-start gap-3">
+                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">1</div>
+                    <p>เลือกใบหน้าโมเดลทดสอบด้านซ้าย หรือกด <strong>"อัปโหลดภาพตนเอง"</strong> / <strong>"เปิดกล้อง"</strong></p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">2</div>
+                    <p>เลือกประเภทผี และสไตล์มู้ดกล้องฟิล์มสยองขวัญที่ชอบทางด้านขวา</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">3</div>
+                    <p>เลื่อนสไลเดอร์เพื่อเลือกความสยดสยอง เช่น ปริมาณคราบเลือด แผลเน่า หรือความลึกเบ้าตา</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">4</div>
+                    <p class="font-semibold text-purple-300">คลิกปุ่ม "ส่ง AI แปลงโฉมสยอง!" เพื่อให้โมเดล AI ของ Google ประมวลผลและวาดหน้าผีที่เหมือนจริงให้คุณทันที!</p>
                 </div>
             </div>
-            <button id="btnUnderstandSpook" class="w-full mt-5 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl text-xs font-mitr transition">
-                ไปเริ่มหลอนกันเลย!
+
+            <button onclick="toggleAboutModal()" class="mt-6 w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition text-sm">
+                เข้าสู่ดินแดนสยองขวัญ!
             </button>
         </div>
     </div>
 
-    <!-- Alert / Toast Message banner -->
-    <div id="toastNotification" class="fixed bottom-6 right-6 bg-[#0f0c11] border border-red-500/50 text-red-100 px-4 py-3 rounded-xl flex items-center gap-2.5 shadow-2xl transition-all duration-500 transform translate-y-24 opacity-0 z-50 font-mitr text-xs">
-        <i data-lucide="skull" class="w-4.5 h-4.5 text-red-500"></i>
-        <span id="toastText">ดาวน์โหลดสำเร็จ!</span>
-    </div>
-
-    <!-- Footer Information line -->
-    <footer class="border-t border-gray-900 py-4 bg-black/60 text-center text-[10px] text-gray-500 font-mitr relative z-10">
-        <div class="flex items-center justify-center gap-1.5">
-            <span>Works best on Chrome / Edge / Safari (WebGL Supported)</span>
-            <i data-lucide="ghost" class="w-3.5 h-3.5 text-gray-600"></i>
-        </div>
-    </footer>
-
     <script>
-        // System variables & State Engine
-        let isCamStreaming = false;
-        let useSampleImage = true;
-        let activeSelectedGhost = 'white-ghost';
-        let customUserUploadedImage = null;
-        let activeCameraFacingMode = 'user';
-        let isSpookySoundPlaying = false;
-        let synthOscillatorInterval = null;
-        let audioContextInstance = null;
+        // Initiate Lucide Icons
+        lucide.createIcons();
 
-        // Custom costume transforms (draggable and resizable to fit user's uploaded body)
-        let costumeTransform = {
-            x: 300, // centered on 600 width canvas
-            y: 400, // centered on 800 height canvas
-            scale: 1.0,
-            isDragging: false,
-            startX: 0,
-            startY: 0
+        // Application State
+        let isWebcamOn = false;
+        let isSpookySoundOn = false;
+        let streamObj = null;
+        const apiKey = ""; // Runtime automatically binds this in execution environment
+
+        // Audio Synthesis Context for Ambient Sound
+        let audioCtx = null;
+        let windNoiseNode = null;
+        let lfoNode = null;
+
+        // Face Preset Portrait Photos
+        const portraitPresets = {
+            'asian-girl': 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800',
+            'mysterious-guy': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800',
+            'gothic-queen': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
+            'cute-boy': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800'
         };
 
-        // DOM elements select
-        const videoElement = document.getElementById('webStream');
-        const canvasElement = document.getElementById('viewCanvas');
-        const viewCtx = canvasElement.getContext('2d');
-        const btnSourceToggle = document.getElementById('btnSourceToggle');
-        const btnUploadImage = document.getElementById('btnUploadImage');
-        const nativeImageUploader = document.getElementById('nativeImageUploader');
-        const btnFlipCam = document.getElementById('btnFlipCam');
-        const btnShutter = document.getElementById('btnShutter');
-        const btnInstantDownload = document.getElementById('btnInstantDownload');
-        const btnSoundToggle = document.getElementById('btnSoundToggle');
-        const soundIcon = document.getElementById('soundIcon');
-        const flashScreen = document.getElementById('flashScreen');
-        const cameraStatusBanner = document.getElementById('cameraStatusBanner');
-        const slideCostumeScale = document.getElementById('slideCostumeScale');
-
-        // Modal triggers
-        const btnAbout = document.getElementById('btnAbout');
-        const infoModal = document.getElementById('infoModal');
-        const btnCloseInfoModal = document.getElementById('btnCloseInfoModal');
-        const btnUnderstandSpook = document.getElementById('btnUnderstandSpook');
-
-        // Preset Colors handler
-        document.querySelectorAll('.preset-color').forEach(button => {
-            button.addEventListener('click', (e) => {
-                document.getElementById('valGhostTint').value = e.target.dataset.col;
-            });
-        });
-
-        // 12 Ghost Costumes definition (Procedural vector designs matching screen mockups)
-        const ghostOutfitsData = [
-            {
-                id: 'white-ghost',
-                name: 'White Ghost',
-                thaiName: 'วิญญาณผ้าขาว',
-                category: 'classic',
-                tag: 'ดั้งเดิม',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-                    
-                    // Main flowing white ghost drape
-                    ctx.fillStyle = `rgba(235, 240, 255, ${0.85 + paleVal*0.0015})`;
-                    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-                    ctx.shadowBlur = 15;
-                    ctx.beginPath();
-                    ctx.moveTo(-120, 200);
-                    ctx.quadraticCurveTo(-110, -100, 0, -110);
-                    ctx.quadraticCurveTo(110, -100, 120, 200);
-                    ctx.quadraticCurveTo(80, 170, 40, 200);
-                    ctx.quadraticCurveTo(0, 170, -40, 200);
-                    ctx.quadraticCurveTo(-80, 170, -120, 200);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Drapery shadow folds
-                    ctx.shadowBlur = 0;
-                    ctx.strokeStyle = 'rgba(170, 190, 230, 0.35)';
-                    ctx.lineWidth = 3.5;
-                    ctx.beginPath();
-                    ctx.moveTo(-50, -10); ctx.lineTo(-65, 140);
-                    ctx.moveTo(50, -10); ctx.lineTo(65, 140);
-                    ctx.moveTo(0, -30); ctx.lineTo(0, 160);
-                    ctx.stroke();
-
-                    // Empty Hollow Black Eyes
-                    ctx.fillStyle = '#0a0a0d';
-                    ctx.beginPath();
-                    ctx.ellipse(-30, 10, 12, 19, 0, 0, Math.PI*2);
-                    ctx.ellipse(30, 10, 12, 19, 0, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Tiny pinhole glowing eyes
-                    ctx.fillStyle = '#e2e8f0';
-                    ctx.beginPath();
-                    ctx.arc(-30, 10, 2, 0, Math.PI*2);
-                    ctx.arc(30, 10, 2, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'bloody-bride',
-                name: 'Bloody Bride',
-                thaiName: 'เจ้าสาวคราบเลือด',
-                category: 'horror',
-                tag: 'ยอดฮิต',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Bridal white lace veil
-                    ctx.fillStyle = 'rgba(235, 230, 240, 0.65)';
-                    ctx.beginPath();
-                    ctx.moveTo(-100, -20);
-                    ctx.quadraticCurveTo(-110, 100, -130, 220);
-                    ctx.lineTo(130, 220);
-                    ctx.quadraticCurveTo(110, 100, 100, -20);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Crown of crimson dead roses on head
-                    const roseSlots = [-60, -30, 0, 30, 60];
-                    roseSlots.forEach((offsetX, idx) => {
-                        ctx.fillStyle = idx % 2 === 0 ? '#580202' : '#880404';
-                        ctx.beginPath();
-                        ctx.arc(offsetX, -35, 15, 0, Math.PI*2);
-                        ctx.fill();
-                        // Inner rose swirls
-                        ctx.strokeStyle = '#000000';
-                        ctx.lineWidth = 1.5;
-                        ctx.beginPath();
-                        ctx.arc(offsetX, -35, 7, 0, Math.PI, true);
-                        ctx.stroke();
+        // --- EXPONENTIAL BACKOFF FOR GEMINI API ---
+        async function fetchGeminiWithRetry(url, payload, retries = 5, delay = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
                     });
-
-                    // Dripping blood lines from the crown
-                    ctx.fillStyle = '#7a0206';
-                    ctx.beginPath();
-                    ctx.moveTo(-45, -20);
-                    ctx.quadraticCurveTo(-45, 10, -42, 35);
-                    ctx.lineTo(-38, -20);
-                    ctx.moveTo(45, -20);
-                    ctx.quadraticCurveTo(48, 15, 45, 40);
-                    ctx.lineTo(41, -20);
-                    ctx.fill();
-
-                    // Tattered white wedding neck/shoulder collar
-                    ctx.fillStyle = 'rgba(215, 215, 225, 0.85)';
-                    ctx.beginPath();
-                    ctx.moveTo(-70, 120);
-                    ctx.lineTo(0, 170);
-                    ctx.lineTo(70, 120);
-                    ctx.lineTo(110, 230);
-                    ctx.lineTo(-110, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Blood splatters over wedding dress
-                    ctx.fillStyle = '#660205';
-                    ctx.beginPath();
-                    ctx.arc(-20, 170, 12, 0, Math.PI*2);
-                    ctx.arc(25, 190, 8, 0, Math.PI*2);
-                    ctx.arc(0, 180, 15, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.restore();
+                    if (res.ok) return await res.json();
+                } catch (e) {
+                    console.warn(`Retrying API call in ${delay}ms...`);
                 }
-            },
-            {
-                id: 'school-ghost',
-                name: 'School Ghost',
-                thaiName: 'ผีสาวมัธยมหลอน',
-                category: 'asian',
-                tag: 'เอเชีย',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Long disheveled dark hair covering parts of body
-                    ctx.fillStyle = '#06060a';
-                    ctx.beginPath();
-                    ctx.moveTo(-90, 220);
-                    ctx.quadraticCurveTo(-110, -70, 0, -85);
-                    ctx.quadraticCurveTo(110, -70, 90, 220);
-                    ctx.quadraticCurveTo(50, 40, 45, 220);
-                    ctx.quadraticCurveTo(0, 80, -10, 220);
-                    ctx.quadraticCurveTo(-50, 40, -90, 220);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Single glowing red evil eye popping through hair strands
-                    ctx.shadowColor = '#ff2222';
-                    ctx.shadowBlur = 10;
-                    ctx.fillStyle = '#ff3333';
-                    ctx.beginPath();
-                    ctx.arc(-22, 20, 4, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-
-                    // Sailor school dress collar (Japanese style)
-                    ctx.fillStyle = '#1e293b';
-                    ctx.beginPath();
-                    ctx.moveTo(-60, 160);
-                    ctx.lineTo(0, 210);
-                    ctx.lineTo(60, 160);
-                    ctx.lineTo(95, 230);
-                    ctx.lineTo(-95, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Red ribbon tied at collar center
-                    ctx.fillStyle = '#85050f';
-                    ctx.beginPath();
-                    ctx.moveTo(-15, 200);
-                    ctx.lineTo(0, 208);
-                    ctx.lineTo(15, 200);
-                    ctx.lineTo(25, 235);
-                    ctx.lineTo(-25, 235);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'korean-ghost',
-                name: 'Korean Ghost',
-                thaiName: 'ผีสาวเกาหลี',
-                category: 'asian',
-                tag: 'เอเชีย',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Super long pitch black flat hair
-                    ctx.fillStyle = '#020205';
-                    ctx.beginPath();
-                    ctx.moveTo(-85, 230);
-                    ctx.quadraticCurveTo(-95, -60, 0, -75);
-                    ctx.quadraticCurveTo(95, -60, 85, 230);
-                    ctx.lineTo(55, 230);
-                    ctx.quadraticCurveTo(45, 30, 0, 50);
-                    ctx.quadraticCurveTo(-45, 30, -55, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Traditional Korean Hanbok collar (White/Pale Purple)
-                    ctx.fillStyle = '#eef2f6';
-                    ctx.beginPath();
-                    ctx.moveTo(-50, 140);
-                    ctx.lineTo(0, 190);
-                    ctx.lineTo(50, 140);
-                    ctx.lineTo(90, 230);
-                    ctx.lineTo(-90, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Purple cross line detail (traditional overlap)
-                    ctx.strokeStyle = '#581c87';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(-50, 140);
-                    ctx.lineTo(35, 220);
-                    ctx.stroke();
-
-                    // Pale face shading mask
-                    ctx.fillStyle = 'rgba(235, 240, 255, 0.4)';
-                    ctx.beginPath();
-                    ctx.ellipse(0, 40, 50, 65, 0, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'onryo',
-                name: 'Onryo',
-                thaiName: 'ผีออนเรียว',
-                category: 'asian',
-                tag: 'สยองขวัญ',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // White mask outline overlay
-                    ctx.fillStyle = 'rgba(245, 245, 250, 0.9)';
-                    ctx.strokeStyle = '#11050a';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.ellipse(0, 45, 60, 75, 0, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.stroke();
-
-                    // Crazy messy black hairs covering eyes
-                    ctx.fillStyle = '#050408';
-                    ctx.beginPath();
-                    ctx.moveTo(-65, -10);
-                    ctx.quadraticCurveTo(0, -60, 65, -10);
-                    ctx.lineTo(55, 230);
-                    ctx.quadraticCurveTo(20, 60, 0, 180);
-                    ctx.quadraticCurveTo(-20, 60, -55, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Wide empty eye holes
-                    ctx.fillStyle = '#000000';
-                    ctx.beginPath();
-                    ctx.arc(-22, 40, 9, 0, Math.PI*2);
-                    ctx.arc(22, 40, 9, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Bleeding black liquid tears
-                    ctx.strokeStyle = '#050002';
-                    ctx.lineWidth = 2.5;
-                    ctx.beginPath();
-                    ctx.moveTo(-22, 45); ctx.lineTo(-24, 85);
-                    ctx.moveTo(22, 45); ctx.lineTo(24, 88);
-                    ctx.stroke();
-
-                    // Distorted black crying mouth
-                    ctx.fillStyle = '#0c0205';
-                    ctx.beginPath();
-                    ctx.ellipse(0, 85, 10, 18, 0, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'ghost-bride',
-                name: 'Ghost Bride',
-                thaiName: 'เจ้าสาวโบราณ',
-                category: 'asian',
-                tag: 'เอเชีย',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Chinese/Asian traditional red wedding gown
-                    ctx.fillStyle = '#b91c1c';
-                    ctx.beginPath();
-                    ctx.moveTo(-75, 130);
-                    ctx.lineTo(0, 180);
-                    ctx.lineTo(75, 130);
-                    ctx.lineTo(110, 230);
-                    ctx.lineTo(-110, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Ornate Gold embroidery collar line
-                    ctx.strokeStyle = '#eab308';
-                    ctx.lineWidth = 4;
-                    ctx.beginPath();
-                    ctx.moveTo(-75, 130);
-                    ctx.lineTo(0, 180);
-                    ctx.lineTo(75, 130);
-                    ctx.stroke();
-
-                    // Traditional Golden Phoenix Crown on head
-                    ctx.fillStyle = '#d97706';
-                    ctx.beginPath();
-                    ctx.moveTo(-45, -20);
-                    ctx.lineTo(45, -20);
-                    ctx.lineTo(35, -45);
-                    ctx.lineTo(0, -65);
-                    ctx.lineTo(-35, -45);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Hanging ruby beads from the crown
-                    ctx.fillStyle = '#ef4444';
-                    const hangingSlots = [-35, -20, 0, 20, 35];
-                    hangingSlots.forEach(posX => {
-                        ctx.beginPath();
-                        ctx.arc(posX, -15, 3, 0, Math.PI*2);
-                        ctx.arc(posX, -5, 3, 0, Math.PI*2);
-                        ctx.arc(posX, 5, 2, 0, Math.PI*2);
-                        ctx.fill();
-                    });
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'zombie-girl',
-                name: 'Zombie Girl',
-                thaiName: 'ซอมบี้สาวสยอง',
-                category: 'horror',
-                tag: 'ซอมบี้',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Rotten decayed skin patch lines
-                    ctx.fillStyle = 'rgba(74, 95, 78, 0.45)';
-                    ctx.beginPath();
-                    ctx.ellipse(-30, 40, 22, 14, 0.3, 0, Math.PI*2);
-                    ctx.ellipse(35, 75, 18, 12, -0.2, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Torn clothes collars with green tint
-                    ctx.fillStyle = '#2f3e46';
-                    ctx.beginPath();
-                    ctx.moveTo(-70, 140);
-                    ctx.lineTo(-35, 185);
-                    ctx.lineTo(0, 160);
-                    ctx.lineTo(45, 195);
-                    ctx.lineTo(70, 140);
-                    ctx.lineTo(100, 230);
-                    ctx.lineTo(-100, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Scratch marks (scars) on face
-                    ctx.strokeStyle = '#7f1d1d';
-                    ctx.lineWidth = 2.5;
-                    ctx.beginPath();
-                    // Cheeks scratch
-                    ctx.moveTo(-45, 50); ctx.lineTo(-20, 65);
-                    ctx.moveTo(-43, 56); ctx.lineTo(-23, 70);
-                    // Forehead scar
-                    ctx.moveTo(10, -10); ctx.lineTo(35, 10);
-                    ctx.stroke();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'nun-ghost',
-                name: 'Nun Ghost',
-                thaiName: 'ผีแม่ชีวาแลค',
-                category: 'horror',
-                tag: 'สยองขวัญ',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Inner White head band wrap
-                    ctx.fillStyle = '#f8fafc';
-                    ctx.beginPath();
-                    ctx.ellipse(0, 35, 52, 65, 0, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Black nun habit hood outer
-                    ctx.fillStyle = '#09090b';
-                    ctx.beginPath();
-                    ctx.moveTo(-110, 230);
-                    ctx.quadraticCurveTo(-115, -45, 0, -50);
-                    ctx.quadraticCurveTo(115, -45, 110, 230);
-                    ctx.quadraticCurveTo(65, 125, 45, 230);
-                    // Open face loop
-                    ctx.lineTo(45, 80);
-                    ctx.quadraticCurveTo(45, -5, 0, -10);
-                    ctx.quadraticCurveTo(-45, -5, -45, 80);
-                    ctx.lineTo(-45, 230);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Deep black hollow eyes shadows
-                    ctx.fillStyle = 'rgba(10, 10, 12, 0.85)';
-                    ctx.beginPath();
-                    ctx.ellipse(-20, 35, 15, 18, 0, 0, Math.PI*2);
-                    ctx.ellipse(20, 35, 15, 18, 0, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Glowing yellow demon pupils
-                    ctx.fillStyle = '#fbbf24';
-                    ctx.shadowColor = '#f59e0b';
-                    ctx.shadowBlur = 8;
-                    ctx.beginPath();
-                    ctx.arc(-20, 35, 3.5, 0, Math.PI*2);
-                    ctx.arc(20, 35, 3.5, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'hantu',
-                name: 'Hantu (Pocong)',
-                thaiName: 'ผีมัมมี่โพจง',
-                category: 'asian',
-                tag: 'เอเชีย',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Bound shroud wrap mummy (Pocong)
-                    ctx.fillStyle = 'rgba(230, 230, 235, 0.95)';
-                    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-                    ctx.shadowBlur = 12;
-                    ctx.beginPath();
-                    ctx.ellipse(0, 50, 48, 120, 0, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Bound node tie on top of head
-                    ctx.shadowBlur = 0;
-                    ctx.fillStyle = '#94a3b8';
-                    ctx.beginPath();
-                    ctx.moveTo(-15, -70);
-                    ctx.lineTo(15, -70);
-                    ctx.lineTo(25, -95);
-                    ctx.lineTo(-25, -95);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Shroud wrap stripes lines
-                    ctx.strokeStyle = '#cbd5e1';
-                    ctx.lineWidth = 3;
-                    for (let h = -20; h <= 120; h += 30) {
-                        ctx.beginPath();
-                        ctx.arc(0, h, 42, 0, Math.PI, false);
-                        ctx.stroke();
-                    }
-
-                    // Face opening hole
-                    ctx.fillStyle = '#0f0f12';
-                    ctx.beginPath();
-                    ctx.ellipse(0, 20, 28, 38, 0, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Red glowing eyeballs looking from dark hole
-                    ctx.fillStyle = '#ff4444';
-                    ctx.beginPath();
-                    ctx.arc(-10, 18, 3, 0, Math.PI*2);
-                    ctx.arc(10, 18, 3, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'cute-ghost',
-                name: 'Cute Ghost',
-                thaiName: 'ผีน้อยน่ารัก',
-                category: 'cute',
-                tag: 'แฟนซี',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Cute simple rounded sheet ghost
-                    ctx.fillStyle = '#ffffff';
-                    ctx.shadowColor = 'rgba(255, 105, 180, 0.3)';
-                    ctx.shadowBlur = 20;
-                    ctx.beginPath();
-                    ctx.moveTo(-60, 150);
-                    ctx.quadraticCurveTo(-60, -30, 0, -40);
-                    ctx.quadraticCurveTo(60, -30, 60, 150);
-                    ctx.quadraticCurveTo(30, 130, 0, 150);
-                    ctx.quadraticCurveTo(-30, 130, -60, 150);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Happy eyes
-                    ctx.shadowBlur = 0;
-                    ctx.strokeStyle = '#000000';
-                    ctx.lineWidth = 3.5;
-                    ctx.lineCap = 'round';
-                    ctx.beginPath();
-                    ctx.arc(-20, 30, 7, Math.PI, 0, false);
-                    ctx.arc(20, 30, 7, Math.PI, 0, false);
-                    ctx.stroke();
-
-                    // Cute pink blush cheeks
-                    ctx.fillStyle = '#fda4af';
-                    ctx.beginPath();
-                    ctx.arc(-35, 45, 8, 0, Math.PI*2);
-                    ctx.arc(35, 45, 8, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Open smiling mouth
-                    ctx.fillStyle = '#000000';
-                    ctx.beginPath();
-                    ctx.ellipse(0, 50, 6, 9, 0, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'pumpkin-ghost',
-                name: 'Pumpkin Ghost',
-                thaiName: 'หัวฟักทองแจ็คโอ',
-                category: 'cute',
-                tag: 'แฟนซี',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Pumpkin shell head
-                    ctx.fillStyle = '#ea580c';
-                    ctx.shadowColor = 'rgba(234, 88, 12, 0.5)';
-                    ctx.shadowBlur = 15;
-                    ctx.beginPath();
-                    ctx.ellipse(0, 35, 72, 62, 0, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Pumpkin sections lines
-                    ctx.shadowBlur = 0;
-                    ctx.strokeStyle = '#7c2d12';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.ellipse(0, 35, 45, 61, 0, 0, Math.PI*2);
-                    ctx.ellipse(0, 35, 20, 60, 0, 0, Math.PI*2);
-                    ctx.stroke();
-
-                    // Green stem on top
-                    ctx.fillStyle = '#15803d';
-                    ctx.beginPath();
-                    ctx.moveTo(-10, -25);
-                    ctx.quadraticCurveTo(0, -45, 10, -50);
-                    ctx.lineTo(0, -27);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Triangle Glowing eyes
-                    ctx.fillStyle = '#fef08a';
-                    ctx.shadowColor = '#facc15';
-                    ctx.shadowBlur = 12;
-                    // Left
-                    ctx.beginPath();
-                    ctx.moveTo(-35, 25); ctx.lineTo(-15, 25); ctx.lineTo(-25, 10); ctx.closePath(); ctx.fill();
-                    // Right
-                    ctx.beginPath();
-                    ctx.moveTo(15, 25); ctx.lineTo(35, 25); ctx.lineTo(25, 10); ctx.closePath(); ctx.fill();
-
-                    // Wicked smile
-                    ctx.fillStyle = '#450a0a';
-                    ctx.beginPath();
-                    ctx.arc(0, 55, 30, 0, Math.PI, false);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.restore();
-                }
-            },
-            {
-                id: 'devil-girl',
-                name: 'Devil Girl',
-                thaiName: 'ปีศาจสาวเซ็กซี่',
-                category: 'cute',
-                tag: 'ยอดฮิต',
-                draw: (ctx, x, y, size, paleVal) => {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.scale(size, size);
-
-                    // Devil red horns
-                    ctx.fillStyle = '#dc2626';
-                    ctx.shadowColor = '#ff2222';
-                    ctx.shadowBlur = 10;
-                    // Left Horn
-                    ctx.beginPath();
-                    ctx.moveTo(-35, -5);
-                    ctx.quadraticCurveTo(-55, -25, -60, -55);
-                    ctx.quadraticCurveTo(-38, -35, -22, -8);
-                    ctx.closePath();
-                    ctx.fill();
-                    // Right Horn
-                    ctx.beginPath();
-                    ctx.moveTo(35, -5);
-                    ctx.quadraticCurveTo(55, -25, 60, -55);
-                    ctx.quadraticCurveTo(38, -35, 22, -8);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Spooky black leather wing silhouettes in background
-                    ctx.shadowBlur = 0;
-                    ctx.fillStyle = 'rgba(15, 5, 10, 0.85)';
-                    ctx.beginPath();
-                    // Left Wing
-                    ctx.moveTo(-60, 110);
-                    ctx.lineTo(-130, 70);
-                    ctx.lineTo(-100, 115);
-                    ctx.lineTo(-140, 145);
-                    ctx.lineTo(-55, 150);
-                    // Right Wing
-                    ctx.moveTo(60, 110);
-                    ctx.lineTo(130, 70);
-                    ctx.lineTo(100, 115);
-                    ctx.lineTo(140, 145);
-                    ctx.lineTo(55, 150);
-                    ctx.fill();
-
-                    // Red heart-tipped arrow tail
-                    ctx.strokeStyle = '#dc2626';
-                    ctx.lineWidth = 3.5;
-                    ctx.beginPath();
-                    ctx.moveTo(0, 180);
-                    ctx.quadraticCurveTo(65, 190, 85, 230);
-                    ctx.stroke();
-                    // Arrow tip
-                    ctx.fillStyle = '#dc2626';
-                    ctx.beginPath();
-                    ctx.moveTo(85, 230);
-                    ctx.lineTo(75, 215);
-                    ctx.lineTo(95, 220);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.restore();
-                }
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
             }
-        ];
-
-        // Draw Left sidebar grid items
-        function renderGhostSelections(filterCategory = 'all') {
-            const grid = document.getElementById('ghostGrid');
-            grid.innerHTML = '';
-
-            const filteredData = filterCategory === 'all' 
-                ? ghostOutfitsData 
-                : ghostOutfitsData.filter(g => g.category === filterCategory);
-
-            filteredData.forEach(ghost => {
-                const isActive = ghost.id === activeSelectedGhost;
-                const card = document.createElement('div');
-                card.className = `cursor-pointer bg-[#0f1016]/90 border ${isActive ? 'border-red-600 shadow-[0_0_15px_rgba(239,68,68,0.25)]' : 'border-gray-900'} rounded-xl p-2 transition-all duration-200 flex flex-col justify-between items-center relative overflow-hidden group`;
-                card.dataset.ghostId = ghost.id;
-
-                card.innerHTML = `
-                    <div class="absolute top-1 left-1 bg-black/80 text-[8px] px-1 rounded text-red-500 border border-red-950 font-mitr font-medium z-10">${ghost.tag}</div>
-                    
-                    <!-- Spooky Small Thumbnail Canvas Box -->
-                    <div class="w-full aspect-[4/5] bg-black rounded-lg mb-1.5 relative flex items-center justify-center overflow-hidden">
-                        <canvas id="thumb_${ghost.id}" class="w-full h-full object-cover"></canvas>
-                    </div>
-
-                    <div class="w-full text-center">
-                        <div class="text-[10px] font-bold text-gray-200 truncate group-hover:text-red-500 font-mitr transition duration-150">${ghost.thaiName}</div>
-                        <div class="text-[8px] text-gray-500 truncate font-sans">${ghost.name}</div>
-                    </div>
-                `;
-
-                card.addEventListener('click', () => {
-                    activeSelectedGhost = ghost.id;
-                    renderGhostSelections(filterCategory);
-                });
-
-                grid.appendChild(card);
-
-                // Generate and render tiny preview thumbnail on its canvas
-                setTimeout(() => {
-                    const thumbCanvas = document.getElementById(`thumb_${ghost.id}`);
-                    if (thumbCanvas) {
-                        thumbCanvas.width = 100;
-                        thumbCanvas.height = 125;
-                        const tCtx = thumbCanvas.getContext('2d');
-                        tCtx.fillStyle = '#08080c';
-                        tCtx.fillRect(0, 0, 100, 125);
-
-                        // Draw simple placeholder gray model bust behind
-                        tCtx.fillStyle = '#121319';
-                        tCtx.beginPath();
-                        tCtx.arc(50, 55, 20, 0, Math.PI*2);
-                        tCtx.fill();
-                        tCtx.beginPath();
-                        tCtx.ellipse(50, 105, 30, 35, 0, 0, Math.PI*2);
-                        tCtx.fill();
-
-                        // Render ghost outfit vector scaled down
-                        ghost.draw(tCtx, 50, 40, 0.45, 50);
-                    }
-                }, 20);
-            });
+            throw new Error("Unable to connect to Gemini AI services after retries.");
         }
 
-        // Tab Filter Buttons handling
-        document.querySelectorAll('.category-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.category-btn').forEach(b => {
-                    b.classList.remove('bg-[#181922]', 'text-white', 'border', 'border-purple-500/30');
-                    b.classList.add('bg-[#0f1016]', 'text-gray-400');
-                });
-                btn.classList.add('bg-[#181922]', 'text-white', 'border', 'border-purple-500/30');
-                btn.classList.remove('bg-[#0f1016]', 'text-gray-400');
+        // --- DYNAMIC PROMPT BUILDER ---
+        function buildHorrorPrompt() {
+            const archetype = document.getElementById('ghost-archetype').value;
+            const style = document.getElementById('film-style').value;
+            
+            const paleVal = document.getElementById('param-pale').value;
+            const eyesVal = document.getElementById('param-eyes').value;
+            const bloodVal = document.getElementById('param-blood').value;
+            const glowVal = document.getElementById('param-glow').value;
 
-                renderGhostSelections(btn.dataset.cat);
-            });
-        });
-
-        // Background Scene Procedural Generators (without external urls)
-        function drawAtmosphericBackground(type, width, height, tickTime) {
-            const tempBgCanvas = document.createElement('canvas');
-            tempBgCanvas.width = width;
-            tempBgCanvas.height = height;
-            const bgCtx = tempBgCanvas.getContext('2d');
-
-            if (type === 'haunted') {
-                // Haunted stone chamber room with window
-                const roomGrad = bgCtx.createLinearGradient(0, 0, 0, height);
-                roomGrad.addColorStop(0, '#040408');
-                roomGrad.addColorStop(0.5, '#0e0f18');
-                roomGrad.addColorStop(1, '#030305');
-                bgCtx.fillStyle = roomGrad;
-                bgCtx.fillRect(0, 0, width, height);
-
-                // Brick panel outlines
-                bgCtx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
-                bgCtx.lineWidth = 1;
-                for (let y = 0; y < height; y += 45) {
-                    bgCtx.beginPath();
-                    bgCtx.moveTo(0, y); bgCtx.lineTo(width, y);
-                    bgCtx.stroke();
-                }
-
-                // Haunted moon-lit arched windows in center
-                bgCtx.fillStyle = 'rgba(15, 23, 42, 0.7)';
-                bgCtx.strokeStyle = '#020617';
-                bgCtx.lineWidth = 4;
-                bgCtx.beginPath();
-                bgCtx.moveTo(width*0.35, height*0.35);
-                bgCtx.lineTo(width*0.35, height*0.12);
-                bgCtx.arc(width*0.5, height*0.12, width*0.15, Math.PI, 0);
-                bgCtx.lineTo(width*0.65, height*0.35);
-                bgCtx.closePath();
-                bgCtx.fill();
-                bgCtx.stroke();
-
-                // Window pane web grid
-                bgCtx.strokeStyle = 'rgba(100, 120, 180, 0.18)';
-                bgCtx.lineWidth = 1.5;
-                bgCtx.beginPath();
-                bgCtx.moveTo(width*0.5, height*0.0); bgCtx.lineTo(width*0.5, height*0.35);
-                bgCtx.moveTo(width*0.35, height*0.15); bgCtx.lineTo(width*0.65, height*0.15);
-                bgCtx.stroke();
-
-            } else if (type === 'graveyard') {
-                // Pitch black graveyard cemetery night
-                const skyGrad = bgCtx.createLinearGradient(0, 0, 0, height);
-                skyGrad.addColorStop(0, '#010003');
-                skyGrad.addColorStop(0.5, '#070514');
-                skyGrad.addColorStop(1, '#010206');
-                bgCtx.fillStyle = skyGrad;
-                bgCtx.fillRect(0, 0, width, height);
-
-                // Glowing ghostly moon disk
-                bgCtx.shadowColor = '#e2e8f0';
-                bgCtx.shadowBlur = 35;
-                bgCtx.fillStyle = '#cbd5e1';
-                bgCtx.beginPath();
-                bgCtx.arc(width*0.5, height*0.22, width*0.18, 0, Math.PI*2);
-                bgCtx.fill();
-                bgCtx.shadowBlur = 0;
-
-                // Dead tree & cross graves silhouettes
-                bgCtx.fillStyle = '#05060b';
-                bgCtx.beginPath();
-                bgCtx.moveTo(0, height);
-                bgCtx.lineTo(0, height*0.75);
-                // Grave tombstone shape 1
-                bgCtx.lineTo(width*0.2, height*0.75);
-                bgCtx.lineTo(width*0.2, height*0.66);
-                bgCtx.quadraticCurveTo(width*0.25, height*0.62, width*0.3, height*0.66);
-                bgCtx.lineTo(width*0.3, height*0.76);
-                // Grave cross shape 2
-                bgCtx.lineTo(width*0.7, height*0.78);
-                bgCtx.lineTo(width*0.7, height*0.55);
-                bgCtx.lineTo(width*0.67, height*0.55);
-                bgCtx.lineTo(width*0.67, height*0.59);
-                bgCtx.lineTo(width*0.7, height*0.59);
-                bgCtx.lineTo(width*0.7, height*0.79);
-                bgCtx.lineTo(width, height*0.75);
-                bgCtx.lineTo(width, height);
-                bgCtx.closePath();
-                bgCtx.fill();
-
-            } else if (type === 'forest') {
-                // Eerie Misty Fog-laden pine woods
-                const forestGrad = bgCtx.createLinearGradient(0, 0, 0, height);
-                forestGrad.addColorStop(0, '#020503');
-                forestGrad.addColorStop(0.5, '#08120d');
-                forestGrad.addColorStop(1, '#010201');
-                bgCtx.fillStyle = forestGrad;
-                bgCtx.fillRect(0, 0, width, height);
-
-                // Dead ancient trees branch shapes
-                bgCtx.fillStyle = '#010302';
-                // Left trunk
-                bgCtx.beginPath();
-                bgCtx.moveTo(-15, height);
-                bgCtx.quadraticCurveTo(width*0.2, height*0.48, width*0.08, 0);
-                bgCtx.lineTo(-15, 0);
-                bgCtx.closePath();
-                bgCtx.fill();
-                // Right trunk
-                bgCtx.beginPath();
-                bgCtx.moveTo(width + 15, height);
-                bgCtx.quadraticCurveTo(width*0.78, height*0.55, width*0.9, 0);
-                bgCtx.lineTo(width + 15, 0);
-                bgCtx.closePath();
-                bgCtx.fill();
+            // 1. Archetype description
+            let archetypeText = "";
+            if (archetype === 'vengeful-onryo') {
+                archetypeText = "a terrifying Japanese Onryo ghost, long messy dripping wet black hair draping over the face";
+            } else if (archetype === 'gothic-vampire') {
+                archetypeText = "a pale gothic Victorian vampire with long dark hair, visible sharp fangs, and subtle dark shadows";
+            } else if (archetype === 'decayed-corpse') {
+                archetypeText = "a horrific decomposed zombie corpse, rotting green-grey necrotic flesh, with exposed muscle and severe skin deterioration";
+            } else if (archetype === 'ancient-demon') {
+                archetypeText = "an ancient dark demon from the abyss, crimson skin, charcoal veins popping, and jagged demonic runes marked on the face";
+            } else if (archetype === 'spectral-phantom') {
+                archetypeText = "a hauntingly beautiful floating transparent spectral phantom ghost, misty outline, and an eerie supernatural presence";
             }
 
-            return tempBgCanvas;
+            // 2. Camera & Style
+            let styleText = "";
+            if (style === 'found-footage') {
+                styleText = "captured on an eerie security CCTV camera, low quality security footage style, green scanlines, high noise and camera static, extreme digital glitch artifacts";
+            } else if (style === 'hollywood-35mm') {
+                styleText = "shot on cinematic 35mm horror film, low key dramatic studio lighting, deep cinematic dark shadows, high-contrast, professional hollywood makeup effects realism";
+            } else if (style === 'vintage-polaroid') {
+                styleText = "captured on a 1970s vintage polaroid ghost photo, grainy texture, yellowish faded dye colors, dramatic flash glare, realistic creepy paranormal evidence styling";
+            } else if (style === 'creepypasta') {
+                styleText = "digital portrait of a creepypasta urban legend ghost, haunting internet forum styling, dark vignette, spooky internet folklore aesthetic";
+            }
+
+            // 3. Modulators
+            let modifiers = `The face must feature extremely pale greyish skin (intensity: ${paleVal}/100), deep hollow sunken eye-sockets with realistic dark bruising (intensity: ${eyesVal}/100)`;
+            
+            if (parseInt(bloodVal) > 10) {
+                modifiers += `, realistic dripping dark coagulated red blood and jagged flesh cuts (intensity: ${bloodVal}/100)`;
+            }
+            if (parseInt(glowVal) > 10) {
+                modifiers += `, supernatural glowing fire eyes (intensity: ${glowVal}/100)`;
+            }
+
+            // Assemble
+            return `Transform the person in this photo into ${archetypeText}. ${modifiers}. The image style should be ${styleText}. Eerie, terrifying, photorealistic horror detail. Ensure the underlying basic facial structure and gender of the original person remains recognizable so the user can see it is still them, but heavily customized with this special effects horror makeup. Return only the output horror image.`;
         }
 
-        // Draw premium demo Gothic beauty model as initial backup placeholder
-        const demoModelFrameCanvas = document.createElement('canvas');
-        function synthesizePremiumDemoModel() {
-            demoModelFrameCanvas.width = 600;
-            demoModelFrameCanvas.height = 800;
-            const mCtx = demoModelFrameCanvas.getContext('2d');
-
-            // Deep background dark glow
-            const rGrad = mCtx.createRadialGradient(300, 360, 40, 300, 360, 350);
-            rGrad.addColorStop(0, '#1c1328');
-            rGrad.addColorStop(1, '#050409');
-            mCtx.fillStyle = rGrad;
-            mCtx.fillRect(0, 0, 600, 800);
-
-            // Model shoulders/goth black clothes
-            mCtx.fillStyle = '#09090d';
-            mCtx.beginPath();
-            mCtx.moveTo(120, 800);
-            mCtx.quadraticCurveTo(180, 520, 260, 520);
-            mCtx.lineTo(340, 520);
-            mCtx.quadraticCurveTo(420, 520, 480, 800);
-            mCtx.closePath();
-            mCtx.fill();
-
-            // Gothic neck choker
-            mCtx.fillStyle = '#1e1b4b';
-            mCtx.fillRect(275, 485, 50, 40);
-
-            // Pale gothic skin tone base face
-            mCtx.fillStyle = '#e8dfec';
-            mCtx.beginPath();
-            mCtx.ellipse(300, 340, 95, 125, 0, 0, Math.PI*2);
-            mCtx.fill();
-
-            // Eyes hollow gothic shadow eye socket
-            mCtx.fillStyle = 'rgba(78, 40, 110, 0.25)';
-            mCtx.beginPath();
-            mCtx.ellipse(260, 335, 23, 19, 0.1, 0, Math.PI*2);
-            mCtx.ellipse(340, 335, 23, 19, -0.1, 0, Math.PI*2);
-            mCtx.fill();
-
-            // White eyeballs
-            mCtx.fillStyle = '#ffffff';
-            mCtx.beginPath();
-            mCtx.ellipse(260, 335, 16, 9, 0, 0, Math.PI*2);
-            mCtx.ellipse(340, 335, 16, 9, 0, 0, Math.PI*2);
-            mCtx.fill();
-
-            // Lavender purple eyes
-            mCtx.fillStyle = '#8b5cf6';
-            mCtx.beginPath();
-            mCtx.arc(260, 335, 7.5, 0, Math.PI*2);
-            mCtx.arc(340, 335, 7.5, 0, Math.PI*2);
-            mCtx.fill();
-
-            // Black center pupils
-            mCtx.fillStyle = '#000000';
-            mCtx.beginPath();
-            mCtx.arc(260, 335, 3.5, 0, Math.PI*2);
-            mCtx.arc(340, 335, 3.5, 0, Math.PI*2);
-            mCtx.fill();
-
-            // Sad slim dark gothic eyebrows
-            mCtx.strokeStyle = '#0f172a';
-            mCtx.lineWidth = 2;
-            mCtx.beginPath();
-            mCtx.quadraticCurveTo(235, 310, 275, 318);
-            mCtx.moveTo(365, 310);
-            mCtx.quadraticCurveTo(365, 310, 325, 318);
-            mCtx.stroke();
-
-            // Beautiful dark plum purple lips
-            mCtx.fillStyle = '#310a3c';
-            mCtx.beginPath();
-            mCtx.ellipse(300, 400, 22, 10, 0, 0, Math.PI*2);
-            mCtx.fill();
-            // Center separator line
-            mCtx.strokeStyle = '#120216';
-            mCtx.lineWidth = 1.5;
-            mCtx.beginPath();
-            mCtx.moveTo(278, 400); mCtx.lineTo(322, 400);
-            mCtx.stroke();
-
-            // Silk black frame bangs/hair wrapping head
-            mCtx.fillStyle = '#050308';
-            mCtx.beginPath();
-            mCtx.moveTo(170, 480);
-            mCtx.quadraticCurveTo(190, 200, 300, 185);
-            mCtx.quadraticCurveTo(410, 200, 430, 480);
-            mCtx.lineTo(440, 750);
-            mCtx.quadraticCurveTo(390, 290, 345, 310);
-            mCtx.quadraticCurveTo(300, 210, 255, 310);
-            mCtx.quadraticCurveTo(210, 290, 160, 750);
-            mCtx.closePath();
-            mCtx.fill();
+        function updatePromptPreview() {
+            const prompt = buildHorrorPrompt();
+            document.getElementById('prompt-preview').innerText = prompt;
         }
-        synthesizePremiumDemoModel();
 
-        // Web Audio Synthesizer: Procedural atmospheric creepy background sound
-        function triggerSpookySoundtrack() {
+        function updateParamValue(paramId) {
+            const val = document.getElementById(`param-${paramId}`).value;
+            let suffix = "%";
+            if (paramId === 'pale' || paramId === 'eyes') suffix = "% intensity";
+            document.getElementById(`lbl-${paramId}`).innerText = val + suffix;
+            updatePromptPreview();
+        }
+
+        // --- SUMMON GHOST PROCESSOR ---
+        async function summonSpookyAI() {
+            // Pre-process checking
+            const loadingOverlay = document.getElementById('ai-loading');
+            const loadingTitle = document.getElementById('loading-title');
+            const loadingSubtitle = document.getElementById('loading-subtitle');
+            const progressTips = document.getElementById('spooky-tips');
+
+            loadingTitle.innerText = "SUMMONING GHOST AI";
+            loadingSubtitle.innerText = "กำลังประมวลผลสัดส่วนใบหน้าเพื่อวาดมวลสยองขวัญ...";
+            loadingOverlay.classList.remove('hidden');
+
+            playSpookyWhisper();
+
+            const incantations = [
+                "กำลังลอกชั้นผิวเพื่อชโลมสีขาวซีดสุสาน...",
+                "กำลังบีบเค้นเบ้าตาให้กลวงมืดกระตุกขวัญ...",
+                "กำลังประเมินรอยแผลและคราบเลือดสด...",
+                "กำลังปรับมุมกล้องสแกนไลน์ฟิล์ม 35 มม...",
+                "กราบเซ่นไหว้ระบบ AI ด้วยดวงวิญญาณ..."
+            ];
+            
+            let tipIdx = 0;
+            const incantationInterval = setInterval(() => {
+                progressTips.innerText = `"${incantations[tipIdx % incantations.length]}"`;
+                tipIdx++;
+            }, 1800);
+
             try {
-                if (!audioContextInstance) {
-                    audioContextInstance = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (audioContextInstance.state === 'suspended') {
-                    audioContextInstance.resume();
-                }
+                // Captures input frame
+                const base64Photo = await captureInputBase64();
+                const spookyPrompt = buildHorrorPrompt();
 
-                // Spooky chromatic step tones to sound haunting
-                const spookyScale = [110.0, 116.5, 130.8, 138.6, 164.8, 174.6, 196.0];
-
-                synthOscillatorInterval = setInterval(() => {
-                    if (!isSpookySoundPlaying) return;
-
-                    const osc = audioContextInstance.createOscillator();
-                    const gainNode = audioContextInstance.createGain();
-                    const filterNode = audioContextInstance.createBiquadFilter();
-
-                    osc.type = Math.random() > 0.65 ? 'triangle' : 'sine';
-                    const pitch = spookyScale[Math.floor(Math.random() * spookyScale.length)];
-                    osc.frequency.setValueAtTime(pitch / (Math.random() > 0.5 ? 2 : 1), audioContextInstance.currentTime);
-
-                    filterNode.type = 'lowpass';
-                    filterNode.frequency.setValueAtTime(320, audioContextInstance.currentTime);
-
-                    gainNode.gain.setValueAtTime(0.015, audioContextInstance.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContextInstance.currentTime + 3.2);
-
-                    osc.connect(filterNode);
-                    filterNode.connect(gainNode);
-                    gainNode.connect(audioContextInstance.destination);
-
-                    osc.start();
-                    osc.stop(audioContextInstance.currentTime + 3.3);
-                }, 1600);
-
-            } catch (error) {
-                console.warn("Web Audio Synthesis initialized error:", error);
-            }
-        }
-
-        function shutdownSpookySoundtrack() {
-            if (synthOscillatorInterval) {
-                clearInterval(synthOscillatorInterval);
-                synthOscillatorInterval = null;
-            }
-        }
-
-        // Toggle Sound Click Listener
-        btnSoundToggle.addEventListener('click', () => {
-            if (isSpookySoundPlaying) {
-                isSpookySoundPlaying = false;
-                shutdownSpookySoundtrack();
-                soundIcon.setAttribute('data-lucide', 'volume-x');
-                btnSoundToggle.classList.remove('bg-red-950/40', 'border-red-900', 'text-red-500');
-                btnSoundToggle.classList.add('bg-[#12131a]', 'border-gray-800', 'text-gray-300');
-            } else {
-                isSpookySoundPlaying = true;
-                triggerSpookySoundtrack();
-                soundIcon.setAttribute('data-lucide', 'volume-2');
-                btnSoundToggle.classList.add('bg-red-950/40', 'border-red-900', 'text-red-500');
-                btnSoundToggle.classList.remove('bg-[#12131a]', 'border-gray-800', 'text-gray-300');
-            }
-            lucide.createIcons();
-        });
-
-        // Initialize User Webcam
-        async function startupWebcamStream() {
-            try {
-                if (window.localMediaStream) {
-                    window.localMediaStream.getTracks().forEach(track => track.stop());
-                }
-
-                const setupConstraints = {
-                    video: {
-                        facingMode: activeCameraFacingMode,
-                        width: { ideal: 640 },
-                        height: { ideal: 850 }
-                    },
-                    audio: false
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: spookyPrompt },
+                            {
+                                inlineData: {
+                                    mimeType: "image/png",
+                                    data: base64Photo
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        responseModalities: ["TEXT", "IMAGE"]
+                    }
                 };
 
-                const fetchedStream = await navigator.mediaDevices.getUserMedia(setupConstraints);
-                window.localMediaStream = fetchedStream;
-                videoElement.srcObject = fetchedStream;
-                isCamStreaming = true;
-                useSampleImage = false;
-                cameraStatusBanner.classList.remove('hidden');
-                btnSourceToggle.innerHTML = `<i data-lucide="image" class="w-4 h-4 text-purple-400"></i>`;
-                lucide.createIcons();
-                showToastNotification("เปิดใช้งานกล้องสด เรียงตัวทับชุดผีได้เลย!");
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+                const result = await fetchGeminiWithRetry(url, payload);
+
+                const base64Out = result.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                if (base64Out) {
+                    const outputImg = document.getElementById('output-image');
+                    outputImg.src = `data:image/png;base64,${base64Out}`;
+                    
+                    // Reset styling filters since AI outputs the perfect visual already
+                    outputImg.style.filter = "none";
+                    
+                    showCustomNotification("อัญเชิญความสยองขวัญเสร็จสิ้น! วิญญาณสถิตในรูปแล้ว");
+                } else {
+                    throw new Error("Empty image returned from generative model");
+                }
+
             } catch (err) {
-                console.warn("Webcam access rejected/failed:", err);
-                isCamStreaming = false;
-                useSampleImage = true;
-                cameraStatusBanner.classList.add('hidden');
-                btnSourceToggle.innerHTML = `<i data-lucide="camera" class="w-4 h-4"></i>`;
-                lucide.createIcons();
-                showToastNotification("ไม่พบกล้องเว็บแคม ระบบสลับไปใช้รูปภาพนางแบบแทน");
+                console.error(err);
+                showCustomNotification("ล้มเหลวในการเชื่อมโลกวิญญาณ: โมเดล AI ขัดข้อง กรุณาลองใหม่อีกรอบ!");
+            } finally {
+                clearInterval(incantationInterval);
+                loadingOverlay.classList.add('hidden');
             }
         }
 
-        // Toggle Source between webcam and template model
-        btnSourceToggle.addEventListener('click', () => {
-            if (isCamStreaming) {
-                if (window.localMediaStream) {
-                    window.localMediaStream.getTracks().forEach(track => track.stop());
-                    window.localMediaStream = null;
-                }
-                isCamStreaming = false;
-                useSampleImage = true;
-                cameraStatusBanner.classList.add('hidden');
-                btnSourceToggle.innerHTML = `<i data-lucide="camera" class="w-4 h-4"></i>`;
-            } else {
-                startupWebcamStream();
-            }
-            lucide.createIcons();
-        });
+        // --- PORTRAIT SELECTOR SYSTEM ---
+        function selectPreset(presetKey, element) {
+            const url = portraitPresets[presetKey];
+            if (!url) return;
 
-        // Handle Custom File Uploading
-        btnUploadImage.addEventListener('click', () => {
-            nativeImageUploader.click();
-        });
+            // Terminate camera if running
+            disableWebcam();
 
-        nativeImageUploader.addEventListener('change', (e) => {
-            const chosenFile = e.target.files[0];
-            if (chosenFile) {
-                const reader = new FileReader();
-                reader.onload = (fileEvent) => {
-                    const tempImgObj = new Image();
-                    tempImgObj.onload = () => {
-                        customUserUploadedImage = tempImgObj;
-                        useSampleImage = false;
-                        
-                        // Disable live webcam stream to avoid overhead
-                        if (isCamStreaming && window.localMediaStream) {
-                            window.localMediaStream.getTracks().forEach(track => track.stop());
-                            isCamStreaming = false;
-                        }
-                        btnSourceToggle.innerHTML = `<i data-lucide="camera" class="w-4 h-4"></i>`;
-                        lucide.createIcons();
-                        
-                        // Recenter costume transforms so it aligns roughly with newly uploaded photo
-                        costumeTransform.x = 300;
-                        costumeTransform.y = 400;
-                        costumeTransform.scale = 1.0;
-                        slideCostumeScale.value = 1.0;
+            const inputPreview = document.getElementById('input-preview');
+            inputPreview.src = url;
 
-                        showToastNotification("อัปโหลดรูปภาพแต่งผีส่วนตัวเรียบร้อยแล้ว!");
-                    };
-                    tempImgObj.src = fileEvent.target.result;
-                };
-                reader.readAsDataURL(chosenFile);
-            }
-        });
-
-        // Flip Camera Lens
-        btnFlipCam.addEventListener('click', () => {
-            activeCameraFacingMode = activeCameraFacingMode === 'user' ? 'environment' : 'user';
-            if (isCamStreaming) {
-                startupWebcamStream();
-            } else {
-                showToastNotification("กรุณาเปิดการใช้งานกล้องเว็บแคมก่อนทำการสลับกล้อง");
-            }
-        });
-
-        // Bounding Box / Drag event logic for positioning costume inside canvas
-        canvasElement.addEventListener('mousedown', (e) => handleDragStart(e.offsetX, e.offsetY));
-        canvasElement.addEventListener('mousemove', (e) => handleDragMove(e.offsetX, e.offsetY));
-        canvasElement.addEventListener('mouseup', () => handleDragEnd());
-        canvasElement.addEventListener('mouseleave', () => handleDragEnd());
-
-        // Mobile touch listeners support
-        canvasElement.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                const rect = canvasElement.getBoundingClientRect();
-                const touchX = ((e.touches[0].clientX - rect.left) / rect.width) * canvasElement.width;
-                const touchY = ((e.touches[0].clientY - rect.top) / rect.height) * canvasElement.height;
-                handleDragStart(touchX, touchY);
-            }
-        });
-        canvasElement.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 1 && costumeTransform.isDragging) {
-                e.preventDefault();
-                const rect = canvasElement.getBoundingClientRect();
-                const touchX = ((e.touches[0].clientX - rect.left) / rect.width) * canvasElement.width;
-                const touchY = ((e.touches[0].clientY - rect.top) / rect.height) * canvasElement.height;
-                handleDragMove(touchX, touchY);
-            }
-        });
-        canvasElement.addEventListener('touchend', () => handleDragEnd());
-
-        function handleDragStart(x, y) {
-            // Check proximity to current costume coordinate x, y
-            const dist = Math.hypot(x - costumeTransform.x, y - costumeTransform.y);
-            // Allow drag if clicked within boundary box
-            if (dist < 180 * costumeTransform.scale) {
-                costumeTransform.isDragging = true;
-                costumeTransform.startX = x - costumeTransform.x;
-                costumeTransform.startY = y - costumeTransform.y;
-            }
+            // Select highlighting
+            document.querySelectorAll('.preset-card').forEach(card => {
+                card.className = "preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all";
+            });
+            element.className = "preset-card border-2 border-purple-500 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all";
+            
+            showCustomNotification("เปลี่ยนหน้าต้นแบบทดลองสำเร็จแล้ว!");
         }
 
-        function handleDragMove(x, y) {
-            if (costumeTransform.isDragging) {
-                costumeTransform.x = x - costumeTransform.startX;
-                costumeTransform.y = y - costumeTransform.startY;
+        // --- IMAGE UPLOADER HANDLERS ---
+        function triggerImageUpload() {
+            document.getElementById('image-loader').click();
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const inputPreview = document.getElementById('input-preview');
+                inputPreview.src = event.target.result;
+                
+                disableWebcam();
+                showCustomNotification("โหลดรูปภาพหน้าพอร์ตเทรตของคุณสำเร็จแล้ว! เริ่มเจนรูปได้เลย");
             }
+            reader.readAsDataURL(file);
         }
 
-        function handleDragEnd() {
-            costumeTransform.isDragging = false;
-        }
-
-        // Live Interactive Costume Scale Slider event
-        slideCostumeScale.addEventListener('input', (e) => {
-            costumeTransform.scale = parseFloat(e.target.value);
-        });
-
-        // Procedural particle system state for flowing drops of crimson blood
-        let bloodDropsStateArray = [];
-
-        // Main Real-time processing loop running on animation frames
-        function tickProcessingFrame(epochStamp) {
-            if (!canvasElement || !viewCtx) {
-                requestAnimationFrame(tickProcessingFrame);
+        // --- WEBCAM STREAM CONTROLLERS ---
+        async function useWebcam() {
+            if (isWebcamOn) {
+                disableWebcam();
                 return;
             }
 
-            const canvasWidth = canvasElement.width = 600;
-            const canvasHeight = canvasElement.height = 800;
+            const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-            viewCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-            // 1. Draw Chosen Atmospheric Background Scene (Chroma key blend replacement)
-            const chosenBgScene = document.getElementById('valBackground').value;
-            if (chosenBgScene !== 'none') {
-                const backdropElement = drawAtmosphericBackground(chosenBgScene, canvasWidth, canvasHeight, epochStamp);
-                viewCtx.drawImage(backdropElement, 0, 0);
-            }
-
-            // 2. Draw Camera feed or user uploaded picture layer
-            viewCtx.save();
-            
-            // Gather filter settings values
-            const valBeauty = parseInt(document.getElementById('valBeauty').value);
-            const valPale = parseInt(document.getElementById('valPale').value);
-            const valDarkCircles = parseInt(document.getElementById('valDarkCircles').value);
-            const valBlood = parseInt(document.getElementById('valBlood').value);
-            const valVignette = parseInt(document.getElementById('valVignette').value);
-            const valGrain = parseInt(document.getElementById('valGrain').value);
-            const valSaturation = parseInt(document.getElementById('valSaturation').value);
-            const valContrast = parseInt(document.getElementById('valContrast').value);
-
-            // Apply WebGL equivalent real-time lighting adjustments using high performance canvas filters
-            let coreFilterString = `contrast(${100 + valContrast}%) saturate(${100 + valSaturation - valPale * 0.45}%) brightness(${100 + valPale * 0.3}%)`;
-            if (valBeauty > 0) {
-                coreFilterString += ` blur(${valBeauty * 0.04}px)`;
-            }
-            viewCtx.filter = coreFilterString;
-
-            // If background is set, let the user appear semi-transparent/phantom-like inside the scene
-            if (chosenBgScene !== 'none') {
-                viewCtx.globalAlpha = 0.85; // Ghostly transparent blending
-            }
-
-            if (isCamStreaming && videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
-                // Mirror camera if front facing
-                if (activeCameraFacingMode === 'user') {
-                    viewCtx.translate(canvasWidth, 0);
-                    viewCtx.scale(-1, 1);
-                    viewCtx.drawImage(videoElement, 0, 0, canvasWidth, canvasHeight);
-                } else {
-                    viewCtx.drawImage(videoElement, 0, 0, canvasWidth, canvasHeight);
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Iframe block security constraint");
                 }
-            } else if (customUserUploadedImage) {
-                // Render user uploaded file
-                viewCtx.drawImage(customUserUploadedImage, 0, 0, canvasWidth, canvasHeight);
+
+                const constraints = { video: { width: 800, height: 1000 }, audio: false };
+                streamObj = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                const webcamVideo = document.getElementById('webcam');
+                webcamVideo.srcObject = streamObj;
+                webcamVideo.classList.remove('hidden');
+
+                // Swap Preview display to use video feed
+                const inputPreview = document.getElementById('input-preview');
+                inputPreview.classList.add('hidden');
+                
+                // Nest video stream directly in container
+                const zone = document.getElementById('upload-zone');
+                webcamVideo.className = "w-full h-full object-cover transform scale-x-[-1] absolute inset-0";
+                zone.appendChild(webcamVideo);
+
+                isWebcamOn = true;
+                document.getElementById('camera-btn-text').innerText = "ปิดกล้องสตรีม";
+                showCustomNotification("เปิดกล้องถ่ายหน้าตัวคุณเพื่อเจนผีเรียลไทม์สำเร็จ!");
+
+            } catch (err) {
+                console.error("Camera denied:", err);
+                let debugMsg = "ไม่สามารถเชื่อมกล้องในหน้าต่างพรีวิวได้เนื่องจากความปลอดภัยของระบบ Sandbox";
+                if (!isSecure) debugMsg += " (โปรดใช้การเชื่อมต่อแบบ HTTPS เท่านั้น)";
+                showCustomNotification(`${debugMsg} โปรดสุ่มหน้า 'Preset Models' หรืออัปโหลดรูปภาพตนเองแทน!`);
+            }
+        }
+
+        function disableWebcam() {
+            if (streamObj) {
+                streamObj.getTracks().forEach(track => track.stop());
+                streamObj = null;
+            }
+            const webcamVideo = document.getElementById('webcam');
+            webcamVideo.classList.add('hidden');
+            webcamVideo.srcObject = null;
+            
+            const inputPreview = document.getElementById('input-preview');
+            inputPreview.classList.remove('hidden');
+
+            isWebcamOn = false;
+            document.getElementById('camera-btn-text').innerText = "เปิดกล้องถ่ายหน้า";
+        }
+
+        // Capture base64 of input source
+        async function captureInputBase64() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const previewImg = document.getElementById('input-preview');
+            const webcamVideo = document.getElementById('webcam');
+
+            let width = isWebcamOn ? (webcamVideo.videoWidth || 640) : (previewImg.naturalWidth || 800);
+            let height = isWebcamOn ? (webcamVideo.videoHeight || 800) : (previewImg.naturalHeight || 1000);
+
+            canvas.width = width;
+            canvas.height = height;
+
+            if (isWebcamOn) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(webcamVideo, 0, 0, width, height);
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
             } else {
-                // Default fallback Gothic Beauty model
-                viewCtx.drawImage(demoModelFrameCanvas, 0, 0, canvasWidth, canvasHeight);
-            }
-            viewCtx.restore();
-            viewCtx.filter = 'none';
-
-            // 3. Render Dark circles eye shadows overlay
-            if (valDarkCircles > 0) {
-                viewCtx.save();
-                viewCtx.fillStyle = `rgba(32, 12, 45, ${valDarkCircles * 0.0075})`;
-                viewCtx.shadowColor = '#000000';
-                
-                // Overlay on estimated facial position (approx center-left and center-right of head center)
-                viewCtx.beginPath();
-                viewCtx.ellipse(costumeTransform.x - 30 * costumeTransform.scale, costumeTransform.y + 15 * costumeTransform.scale, 28 * costumeTransform.scale, 18 * costumeTransform.scale, 0, 0, Math.PI * 2);
-                viewCtx.ellipse(costumeTransform.x + 30 * costumeTransform.scale, costumeTransform.y + 15 * costumeTransform.scale, 28 * costumeTransform.scale, 18 * costumeTransform.scale, 0, 0, Math.PI * 2);
-                viewCtx.fill();
-                viewCtx.restore();
+                ctx.drawImage(previewImg, 0, 0, width, height);
             }
 
-            // 4. Ghost Tint Multiply blending
-            const tintHexCode = document.getElementById('valGhostTint').value;
-            viewCtx.save();
-            viewCtx.globalCompositeOperation = 'multiply';
-            viewCtx.fillStyle = tintHexCode;
-            viewCtx.globalAlpha = 0.35;
-            viewCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-            viewCtx.restore();
-
-            // 5. Draw Currently Selected Ghost Outfit Overlays (Aligned perfectly around draggable transform values)
-            const activeGhostIdObj = ghostOutfitsData.find(g => g.id === activeSelectedGhost);
-            if (activeGhostIdObj) {
-                activeGhostIdObj.draw(viewCtx, costumeTransform.x, costumeTransform.y, costumeTransform.scale, valPale);
-            }
-
-            // Draw interaction guide helper circle only if dragging
-            if (costumeTransform.isDragging) {
-                viewCtx.save();
-                viewCtx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
-                viewCtx.setLineDash([5, 5]);
-                viewCtx.lineWidth = 2;
-                viewCtx.beginPath();
-                viewCtx.arc(costumeTransform.x, costumeTransform.y, 160 * costumeTransform.scale, 0, Math.PI*2);
-                viewCtx.stroke();
-                viewCtx.restore();
-            }
-
-            // 6. Draw Blood splatters & drips (Real-time particle fluid dynamics simulation)
-            if (valBlood > 0) {
-                viewCtx.save();
-                viewCtx.fillStyle = '#7a0205';
-                
-                // Add new falling droplets to particle buffer
-                if (bloodDropsStateArray.length < valBlood / 3) {
-                    bloodDropsStateArray.push({
-                        x: Math.random() * canvasWidth,
-                        y: 100 + Math.random() * 200,
-                        size: 1.5 + Math.random() * 3,
-                        speed: 0.6 + Math.random() * 1.6,
-                        length: 8 + Math.random() * 30
-                    });
-                }
-
-                // Render scattered static blood drops
-                for (let i = 0; i < valBlood; i += 8) {
-                    const seedX = (Math.sin(i * 1.5) * 0.5 + 0.5) * canvasWidth;
-                    const seedY = (Math.cos(i * 0.8) * 0.5 + 0.5) * canvasHeight;
-                    const rSize = (i % 10) + 2;
-                    viewCtx.beginPath();
-                    viewCtx.arc(seedX, seedY, rSize, 0, Math.PI*2);
-                    viewCtx.fill();
-                }
-
-                // Render and update sliding blood drops
-                bloodDropsStateArray.forEach(drop => {
-                    drop.y += drop.speed;
-                    if (drop.y > canvasHeight) {
-                        drop.y = 100 + Math.random() * 200;
-                        drop.x = Math.random() * canvasWidth;
-                    }
-                    viewCtx.beginPath();
-                    viewCtx.moveTo(drop.x, drop.y - drop.length);
-                    viewCtx.lineTo(drop.x, drop.y);
-                    viewCtx.lineWidth = drop.size;
-                    viewCtx.strokeStyle = '#5a0103';
-                    viewCtx.stroke();
-                    
-                    viewCtx.beginPath();
-                    viewCtx.arc(drop.x, drop.y, drop.size * 1.3, 0, Math.PI*2);
-                    viewCtx.fill();
-                });
-                viewCtx.restore();
-            }
-
-            // 7. Vignette Dark Borders Overlay
-            if (valVignette > 0) {
-                viewCtx.save();
-                const radialGradient = viewCtx.createRadialGradient(canvasWidth/2, canvasHeight/2, canvasWidth*0.25, canvasWidth/2, canvasHeight/2, canvasWidth*0.8);
-                radialGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-                radialGradient.addColorStop(1, `rgba(0, 0, 0, ${valVignette * 0.01})`);
-                viewCtx.fillStyle = radialGradient;
-                viewCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-                viewCtx.restore();
-            }
-
-            // 8. Film Grain/Noise overlays
-            if (valGrain > 0) {
-                viewCtx.save();
-                const density = canvasWidth * canvasHeight * (valGrain * 0.001);
-                viewCtx.fillStyle = `rgba(255, 255, 255, ${valGrain * 0.0016})`;
-                for (let i = 0; i < density; i++) {
-                    const noiseX = Math.random() * canvasWidth;
-                    const noiseY = Math.random() * canvasHeight;
-                    viewCtx.fillRect(noiseX, noiseY, 1.5, 1.5);
-                }
-                viewCtx.restore();
-            }
-
-            // 9. Scanline Switch
-            if (document.getElementById('toggleScanline').checked) {
-                viewCtx.save();
-                viewCtx.fillStyle = 'rgba(0, 0, 0, 0.12)';
-                for (let y = 0; y < canvasHeight; y += 4) {
-                    viewCtx.fillRect(0, y, canvasWidth, 1.5);
-                }
-                viewCtx.restore();
-            }
-
-            // 10. Glitch Offset Switch
-            if (document.getElementById('toggleGlitch').checked) {
-                if (Math.random() > 0.95) {
-                    const chunkY = Math.random() * canvasHeight;
-                    const chunkH = Math.random() * 90 + 20;
-                    const shiftOffset = (Math.random() - 0.5) * 25;
-                    viewCtx.save();
-                    viewCtx.drawImage(canvasElement, 0, chunkY, canvasWidth, chunkH, shiftOffset, chunkY, canvasWidth, chunkH);
-                    
-                    // Chromatic Red slice overlay
-                    viewCtx.fillStyle = 'rgba(239, 68, 68, 0.1)';
-                    viewCtx.fillRect(0, chunkY, canvasWidth, chunkH);
-                    viewCtx.restore();
-                }
-            }
-
-            // 11. Fog low layers (Moving spooky steam clouds)
-            if (document.getElementById('toggleFog').checked) {
-                viewCtx.save();
-                viewCtx.fillStyle = 'rgba(215, 225, 255, 0.055)';
-                for (let i = 0; i < 4; i++) {
-                    const fogX = ((epochStamp * 0.045 + i * 220) % (canvasWidth + 350)) - 175;
-                    const fogY = canvasHeight * 0.72 + Math.sin(epochStamp * 0.002 + i) * 28;
-                    viewCtx.beginPath();
-                    viewCtx.ellipse(fogX, fogY, 160, 65, 0, 0, Math.PI*2);
-                    viewCtx.fill();
-                }
-                viewCtx.restore();
-            }
-
-            requestAnimationFrame(tickProcessingFrame);
+            return canvas.toDataURL('image/png').split(',')[1];
         }
 
-        // Shutter flash capture event
-        btnShutter.addEventListener('click', () => {
-            flashScreen.classList.remove('opacity-0');
-            flashScreen.classList.add('opacity-100');
-            
-            // Camera click sound synthesize
-            if (audioContextInstance) {
-                const clickOsc = audioContextInstance.createOscillator();
-                const gainNode = audioContextInstance.createGain();
-                clickOsc.type = 'sawtooth';
-                clickOsc.frequency.setValueAtTime(850, audioContextInstance.currentTime);
-                clickOsc.frequency.exponentialRampToValueAtTime(80, audioContextInstance.currentTime + 0.15);
-                gainNode.gain.setValueAtTime(0.12, audioContextInstance.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContextInstance.currentTime + 0.2);
-                clickOsc.connect(gainNode);
-                gainNode.connect(audioContextInstance.destination);
-                clickOsc.start();
-                clickOsc.stop(audioContextInstance.currentTime + 0.2);
+        // --- DOWNLOAD RESULT Masterpiece ---
+        function downloadMasterpiece() {
+            const outputImg = document.getElementById('output-image');
+            if (!outputImg.src || outputImg.src.startsWith('https://images.unsplash.com')) {
+                showCustomNotification("กรุณากดส่งคำสั่งให้ AI เจนภาพผีสมจริงของคุณก่อนบันทึก!");
+                return;
             }
 
-            setTimeout(() => {
-                flashScreen.classList.remove('opacity-100');
-                flashScreen.classList.add('opacity-0');
-                showToastNotification("ลั่นชัตเตอร์สำเร็จ! คลิกที่ไอคอนลูกศรชี้ลงด้านล่าง เพื่อบันทึกรูปของคุณได้ทันที");
-            }, 150);
-        });
-
-        // Trigger raw file download
-        btnInstantDownload.addEventListener('click', () => {
-            const currentDataUrl = canvasElement.toDataURL('image/png');
-            const downloadLink = document.createElement('a');
-            downloadLink.download = `Ghost_TryOn_Halloween_${Date.now()}.png`;
-            downloadLink.href = currentDataUrl;
-            downloadLink.click();
-            showToastNotification("ดาวน์โหลดรูปแต่งผีลงเครื่องสำเร็จเรียบร้อย!");
-        });
-
-        // Sync and live update display values of ranges
-        const rangeSliderControls = [
-            { el: document.getElementById('valBeauty'), label: document.getElementById('labelBeauty') },
-            { el: document.getElementById('valPale'), label: document.getElementById('labelPale') },
-            { el: document.getElementById('valDarkCircles'), label: document.getElementById('labelDarkCircles') },
-            { el: document.getElementById('valBlood'), label: document.getElementById('labelBlood') },
-            { el: document.getElementById('valVignette'), label: document.getElementById('labelVignette') },
-            { el: document.getElementById('valGrain'), label: document.getElementById('labelGrain') },
-            { el: document.getElementById('valSaturation'), label: document.getElementById('labelSaturation') },
-            { el: document.getElementById('valContrast'), label: document.getElementById('labelContrast') }
-        ];
-
-        rangeSliderControls.forEach(item => {
-            item.el.addEventListener('input', (e) => {
-                item.label.innerText = e.target.value;
-            });
-        });
-
-        // Reset Filter options to defaults
-        document.getElementById('btnResetFilters').addEventListener('click', () => {
-            document.getElementById('valBeauty').value = 20; document.getElementById('labelBeauty').innerText = "20";
-            document.getElementById('valPale').value = 60; document.getElementById('labelPale').innerText = "60";
-            document.getElementById('valDarkCircles').value = 70; document.getElementById('labelDarkCircles').innerText = "70";
-            document.getElementById('valGhostTint').value = "#cfd2ff";
-            document.getElementById('valBlood').value = 50; document.getElementById('labelBlood').innerText = "50";
-            document.getElementById('valBackground').value = "haunted";
-            document.getElementById('valVignette').value = 40; document.getElementById('labelVignette').innerText = "40";
-            document.getElementById('valGrain').value = 30; document.getElementById('labelGrain').innerText = "30";
-            document.getElementById('valSaturation').value = -20; document.getElementById('labelSaturation').innerText = "-20";
-            document.getElementById('valContrast').value = 10; document.getElementById('labelContrast').innerText = "10";
-            document.getElementById('toggleScanline').checked = false;
-            document.getElementById('toggleGlitch').checked = true;
-            document.getElementById('toggleFog').checked = true;
-            
-            // Recenter transforms
-            costumeTransform.x = 300;
-            costumeTransform.y = 400;
-            costumeTransform.scale = 1.0;
-            slideCostumeScale.value = 1.0;
-
-            showToastNotification("คืนค่าฟิลเตอร์และตำแหน่งทั้งหมดเรียบร้อย!");
-        });
-
-        // Toast Messages Trigger function
-        function showToastNotification(textMessage) {
-            const toast = document.getElementById('toastNotification');
-            document.getElementById('toastText').innerText = textMessage;
-            toast.classList.remove('translate-y-24', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-24', 'opacity-0');
-            }, 3500);
+            const link = document.createElement('a');
+            link.download = `Ghost_AI_Studio_Masterpiece_${Date.now()}.png`;
+            link.href = outputImg.src;
+            link.click();
+            showCustomNotification("ดาวน์โหลดผลงานผีระดับภาพยนตร์เสร็จเรียบร้อย! 💀");
         }
 
-        // About Information modal listeners
-        btnAbout.addEventListener('click', () => {
-            infoModal.classList.remove('hidden');
-            infoModal.classList.add('flex');
+        // --- RESET STUDIO STATE ---
+        function resetAIStudio() {
+            document.getElementById('param-pale').value = 80;
+            document.getElementById('param-eyes').value = 75;
+            document.getElementById('param-blood').value = 60;
+            document.getElementById('param-glow').value = 50;
+
+            updateParamValue('pale');
+            updateParamValue('eyes');
+            updateParamValue('blood');
+            updateParamValue('glow');
+
+            document.getElementById('ghost-archetype').value = 'vengeful-onryo';
+            document.getElementById('film-style').value = 'hollywood-35mm';
+
+            // Reset Output to demo style
+            const outputImg = document.getElementById('output-image');
+            outputImg.src = "https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800";
+            outputImg.style.filter = "brightness(80%) saturate(20%) hue-rotate(180deg) contrast(120%)";
+
+            updatePromptPreview();
+            showCustomNotification("รีเซ็ตสตูดิโอพร้อมทำงานอัญเชิญผีรอบใหม่!");
+        }
+
+        // --- DRAG AND DROP PHOTO INTERFACES ---
+        const zone = document.getElementById('upload-zone');
+        ['dragenter', 'dragover'].forEach(name => {
+            zone.addEventListener(name, (e) => { e.preventDefault(); zone.classList.add('border-purple-500'); }, false);
         });
-        btnCloseInfoModal.addEventListener('click', () => {
-            infoModal.classList.add('hidden');
-            infoModal.classList.remove('flex');
+        ['dragleave', 'drop'].forEach(name => {
+            zone.addEventListener(name, (e) => { e.preventDefault(); zone.classList.remove('border-purple-500'); }, false);
         });
-        btnUnderstandSpook.addEventListener('click', () => {
-            infoModal.classList.add('hidden');
-            infoModal.classList.remove('flex');
-            if (isSpookySoundPlaying && audioContextInstance) {
-                audioContextInstance.resume();
+        zone.addEventListener('drop', (e) => {
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('input-preview').src = event.target.result;
+                    disableWebcam();
+                    showCustomNotification("ลากวางรูปพอร์ตเทรตสำเร็จแล้ว!");
+                };
+                reader.readAsDataURL(file);
             }
         });
 
-        // On Load Page Entry trigger
-        window.addEventListener('load', () => {
-            // Render beautiful UI icons
+        // --- SPOOKY AUDIO GENERATOR (No asset dependencies) ---
+        function toggleSpookySound() {
+            if (isSpookySoundOn) {
+                stopAmbientWind();
+                document.getElementById('sound-icon').setAttribute('data-lucide', 'volume-x');
+                document.getElementById('btn-sound').classList.remove('bg-purple-900/60');
+                isSpookySoundOn = false;
+            } else {
+                startAmbientWind();
+                document.getElementById('sound-icon').setAttribute('data-lucide', 'volume-2');
+                document.getElementById('btn-sound').classList.add('bg-purple-900/60');
+                isSpookySoundOn = true;
+                
+                playCreepyLaugh();
+            }
             lucide.createIcons();
+        }
 
-            // Render default categorized Grid list
-            renderGhostSelections();
+        function startAmbientWind() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                const bufferSize = 2 * audioCtx.sampleRate;
+                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
 
-            // Start up core WebGL filter render loop
-            requestAnimationFrame(tickProcessingFrame);
-        });
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = noiseBuffer;
+                noise.loop = true;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.Q.value = 8.0;
+                filter.frequency.value = 350;
+
+                lfoNode = audioCtx.createOscillator();
+                lfoNode.type = 'sine';
+                lfoNode.frequency.value = 0.06;
+
+                const lfoGain = audioCtx.createGain();
+                lfoGain.gain.value = 200;
+
+                lfoNode.connect(lfoGain);
+                lfoGain.connect(filter.frequency);
+
+                const masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.025;
+
+                noise.connect(filter);
+                filter.connect(masterGain);
+                masterGain.connect(audioCtx.destination);
+
+                noise.start();
+                lfoNode.start();
+
+                windNoiseNode = noise;
+            } catch (err) {
+                console.warn("Spooky wind synthesis failed:", err);
+            }
+        }
+
+        function stopAmbientWind() {
+            if (windNoiseNode) {
+                try { windNoiseNode.stop(); } catch(e){}
+                windNoiseNode = null;
+            }
+            if (lfoNode) {
+                try { lfoNode.stop(); } catch(e){}
+                lfoNode = null;
+            }
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+        }
+
+        function playSpookyWhisper() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(260, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(35, audioCtx.currentTime + 1.5);
+                
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 1.6);
+            } catch(e){}
+        }
+
+        function playCreepyLaugh() {
+            if (!audioCtx) return;
+            try {
+                const now = audioCtx.currentTime;
+                for (let i = 0; i < 7; i++) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120 + (i * 70), now + (i * 0.12));
+                    osc.frequency.exponentialRampToValueAtTime(60 + (i * 30), now + (i * 0.12) + 0.10);
+                    
+                    gain.gain.setValueAtTime(0.045, now + (i * 0.12));
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.12) + 0.10);
+                    
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + (i * 0.12));
+                    osc.stop(now + (i * 0.12) + 0.12);
+                }
+            } catch(e){}
+        }
+
+        // Toggle about modal view
+        function toggleAboutModal() {
+            const modal = document.getElementById('about-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        // Spooky Toast Alert
+        function showCustomNotification(msg) {
+            const toast = document.createElement('div');
+            toast.className = "fixed bottom-16 right-6 bg-purple-950/90 border-2 border-purple-500/50 backdrop-blur-md text-white font-semibold text-xs px-5 py-3.5 rounded-xl shadow-2xl z-[200] transition-transform animate-bounce flex items-center gap-3 max-w-sm";
+            toast.innerHTML = `<span>🔮</span><span>${msg}</span>`;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 500);
+            }, 6000);
+        }
+
+        // Initialize App states
+        window.onload = function() {
+            updatePromptPreview();
+            toggleAboutModal();
+        }
     </script>
 </body>
 </html>
