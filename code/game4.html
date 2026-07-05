@@ -3,1162 +3,939 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GHOST TRY-ON - Halloween Ghost Filter & Real-time WebGL</title>
-    <!-- Tailwind CSS for Dark Spooky Premium UI -->
+    <title>WebGL WebAR Hand Grab Physics</title>
+    
+    <!-- Tailwind CSS สำหรับควบคุม UI -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
+    
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- MediaPipe สำหรับระบบ Hand Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <!-- Lucide Icons สำหรับตกแต่งปุ่มและไอคอน -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Google Fonts for Creepy Header and Clean Text -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #030306;
-            color: #f1f5f9;
-        }
-        .spooky-title {
-            font-family: 'Creepster', cursive;
-            letter-spacing: 0.12em;
-            text-shadow: 0 0 8px rgba(168, 85, 247, 0.6), 0 0 18px rgba(168, 85, 247, 0.3);
-        }
-        /* Custom scrollbars */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #08080f;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #1c1917;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #a855f7;
-        }
-        /* Animated Fog Overlay */
-        @keyframes drift {
-            from { transform: translateX(0%); }
-            to { transform: translateX(-50%); }
-        }
-        .fog-overlay {
-            width: 200%;
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
             height: 100%;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000"><filter id="fog"><feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="4" result="noise"/><feColorMatrix type="matrix" values="1 0 0 0 1  0 1 0 0 1  0 0 1 0 1  0 0 0 0.22 0"/></filter><rect width="1000" height="1000" filter="url(%23fog)" opacity="0.3"/></svg>');
-            animation: drift 50s linear infinite;
+            overflow: hidden;
+            background-color: #0b0f19;
+            font-family: system-ui, -apple-system, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        /* Draggable elements active styling */
-        .draggable-mask {
-            touch-action: none;
-            cursor: move;
+        /* ลบรอยหยักขอบกล้องวิดีโอ */
+        #webcam {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            transform: scaleX(-1); /* สลับซ้ายขวาเพื่อให้เหมือนกระจกเงาสำหรับกล้องหน้า */
+        }
+        /* Canvas สำหรับ Three.js ซ้อนทับบนวิดีโอ */
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: auto;
+        }
+        /* สไตล์สำหรับปุ่มสว่างๆ แนวไซเบอร์พังก์ */
+        .neon-border {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            border: 1px solid rgba(0, 243, 255, 0.6);
+        }
+        .neon-glow-red {
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+            border: 1px solid rgba(255, 0, 127, 0.6);
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between overflow-x-hidden bg-[#030306]">
+<body>
 
-    <!-- HEADER BAR -->
-    <header class="border-b border-purple-950/40 bg-[#06060c] px-6 py-4 flex items-center justify-between z-50">
-        <div class="flex items-center gap-3">
-            <span class="text-3xl animate-bounce">👻</span>
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-purple-400 spooky-title">GHOST TRY-ON</h1>
-                <p class="text-[10px] sm:text-xs text-zinc-400 font-medium tracking-wide">Halloween Ghost Filter &bull; Real-time WebGL &amp; Canvas Studio</p>
-            </div>
+    <!-- ระบบวิดีโอกล้องเบื้องหลัง -->
+    <video id="webcam" autoplay playsinline></video>
+
+    <!-- Canvas สำหรับแสดงผล 3D (Three.js) -->
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- หน้าจอแสดงผลการโหลดโปรแกรมและโมเดล -->
+    <div id="loading-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 z-50 transition-opacity duration-500">
+        <div class="relative w-24 h-24 mb-6">
+            <div class="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
+            <div class="absolute inset-0 border-4 border-t-cyan-400 rounded-full animate-spin"></div>
         </div>
-        
-        <div class="flex items-center gap-3">
-            <button onclick="toggleAboutModal()" class="px-4 py-2 bg-purple-950/30 hover:bg-purple-900/50 border border-purple-800/50 text-purple-300 rounded-lg text-xs sm:text-sm transition flex items-center gap-2">
-                <i data-lucide="help-circle" class="w-4 h-4"></i>
-                <span>แนะนำแอป</span>
-            </button>
-            <button id="btn-sound" onclick="toggleSpookySound()" class="p-2.5 bg-zinc-900 hover:bg-purple-900/40 border border-zinc-800 text-purple-400 rounded-lg transition" title="เปิด/ปิด เสียงหลอน">
-                <i id="sound-icon" data-lucide="volume-x" class="w-5 h-5"></i>
-            </button>
+        <h1 class="text-2xl font-bold text-white mb-2 tracking-wider">WebGL AR HAND GRAB</h1>
+        <p class="text-cyan-400 text-sm animate-pulse mb-6">กำลังดาวน์โหลดโมเดลตรวจจับมือ (MediaPipe)...</p>
+        <div class="w-64 bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div id="progress-bar" class="bg-cyan-400 h-full w-[10%]" style="transition: width 0.3s ease;"></div>
         </div>
-    </header>
+    </div>
 
-    <!-- MAIN APP INTERFACE (3 Columns matching the design mockup!) -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        
-        <!-- COLUMN 1: CHOOSE YOUR GHOST (lg:col-span-3) -->
-        <section class="lg:col-span-3 bg-[#08080f]/90 border border-zinc-900 rounded-2xl p-4 flex flex-col gap-4">
-            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900">
-                <i data-lucide="ghost" class="text-purple-400 w-5 h-5"></i>
-                <h2 class="font-bold text-zinc-200 tracking-wide text-sm">เลือกประเภทผี (CHOOSE YOUR GHOST)</h2>
+    <!-- ปุ่มเริ่มเปิดกล้อง (ขอสิทธิ์ครั้งแรก) -->
+    <div id="permission-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 z-40 hidden">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-11/12 text-center shadow-2xl">
+            <div class="w-16 h-16 bg-cyan-500/10 text-cyan-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="camera" class="w-8 h-8"></i>
             </div>
-
-            <!-- Tabs -->
-            <div class="flex gap-1 overflow-x-auto pb-1 text-xs font-semibold scrollbar-none">
-                <button onclick="filterGhosts('all')" class="tab-btn px-3 py-1.5 bg-purple-950 text-purple-300 border border-purple-800/80 rounded-full shrink-0 transition">ทั้งหมด</button>
-                <button onclick="filterGhosts('classic')" class="tab-btn px-3 py-1.5 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 rounded-full shrink-0 transition">Classic</button>
-                <button onclick="filterGhosts('asian')" class="tab-btn px-3 py-1.5 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 rounded-full shrink-0 transition">Asian</button>
-                <button onclick="filterGhosts('horror')" class="tab-btn px-3 py-1.5 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 rounded-full shrink-0 transition">Horror</button>
-                <button onclick="filterGhosts('cute')" class="tab-btn px-3 py-1.5 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 rounded-full shrink-0 transition">Cute</button>
-            </div>
-
-            <!-- Ghost Catalogue Grid with Realistic Portraits -->
-            <div class="grid grid-cols-3 gap-2 overflow-y-auto max-h-[460px] pr-1" id="ghost-grid">
-                <!-- Preset Card 1: White Ghost -->
-                <div onclick="applyGhostPreset('white-ghost')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="classic">
-                    <img src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="White Ghost">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">White Ghost</span>
-                </div>
-                <!-- Preset Card 2: Ghost Bride -->
-                <div onclick="applyGhostPreset('ghost-bride')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="horror">
-                    <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Ghost Bride">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Ghost Bride</span>
-                </div>
-                <!-- Preset Card 3: School Ghost -->
-                <div onclick="applyGhostPreset('school-ghost')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="asian">
-                    <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="School Ghost">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">School Ghost</span>
-                </div>
-                <!-- Preset Card 4: Kayako -->
-                <div onclick="applyGhostPreset('kayako')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="asian">
-                    <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Kayako">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Kayako Ghost</span>
-                </div>
-                <!-- Preset Card 5: Onryo -->
-                <div onclick="applyGhostPreset('onryo')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="asian">
-                    <img src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Onryo">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Onryo</span>
-                </div>
-                <!-- Preset Card 6: Bloody Bride -->
-                <div onclick="applyGhostPreset('bloody-bride')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="horror">
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Bloody Bride">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Bloody Bride</span>
-                </div>
-                <!-- Preset Card 7: Zombie Girl -->
-                <div onclick="applyGhostPreset('zombie-girl')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="horror">
-                    <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Zombie Girl">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Zombie Girl</span>
-                </div>
-                <!-- Preset Card 8: Nun Ghost -->
-                <div onclick="applyGhostPreset('nun-ghost')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="horror">
-                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Nun Ghost">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Nun Ghost</span>
-                </div>
-                <!-- Preset Card 9: Hantu -->
-                <div onclick="applyGhostPreset('hantu')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="classic">
-                    <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Hantu">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Hantu</span>
-                </div>
-                <!-- Preset Card 10: Cute Ghost -->
-                <div onclick="applyGhostPreset('cute-ghost')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="cute">
-                    <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Cute Ghost">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Cute Ghost</span>
-                </div>
-                <!-- Preset Card 11: Pumpkin Ghost -->
-                <div onclick="applyGhostPreset('pumpkin-ghost')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="classic">
-                    <img src="https://images.unsplash.com/photo-1489980508314-941910ded1f4?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Pumpkin Ghost">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Pumpkin Ghost</span>
-                </div>
-                <!-- Preset Card 12: Devil Girl -->
-                <div onclick="applyGhostPreset('devil-girl')" class="ghost-card group bg-zinc-900/40 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-500/50 p-1.5 rounded-xl flex flex-col items-center gap-1 cursor-pointer transition text-center" data-category="cute">
-                    <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=150" class="w-full aspect-square object-cover rounded-lg group-hover:scale-105 transition" alt="Devil Girl">
-                    <span class="text-[10px] text-zinc-400 font-semibold mt-1">Devil Girl</span>
-                </div>
-            </div>
-
-            <!-- Prompt Help Box -->
-            <div class="mt-auto bg-zinc-950/60 p-3 rounded-xl border border-zinc-900 text-[11px] text-zinc-400 leading-relaxed">
-                <span class="font-bold text-purple-400 block mb-1">💡 เปลี่ยนหน้าคุณเป็นผีเสมือนจริง:</span>
-                เลือกประเภทผีด้านบน หรือสไลด์ปรับความซีดเซียว รอยคราบเลือด และเปลี่ยนวิญญาณฉากหลังทางซีกขวาได้แบบสด ๆ ทันที!
-            </div>
-        </section>
-
-        <!-- COLUMN 2: REAL-TIME GHOST LIVE VIEWPORT (lg:col-span-6) -->
-        <section class="lg:col-span-6 flex flex-col gap-4">
-            
-            <!-- Real-time Render Viewport (Exactly matching design!) -->
-            <div class="relative flex-1 min-h-[400px] lg:min-h-[500px] bg-[#000] border-2 border-purple-950 rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center" id="viewport-container">
-                
-                <!-- Blinking REC Indicator -->
-                <div class="absolute top-4 left-4 z-30 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-red-500/30">
-                    <span class="w-2.5 h-2.5 bg-red-600 rounded-full animate-ping"></span>
-                    <span class="text-[10px] font-bold tracking-widest text-red-500 uppercase">REC</span>
-                </div>
-
-                <!-- Camera Select Toggle / Upload image on upper right -->
-                <div class="absolute top-4 right-4 z-30 flex gap-2">
-                    <button onclick="triggerImageUpload()" class="p-2 bg-black/70 hover:bg-purple-950/80 border border-zinc-900 text-zinc-300 hover:text-white rounded-lg transition text-xs flex items-center gap-1.5" title="อัปโหลดรูปภาพของคุณ">
-                        <i data-lucide="upload" class="w-4 h-4"></i>
-                        <span class="hidden sm:inline">อัปโหลดภาพ</span>
-                    </button>
-                    <!-- Hidden file input uploader -->
-                    <input type="file" id="image-loader" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
-                </div>
-
-                <!-- WebGL / Canvas Filter Renderer (Central core of the app) -->
-                <canvas id="filter-canvas" class="absolute inset-0 w-full h-full object-cover z-10 bg-zinc-950"></canvas>
-
-                <!-- Draggable Accessory Overlay Layer -->
-                <div id="accessory-container" class="absolute inset-0 z-20 pointer-events-auto">
-                    <!-- Accessory SVGs like hair, horns, veils get dynamically added here -->
-                </div>
-
-                <!-- Interactive draggable overlay hint on load -->
-                <div id="drag-tip" class="absolute bottom-4 left-4 right-4 z-30 bg-black/80 border border-zinc-900 text-[10px] text-zinc-400 p-2 rounded-lg text-center hidden pointer-events-none">
-                    <span class="font-bold text-purple-400">💡 ดึงหมุนหน้ากาก:</span> คลิกค้างแล้วลากเส้นผมหรือของตกแต่งเพื่อย้ายตำแหน่งได้!
-                </div>
-            </div>
-
-            <!-- CAMERA ACTIONS (Flip Camera, Capture Circle, Download) -->
-            <div class="flex items-center justify-between px-6 py-2 bg-[#06060c] border border-zinc-900 rounded-2xl">
-                <!-- Flip Camera Button -->
-                <button onclick="useWebcam()" id="btn-camera-toggle" class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white transition flex items-center gap-2">
-                    <i data-lucide="camera" class="w-4 h-4 text-purple-400"></i>
-                    <span id="camera-btn-text">เปิดกล้องจริง</span>
-                </button>
-
-                <!-- Center Shutter Circle Button -->
-                <button onclick="captureSnapshot()" class="relative w-16 h-16 rounded-full bg-white hover:bg-purple-200 border-4 border-zinc-900 hover:border-purple-600 shadow-[0_0_15px_rgba(255,255,255,0.4)] transition duration-200 flex items-center justify-center group" title="ถ่ายภาพพอร์ตเทรต">
-                    <div class="w-12 h-12 rounded-full bg-transparent border-2 border-zinc-900 group-hover:scale-95 transition"></div>
-                </button>
-
-                <!-- Download Finished Image -->
-                <button onclick="downloadMasterpiece()" class="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white transition flex items-center gap-2">
-                    <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
-                    <span>Download</span>
-                </button>
-            </div>
-
-        </section>
-
-        <!-- COLUMN 3: ADJUST FILTER (lg:col-span-3) -->
-        <section class="lg:col-span-3 bg-[#08080f]/90 border border-zinc-900 rounded-2xl p-4 flex flex-col gap-4">
-            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900">
-                <i data-lucide="sliders" class="text-purple-400 w-5 h-5"></i>
-                <h2 class="font-bold text-zinc-200 tracking-wide text-sm">ปรับแต่งฟิลเตอร์ (ADJUST FILTER)</h2>
-            </div>
-
-            <!-- Adjustment Slider Controllers -->
-            <div class="space-y-4 overflow-y-auto max-h-[480px] pr-1 flex-1">
-                
-                <!-- Beauty Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Beauty</span>
-                        <span id="lbl-beauty" class="text-xs text-zinc-500">0</span>
-                    </div>
-                    <input type="range" id="filter-beauty" min="0" max="100" value="0" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- Pale Skin Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Pale Skin</span>
-                        <span id="lbl-pale" class="text-xs text-zinc-500">0</span>
-                    </div>
-                    <input type="range" id="filter-pale" min="0" max="100" value="0" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- Dark Circles Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Dark Circles</span>
-                        <span id="lbl-circles" class="text-xs text-zinc-500">0</span>
-                    </div>
-                    <input type="range" id="filter-circles" min="0" max="100" value="0" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- Ghost Tint Dropdown -->
-                <div>
-                    <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Ghost Tint</label>
-                    <select id="filter-tint" onchange="applyFilters()" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-medium text-zinc-300 focus:outline-none focus:border-purple-500">
-                        <option value="none">ไม่มีสีฟิลเตอร์ (None)</option>
-                        <option value="spooky-blue">ฟ้าน้ำเงินหลอน (Spooky Blue)</option>
-                        <option value="toxic-green">เขียววิญญาณสยอง (Toxic Green)</option>
-                        <option value="blood-red">แดงโลหิตสาด (Blood Red)</option>
-                        <option value="spectral-white">ขาวออร่าสุสาน (Spectral White)</option>
-                    </select>
-                </div>
-
-                <!-- Blood Splash Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Blood</span>
-                        <span id="lbl-blood" class="text-xs text-zinc-500">0</span>
-                    </div>
-                    <input type="range" id="filter-blood" min="0" max="100" value="0" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- Background Selector -->
-                <div>
-                    <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Background</label>
-                    <select id="filter-bg" onchange="applyFilters()" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-medium text-zinc-300 focus:outline-none focus:border-purple-500">
-                        <option value="none" selected>รูปภาพต้นฉบับ (Original)</option>
-                        <option value="haunted-room">ห้องร้างหลอน (Haunted Room)</option>
-                        <option value="gothic-church">โบสถ์โบราณร้าง (Gothic Church)</option>
-                        <option value="cemetery">สุสานร้าง (Cemetery)</option>
-                        <option value="dark-forest">ป่าม่านหมอกทึบ (Dark Forest)</option>
-                    </select>
-                </div>
-
-                <!-- Vignette Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Vignette</span>
-                        <span id="lbl-vignette" class="text-xs text-zinc-500">30</span>
-                    </div>
-                    <input type="range" id="filter-vignette" min="0" max="100" value="30" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- Grain Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Grain</span>
-                        <span id="lbl-grain" class="text-xs text-zinc-500">20</span>
-                    </div>
-                    <input type="range" id="filter-grain" min="0" max="100" value="20" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- Saturation Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Saturation</span>
-                        <span id="lbl-saturation" class="text-xs text-zinc-500">0</span>
-                    </div>
-                    <input type="range" id="filter-saturation" min="-100" max="100" value="0" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- Contrast Slider -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-zinc-400 mb-1.5">
-                        <span>Contrast</span>
-                        <span id="lbl-contrast" class="text-xs text-zinc-500">0</span>
-                    </div>
-                    <input type="range" id="filter-contrast" min="-100" max="100" value="0" oninput="applyFilters()" class="w-full accent-purple-500 bg-zinc-900 h-1 rounded-lg appearance-none cursor-pointer">
-                </div>
-
-                <!-- CCTV scanlines Toggle -->
-                <div class="pt-2 border-t border-zinc-850 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold text-zinc-400">Scanline</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggle-scanline" onchange="applyFilters()" class="sr-only peer">
-                            <div class="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 peer-checked:after:bg-white"></div>
-                        </label>
-                    </div>
-
-                    <!-- Glitch effect Toggle -->
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold text-zinc-400">Glitch</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggle-glitch" onchange="applyFilters()" class="sr-only peer">
-                            <div class="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 peer-checked:after:bg-white"></div>
-                        </label>
-                    </div>
-
-                    <!-- Mist Fog Toggle -->
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold text-zinc-400">Fog</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggle-fog" onchange="applyFilters()" class="sr-only peer">
-                            <div class="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-zinc-400 after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 peer-checked:after:bg-white"></div>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- RESET ALL -->
-            <button onclick="resetAllFilters()" class="mt-auto w-full py-2.5 bg-zinc-950 hover:bg-red-950/40 border border-zinc-900 hover:border-red-900/50 text-xs font-bold text-zinc-400 hover:text-red-400 rounded-xl transition flex items-center justify-center gap-1.5">
-                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                <span>Reset All</span>
-            </button>
-        </section>
-
-    </main>
-
-    <!-- FOOTER INFO -->
-    <footer class="border-t border-zinc-950 bg-[#020204] px-6 py-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-600 gap-2">
-        <p>Works best on Chrome | Edge | Safari [WebGL Supported]</p>
-        <p class="flex items-center gap-1">
-            <span>Powered by HTML5 Canvas & WebGL Shaders</span>
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            <span class="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">Active</span>
-        </p>
-    </footer>
-
-    <!-- ABOUT MANUAL INSTRUCTIONS MODAL -->
-    <div id="about-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4">
-        <div class="bg-[#0b0b12] border border-purple-950 max-w-md w-full rounded-2xl p-6 relative shadow-2xl">
-            <button onclick="toggleAboutModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-            <h3 class="text-2xl font-bold text-purple-400 spooky-title mb-4">🔮 ยินดีต้อนรับสู่ GHOST TRY-ON</h3>
-            
-            <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
-                <div class="bg-purple-950/30 p-3.5 rounded-lg border border-purple-500/20 text-xs text-purple-200">
-                    <span class="font-bold">✨ ระบบฟิลเตอร์ผีสมจริงแบบเรียลไทม์:</span>
-                    ไม่ต้องรอเซิร์ฟเวอร์ AI อีกต่อไป! เพียงแค่กดปุ่ม <strong>"อัปโหลดภาพ"</strong> หรือ <strong>"เปิดกล้องจริง"</strong> แล้วกดเลือกเทมเพลตผีสไตล์ภาพยนตร์ด้านซ้ายเพื่อแปลงโฉมใบหน้าจริงของคุณทันที!
-                </div>
-
-                <div class="flex items-start gap-3">
-                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">1</div>
-                    <p>กด <strong>"เปิดกล้องจริง"</strong> หรือ <strong>"อัปโหลดภาพพอร์ตเทรต"</strong> ใบหน้าของคุณเพื่อเป็นหน้าแบบ</p>
-                </div>
-                <div class="flex items-start gap-3">
-                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">2</div>
-                    <p>คลิกเลือกสไตล์ผีที่ต้องการทางซ้าย โดมหน้ากากเวกเตอร์จะถูกฉายลงบนหน้าคุณ และปรับแต่งค่าความหลอนให้อัตโนมัติ</p>
-                </div>
-                <div class="flex items-start gap-3">
-                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">3</div>
-                    <p>สไลด์เมนูขวาเพื่อปรับความหลอนเพิ่ม เช่น ผิวขาวซีด, คราบเลือด, ความคล้ำตา หรือเปลี่ยนฉากหลังหลอน</p>
-                </div>
-                <div class="flex items-start gap-3">
-                    <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">4</div>
-                    <p>กดปุ่ม <strong>"Download"</strong> ขวาล่าง หรือกดปุ่มวงกลมสีขาวตรงกลางเพื่อถ่ายและเซฟรูปทันที!</p>
-                </div>
-            </div>
-
-            <button onclick="toggleAboutModal()" class="mt-6 w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition text-sm">
-                เข้าสู่สุสานสยองขวัญ!
+            <h2 class="text-xl font-bold text-white mb-3">ต้องการสิทธิ์เข้าใช้งานกล้อง</h2>
+            <p class="text-slate-400 text-sm mb-6">เพื่อจำลองการจับวัตถุ 3D ในแบบโลกเสมือนจริง (AR) จำเป็นต้องเปิดใช้งานกล้องวิดีโอเพื่อวิเคราะห์ท่าทางมือของคุณ</p>
+            <button id="start-camera-btn" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-300 transform active:scale-95 flex items-center justify-center gap-2">
+                <i data-lucide="video" class="w-5 h-5"></i>
+                อนุญาตเข้าใช้กล้องและเริ่มต้น
             </button>
         </div>
     </div>
 
-    <!-- Hidden Fog Backdrop Animation -->
-    <div id="fog-layer" class="fixed inset-0 pointer-events-none z-10 hidden">
-        <div class="fog-overlay"></div>
+    <!-- แผงควบคุมและสถานะการแสดงผล -->
+    <div class="absolute top-4 left-4 z-30 flex flex-col gap-3 pointer-events-none">
+        <!-- ป้ายสถานะการจับคู่ -->
+        <div class="bg-slate-950/75 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-800 flex items-center gap-4 text-white pointer-events-auto">
+            <div class="flex items-center gap-2">
+                <div id="status-camera" class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse"></div>
+                <span class="text-xs font-semibold text-slate-300">กล้อง</span>
+            </div>
+            <div class="h-4 w-[1px] bg-slate-800"></div>
+            <div class="flex items-center gap-2">
+                <div id="status-hand" class="w-3.5 h-3.5 rounded-full bg-red-500"></div>
+                <span class="text-xs font-semibold text-slate-300">มือ</span>
+            </div>
+            <div class="h-4 w-[1px] bg-slate-800"></div>
+            <div class="flex items-center gap-2">
+                <div id="status-action" class="w-3.5 h-3.5 rounded-full bg-slate-500"></div>
+                <span id="status-action-text" class="text-xs font-semibold text-slate-300">สถานะ: รอตรวจจับ</span>
+            </div>
+        </div>
+
+        <!-- คู่มือการใช้งานย่อ -->
+        <div class="bg-slate-950/75 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-800 text-white max-w-xs pointer-events-auto">
+            <div class="flex items-center gap-2 mb-1">
+                <i data-lucide="help-circle" class="w-4 h-4 text-cyan-400"></i>
+                <span class="text-xs font-bold text-cyan-400">วิธีควบคุม:</span>
+            </div>
+            <ul class="text-xs text-slate-300 space-y-1 pl-4 list-disc">
+                <li><span class="font-bold text-white">กำมือ</span> หรือ <span class="font-bold text-white">จีบนิ้วชี้-โป้ง</span> เพื่อจับลูกบอล</li>
+                <li>ขยับมือเพื่อเลื่อนลูกบอล</li>
+                <li><span class="font-bold text-white">แบมือเพื่อปล่อย</span> หรือขว้างบอลออกไปเพื่อเด้ง</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- กลุ่มเครื่องมือด้านขวาและล่าง -->
+    <div class="absolute top-4 right-4 z-30 flex flex-col gap-3">
+        <!-- ปุ่มสลับกล้อง -->
+        <button id="toggle-camera" class="bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-white p-3 rounded-xl flex items-center justify-center transition active:scale-95 shadow-lg">
+            <i data-lucide="switch-camera" class="w-5 h-5"></i>
+        </button>
+
+        <!-- ปุ่มรีเซ็ตตำแหน่งลูกบอลทั้งหมด -->
+        <button id="reset-balls" class="bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-white p-3 rounded-xl flex items-center justify-center transition active:scale-95 shadow-lg" title="รีเซ็ตบอล">
+            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+    <!-- เมนูตั้งค่าตัวลูกบอลด้านล่าง -->
+    <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-30 w-11/12 max-w-lg bg-slate-950/80 backdrop-blur-md p-4 rounded-2xl border border-slate-800 text-white shadow-2xl">
+        <div class="flex flex-col gap-4">
+            <!-- ปรับแต่งจำนวนและสีของลูกบอล -->
+            <div class="flex justify-between items-center flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">ควบคุมวัตถุ:</span>
+                    <button id="btn-add-ball" class="bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-400 border border-cyan-500/40 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                        <i data-lucide="plus" class="w-3 h-3"></i> เพิ่มบอล
+                    </button>
+                    <button id="btn-remove-ball" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/40 px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                        <i data-lucide="minus" class="w-3 h-3"></i> ลดบอล
+                    </button>
+                </div>
+                
+                <!-- ตัวเลือกฟิสิกส์แรงโน้มถ่วง -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">แรงโน้มถ่วง:</span>
+                    <button id="btn-toggle-gravity" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg text-xs font-bold transition">
+                        เปิดใช้งาน
+                    </button>
+                </div>
+            </div>
+
+            <div class="h-[1px] bg-slate-800/80"></div>
+
+            <!-- สีเนออนและรูปแบบวัสดุ -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">สีเนออนวัตถุที่สร้างใหม่</label>
+                    <div class="flex gap-2" id="color-palette">
+                        <button data-color="#00f3ff" class="w-6 h-6 rounded-full bg-[#00f3ff] border-2 border-white ring-2 ring-cyan-500/30 transition transform scale-110"></button>
+                        <button data-color="#ff007f" class="w-6 h-6 rounded-full bg-[#ff007f] border-2 border-transparent transition hover:scale-105"></button>
+                        <button data-color="#ffe600" class="w-6 h-6 rounded-full bg-[#ffe600] border-2 border-transparent transition hover:scale-105"></button>
+                        <button data-color="#a100ff" class="w-6 h-6 rounded-full bg-[#a100ff] border-2 border-transparent transition hover:scale-105"></button>
+                        <button data-color="#39ff14" class="w-6 h-6 rounded-full bg-[#39ff14] border-2 border-transparent transition hover:scale-105"></button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">ความเร็วแรงเด้ง</label>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="zap" class="w-4 h-4 text-slate-400"></i>
+                        <input id="bounciness" type="range" min="30" max="95" value="75" class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Initiate Lucide Icons
+        // เริ่มต้นไอคอน Lucide
         lucide.createIcons();
 
-        // Application State
-        let isWebcamOn = false;
-        let isSpookySoundOn = false;
-        let streamObj = null;
-        let activeAccessoryId = null;
-
-        // Render Canvas Context
-        const canvas = document.getElementById('filter-canvas');
-        const ctx = canvas.getContext('2d');
-        let imageSource = new Image(); // Fallback initial loaded face image
-        imageSource.crossOrigin = "anonymous";
-        imageSource.src = "https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800"; // Asian Girl default
-
-        // Spooky Audio Synthesis Context
-        let audioCtx = null;
-        let windNoiseNode = null;
-        let lfoNode = null;
-
-        // Custom Background Spooky Pre-loaded Images
-        const bgImages = {
-            'haunted-room': 'https://images.unsplash.com/photo-1505635552518-3448ff116af3?auto=format&fit=crop&q=80&w=800',
-            'gothic-church': 'https://images.unsplash.com/photo-1548625361-155deee26295?auto=format&fit=crop&q=80&w=800',
-            'cemetery': 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?auto=format&fit=crop&q=80&w=800',
-            'dark-forest': 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&q=80&w=800'
-        };
-        const loadedBgImages = {};
+        // ตัวแปรควบคุมระบบกล้องและสถานะวิดีโอ
+        const videoElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('webgl-canvas');
+        const loadingScreen = document.getElementById('loading-screen');
+        const permissionScreen = document.getElementById('permission-screen');
+        const startCameraBtn = document.getElementById('start-camera-btn');
+        const progressBar = document.getElementById('progress-bar');
         
-        // Pre-load background images instantly
-        Object.entries(bgImages).forEach(([key, url]) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.src = url;
-            loadedBgImages[key] = img;
-        });
+        // ตัวแปรหลักสำหรับ Three.js
+        let scene, camera, renderer;
+        let balls = [];
+        let shadowPlane;
+        let handJoints = [];
+        let handBones;
+        const HAND_CONNECTIONS = [
+            [0, 1], [1, 2], [2, 3], [3, 4],         // นิ้วโป้ง
+            [0, 5], [5, 6], [6, 7], [7, 8],         // นิ้วชี้
+            [5, 9], [9, 10], [10, 11], [11, 12],     // นิ้วกลาง
+            [9, 13], [13, 14], [14, 15], [15, 16],   // นิ้วนาง
+            [13, 17], [17, 18], [18, 19], [19, 20],  // นิ้วก้อย
+            [0, 17] // ฝ่ามือส่วนล่าง
+        ];
 
-        // High Quality SVG Accessories corresponding to each ghost preset (drawn directly or layered)
-        const maskAccessories = {
-            'kayako': `<svg viewBox="0 0 200 200" width="100%" height="100%">
-                <!-- Kayako wet spooky strands of hair drooping directly on top -->
-                <path d="M15,2 Q45,85 32,180 M185,2 Q150,85 163,180 M5,30 Q90,-20 185,30 M25,20 Q60,110 47,195 M175,20 Q140,110 153,195 M80,2 Q85,90 70,160 M120,2 Q115,90 130,160" stroke="#06060a" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.95"/>
-                <path d="M15,2 Q45,85 32,180 M185,2 Q150,85 163,180" stroke="black" stroke-width="3" stroke-linecap="round" fill="none"/>
-            </svg>`,
-            'ghost-bride': `<svg viewBox="0 0 200 200" width="100%" height="100%">
-                <!-- Blue ghostly bride tattered veil -->
-                <path d="M25,20 Q100,0 175,20 Q190,90 180,180 Q100,160 20,180 Q10,90 25,20 Z" fill="rgba(147, 197, 253, 0.15)" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,4" opacity="0.7" />
-                <!-- Roses crown -->
-                <circle cx="70" cy="35" r="9" fill="#1e3a8a" stroke="#1d4ed8" stroke-width="1.5" />
-                <circle cx="100" cy="30" r="11" fill="#1e40af" stroke="#1d4ed8" stroke-width="1.5" />
-                <circle cx="130" cy="35" r="9" fill="#1e3a8a" stroke="#1d4ed8" stroke-width="1.5" />
-            </svg>`,
-            'devil-girl': `<svg viewBox="0 0 200 200" width="100%" height="100%">
-                <!-- Neon glowing horns -->
-                <path d="M45,45 Q15,25 5,2 Q22,12 42,32 Z" fill="#b91c1c" stroke="#f43f5e" stroke-width="2" />
-                <path d="M155,45 Q185,25 195,2 Q178,12 158,32 Z" fill="#b91c1c" stroke="#f43f5e" stroke-width="2" />
-                <path d="M90,50 L110,50 L100,75 Z" fill="#ef4444" opacity="0.6" />
-            </svg>`,
-            'pumpkin-ghost': `<svg viewBox="0 0 200 200" width="100%" height="100%">
-                <!-- Spooky pumpkin head carve overlay -->
-                <polygon points="45,85 75,85 60,60" fill="#f97316" stroke="#ea580c" stroke-width="1.5"/>
-                <polygon points="125,85 155,85 140,60" fill="#f97316" stroke="#ea580c" stroke-width="1.5"/>
-                <path d="M55,115 Q100,145 145,115 Q130,128 115,120 L110,132 L100,120 L90,132 L85,120 Q70,128 55,115 Z" fill="#f97316" stroke="#ea580c" stroke-width="1.5" />
-            </svg>`
+        // ตัวแปรประมวลผลของกล้องและ MediaPipe
+        let activeCameraMode = 'user'; // 'user' (กล้องหน้า) หรือ 'environment' (กล้องหลัง)
+        let isMirrored = true;
+        let currentStream = null;
+        let cameraHelper = null;
+        let hands = null;
+        let lastVideoTime = -1;
+
+        // ตัวแปรกำหนดคุณสมบัติฟิสิกส์และการจับลูกบอล
+        let config = {
+            gravityEnabled: true,
+            gravityValue: -0.015,
+            bounciness: 0.75, // ค่าเด้งกลับ (restitution)
+            activeColor: '#00f3ff', // สีตั้งต้น (ฟ้าเนออน)
+            interactionDepth: 0 // ระนาบแกน Z ที่ลูกบอลอยู่
         };
 
-        // Ensure canvas redraws matching the active camera/image loop
-        imageSource.onload = () => {
-            adjustCanvasSize();
-            requestAnimationFrame(drawLoop);
-        };
+        let currentlyGrabbedBall = null;
+        let prevHandPos = new THREE.Vector3();
+        let handVelocity = new THREE.Vector3();
 
-        function adjustCanvasSize() {
-            const container = document.getElementById('viewport-container');
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-        }
-        window.addEventListener('resize', adjustCanvasSize);
+        // 1. ตั้งค่าระบบ WebGL ด้วย Three.js
+        function initThreeJS() {
+            // สร้าง Scene
+            scene = new THREE.Scene();
 
-        // --- REAL-TIME DRAW & RENDER PIPELINE ---
-        function drawLoop() {
-            if (!ctx) return;
+            // กล้อง Perspective
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 0, 15); // ตั้งห่างออกมา 15 หน่วย
 
-            // Clear frame
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Get filter slider values
-            const beauty = parseInt(document.getElementById('filter-beauty').value);
-            const pale = parseInt(document.getElementById('filter-pale').value);
-            const circles = parseInt(document.getElementById('filter-circles').value);
-            const tint = document.getElementById('filter-tint').value);
-            const blood = parseInt(document.getElementById('filter-blood').value);
-            const bgSelection = document.getElementById('filter-bg').value;
-            const vignette = parseInt(document.getElementById('filter-vignette').value);
-            const grain = parseInt(document.getElementById('filter-grain').value);
-            const saturation = parseInt(document.getElementById('filter-saturation').value);
-            const contrast = parseInt(document.getElementById('filter-contrast').value);
-
-            // 1. Draw Background Image first if active (Double Exposure Ghost effect!)
-            if (bgSelection !== 'none' && loadedBgImages[bgSelection]) {
-                ctx.save();
-                ctx.drawImage(loadedBgImages[bgSelection], 0, 0, canvas.width, canvas.height);
-                ctx.restore();
-            }
-
-            // 2. Build and Apply real-time CSS styling on the face/feed
-            ctx.save();
-            
-            // Calc variables
-            let finalContrast = 100 + contrast;
-            let finalSaturation = (100 - pale) + saturation;
-            let finalBrightness = 100 + (beauty * 0.15) + (pale * 0.1);
-            let blurValue = beauty * 0.08;
-
-            ctx.filter = `contrast(${finalContrast}%) saturate(${finalSaturation}%) brightness(${finalBrightness}%) blur(${blurValue}px)`;
-
-            // Blending with background image if active
-            if (bgSelection !== 'none') {
-                ctx.globalAlpha = 0.72; // Make user face semi-transparent ghost!
-            }
-
-            // Draw source feed (Camera Video or Loaded Image)
-            if (isWebcamOn) {
-                const webcamVideo = document.getElementById('webcam');
-                // Flip camera horizontally
-                ctx.translate(canvas.width, 0);
-                ctx.scale(-1, 1);
-                ctx.drawImage(webcamVideo, 0, 0, canvas.width, canvas.height);
-                ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
-            } else {
-                ctx.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
-            }
-            ctx.restore();
-
-            // 3. Draw Dark Circles around eye area
-            if (circles > 0) {
-                ctx.save();
-                ctx.globalAlpha = circles / 150;
-                ctx.globalCompositeOperation = "multiply";
-                
-                // Draw left eye circle shadow
-                let leftGrad = ctx.createRadialGradient(canvas.width * 0.40, canvas.height * 0.42, 5, canvas.width * 0.40, canvas.height * 0.42, canvas.width * 0.12);
-                leftGrad.addColorStop(0, 'rgba(24, 12, 38, 0.95)');
-                leftGrad.addColorStop(0.5, 'rgba(12, 6, 20, 0.7)');
-                leftGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = leftGrad;
-                ctx.beginPath();
-                ctx.arc(canvas.width * 0.40, canvas.height * 0.42, canvas.width * 0.12, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Draw right eye circle shadow
-                let rightGrad = ctx.createRadialGradient(canvas.width * 0.60, canvas.height * 0.42, 5, canvas.width * 0.60, canvas.height * 0.42, canvas.width * 0.12);
-                rightGrad.addColorStop(0, 'rgba(24, 12, 38, 0.95)');
-                rightGrad.addColorStop(0.5, 'rgba(12, 6, 20, 0.7)');
-                rightGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                ctx.fillStyle = rightGrad;
-                ctx.beginPath();
-                ctx.arc(canvas.width * 0.60, canvas.height * 0.42, canvas.width * 0.12, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.restore();
-            }
-
-            // 4. Draw Blood Splash Overlays on top
-            if (blood > 0) {
-                ctx.save();
-                ctx.globalAlpha = blood / 100;
-                ctx.globalCompositeOperation = "multiply";
-                
-                // Draw procedural abstract blood lines
-                ctx.fillStyle = "#66000c";
-                ctx.strokeStyle = "#4a0006";
-                ctx.lineWidth = 4;
-                
-                // Left splatter lines
-                ctx.beginPath();
-                ctx.moveTo(canvas.width * 0.35, canvas.height * 0.42);
-                ctx.quadraticCurveTo(canvas.width * 0.32, canvas.height * 0.65, canvas.width * 0.34, canvas.height * 0.75);
-                ctx.stroke();
-
-                // Right cheeks drips
-                ctx.beginPath();
-                ctx.moveTo(canvas.width * 0.65, canvas.height * 0.45);
-                ctx.quadraticCurveTo(canvas.width * 0.68, canvas.height * 0.70, canvas.width * 0.69, canvas.height * 0.85);
-                ctx.stroke();
-
-                ctx.restore();
-            }
-
-            // 5. Draw Spooky Vignette
-            if (vignette > 0) {
-                ctx.save();
-                let vigGrad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.width * 0.3, canvas.width / 2, canvas.height / 2, canvas.width * 0.85);
-                vigGrad.addColorStop(0, 'rgba(0,0,0,0)');
-                vigGrad.addColorStop(1, `rgba(0,0,0,${vignette / 100})`);
-                ctx.fillStyle = vigGrad;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.restore();
-            }
-
-            // 6. Draw Spooky Film Grain Noise
-            if (grain > 0) {
-                ctx.save();
-                ctx.globalAlpha = grain / 150;
-                ctx.fillStyle = "#ffffff";
-                for (let i = 0; i < 4000; i++) {
-                    const x = Math.random() * canvas.width;
-                    const y = Math.random() * canvas.height;
-                    const size = Math.random() * 1.5;
-                    ctx.fillRect(x, y, size, size);
-                }
-                ctx.restore();
-            }
-
-            // 7. Draw Color Ghost Tints
-            if (tint !== 'none') {
-                ctx.save();
-                ctx.globalAlpha = 0.16;
-                if (tint === 'spooky-blue') ctx.fillStyle = '#06b6d4';
-                else if (tint === 'toxic-green') ctx.fillStyle = '#22c55e';
-                else if (tint === 'blood-red') ctx.fillStyle = '#ef4444';
-                else if (tint === 'spectral-white') ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.restore();
-            }
-
-            // Loop redraw
-            requestAnimationFrame(drawLoop);
-        }
-
-        // --- GHOST PRESETS APPLY MATRIX (No stickers, updates values and adds SVGs!) ---
-        const ghostPresetsMap = {
-            'white-ghost': { beauty: 10, pale: 90, circles: 50, blood: 0, tint: 'spectral-white', bg: 'dark-forest', vignette: 65, grain: 25, saturation: -80, contrast: 20, scanline: false, glitch: false, fog: true, accessory: null },
-            'ghost-bride': { beauty: 20, pale: 70, circles: 65, blood: 40, tint: 'spooky-blue', bg: 'gothic-church', vignette: 55, grain: 30, saturation: -40, contrast: 15, scanline: false, glitch: false, fog: true, accessory: 'ghost-bride' },
-            'school-ghost': { beauty: 0, pale: 80, circles: 75, blood: 35, tint: 'none', bg: 'haunted-room', vignette: 40, grain: 15, saturation: -60, contrast: 10, scanline: true, glitch: false, fog: false, accessory: 'kayako' },
-            'kayako': { beauty: 0, pale: 95, circles: 90, blood: 0, tint: 'none', bg: 'haunted-room', vignette: 75, grain: 45, saturation: -100, contrast: 30, scanline: true, glitch: true, fog: true, accessory: 'kayako' },
-            'onryo': { beauty: 10, pale: 85, circles: 80, blood: 50, tint: 'toxic-green', bg: 'cemetery', vignette: 60, grain: 20, saturation: -70, contrast: 25, scanline: false, glitch: true, fog: true, accessory: 'kayako' },
-            'bloody-bride': { beauty: 15, pale: 75, circles: 70, blood: 85, tint: 'blood-red', bg: 'gothic-church', vignette: 50, grain: 25, saturation: -30, contrast: 20, scanline: false, glitch: false, fog: true, accessory: 'ghost-bride' },
-            'zombie-girl': { beauty: 0, pale: 65, circles: 80, blood: 90, tint: 'none', bg: 'cemetery', vignette: 45, grain: 35, saturation: -50, contrast: 15, scanline: false, glitch: false, fog: false, accessory: null },
-            'nun-ghost': { beauty: 0, pale: 100, circles: 95, blood: 10, tint: 'none', bg: 'gothic-church', vignette: 80, grain: 40, saturation: -100, contrast: 45, scanline: false, glitch: true, fog: true, accessory: null },
-            'hantu': { beauty: 30, pale: 80, circles: 30, blood: 0, tint: 'spectral-white', bg: 'dark-forest', vignette: 70, grain: 15, saturation: -70, contrast: 10, scanline: false, glitch: false, fog: true, accessory: null },
-            'cute-ghost': { beauty: 40, pale: 40, circles: 10, blood: 0, tint: 'spooky-blue', bg: 'none', vignette: 25, grain: 10, saturation: 10, contrast: -5, scanline: false, glitch: false, fog: false, accessory: null },
-            'pumpkin-ghost': { beauty: 10, pale: 45, circles: 50, blood: 20, tint: 'none', bg: 'cemetery', vignette: 50, grain: 20, saturation: -20, contrast: 25, scanline: false, glitch: false, fog: true, accessory: 'pumpkin-ghost' },
-            'devil-girl': { beauty: 25, pale: 50, circles: 40, blood: 40, tint: 'blood-red', bg: 'none', vignette: 45, grain: 15, saturation: -10, contrast: 20, scanline: false, glitch: false, fog: false, accessory: 'devil-girl' }
-        };
-
-        function applyGhostPreset(presetId) {
-            const data = ghostPresetsMap[presetId];
-            if (!data) return;
-
-            // Update sliders directly
-            document.getElementById('filter-beauty').value = data.beauty;
-            document.getElementById('filter-pale').value = data.pale;
-            document.getElementById('filter-circles').value = data.circles;
-            document.getElementById('filter-blood').value = data.blood;
-            document.getElementById('filter-tint').value = data.tint;
-            document.getElementById('filter-bg').value = data.bg;
-            document.getElementById('filter-vignette').value = data.vignette;
-            document.getElementById('filter-grain').value = data.grain;
-            document.getElementById('filter-saturation').value = data.saturation;
-            document.getElementById('filter-contrast').value = data.contrast;
-
-            // Toggles
-            document.getElementById('toggle-scanline').checked = data.scanline;
-            document.getElementById('toggle-glitch').checked = data.glitch;
-            document.getElementById('toggle-fog').checked = data.fog;
-
-            // Highlight chosen preset border
-            document.querySelectorAll('.ghost-card').forEach(card => {
-                card.classList.remove('border-purple-500/80', 'bg-purple-950/20');
+            // เรนเดอร์เรอร์ที่พื้นหลังโปร่งใส เพื่อให้เห็นวิดีโอด้านหลัง
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvasElement,
+                alpha: true,
+                antialias: true
             });
-            event.currentTarget.classList.add('border-purple-500/80', 'bg-purple-950/20');
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            // Set accessory overlay if applicable
-            setAccessoryOverlay(data.accessory);
+            // แสงสว่าง
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
 
-            // Re-render
-            applyFilters();
-            playSpookyWhisper();
-        }
+            // แสงหลักส่องตรงสร้างเงา
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(5, 10, 7);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 25;
+            const dSide = 12;
+            dirLight.shadow.camera.left = -dSide;
+            dirLight.shadow.camera.right = dSide;
+            dirLight.shadow.camera.top = dSide;
+            dirLight.shadow.camera.bottom = -dSide;
+            scene.add(dirLight);
 
-        function setAccessoryOverlay(accId) {
-            const container = document.getElementById('accessory-container');
-            container.innerHTML = ''; // wipe
+            // ไฟจุดเน้นเพิ่มความเรืองแสงให้ขอบวัตถุ
+            const pointLight = new THREE.PointLight(0x00f3ff, 1, 20);
+            pointLight.position.set(0, 4, 2);
+            scene.add(pointLight);
 
-            if (!accId || !maskAccessories[accId]) {
-                document.getElementById('drag-tip').classList.add('hidden');
-                activeAccessoryId = null;
-                return;
+            // ระนาบรับเงาอยู่เบื้องหลัง (สร้างมิติความลึก)
+            const shadowPlaneGeo = new THREE.PlaneGeometry(100, 100);
+            const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.35 });
+            shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
+            shadowPlane.position.z = -2.5; // อยู่หลังระนาบปฏิสัมพันธ์เล็กน้อย เพื่อให้เห็นเงาทอดไป
+            shadowPlane.receiveShadow = true;
+            scene.add(shadowPlane);
+
+            // สร้างโครงสร้างข้อนิ้วมือ 21 จุด
+            const jointGeometry = new THREE.SphereGeometry(0.14, 16, 16);
+            const jointMaterial = new THREE.MeshPhysicalMaterial({ 
+                color: 0x00f3ff,
+                emissive: 0x00f3ff,
+                emissiveIntensity: 0.5,
+                metalness: 0.1,
+                roughness: 0.1,
+                transparent: true,
+                opacity: 0.85
+            });
+            
+            for (let i = 0; i < 21; i++) {
+                const mesh = new THREE.Mesh(jointGeometry, jointMaterial);
+                mesh.castShadow = true;
+                mesh.visible = false;
+                scene.add(mesh);
+                handJoints.push(mesh);
             }
 
-            activeAccessoryId = accId;
+            // สร้างกระดูกเชื่อมต่อข้อต่อ
+            const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0x00f3ff, 
+                transparent: true, 
+                opacity: 0.7,
+                linewidth: 3 // หมายเหตุ: เบราว์เซอร์ส่วนใหญ่จำกัดความหนาไว้ที่ 1
+            });
+            const lineGeometry = new THREE.BufferGeometry();
+            const linePositions = new Float32Array(HAND_CONNECTIONS.length * 2 * 3);
+            lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+            handBones = new THREE.LineSegments(lineGeometry, lineMaterial);
+            handBones.visible = false;
+            scene.add(handBones);
 
-            // Create Draggable div
-            const overlay = document.createElement('div');
-            overlay.className = "draggable-mask absolute w-[240px] h-[240px] z-20 cursor-move hover:border border-purple-500/30 rounded-lg group active:scale-[1.01] transition-transform";
-            overlay.style.left = "calc(50% - 120px)";
-            overlay.style.top = "calc(40% - 120px)";
-            overlay.innerHTML = maskAccessories[accId];
+            // เริ่มต้นสร้างลูกบอลหลัก 2 ลูก
+            spawnBall(new THREE.Vector3(-2, 2, 0), config.activeColor);
+            spawnBall(new THREE.Vector3(2, 3, 0), '#ff007f'); // ลูกบอลสีชมพูเนออนเพิ่มสีสัน
 
-            // Add simple delete button on hover
-            const del = document.createElement('button');
-            del.className = "absolute -top-4 -right-4 p-1.5 bg-black/80 hover:bg-zinc-800 text-red-400 border border-zinc-850 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg pointer-events-auto z-40";
-            del.innerHTML = '<i data-lucide="x" class="w-3.5 h-3.5"></i>';
-            del.onclick = (e) => {
-                e.stopPropagation();
-                overlay.remove();
-                document.getElementById('drag-tip').classList.add('hidden');
+            // ตรวจจับการปรับขนาดหน้าจอ
+            window.addEventListener('resize', onWindowResize);
+            
+            progressBar.style.width = '40%';
+        }
+
+        // คลาสลูกบอลควบคุมฟิสิกส์และการหมุน
+        class InteractionBall {
+            constructor(position, color) {
+                this.radius = 1.1; // ขนาดเส้นผ่านศูนย์กลางกระชับพอเหมาะกับมือจับ
+                this.isGrabbed = false;
+                this.color = color;
+
+                // สร้างรูปทรงและพื้นผิวแนว High-end Cyber Metallic
+                const geometry = new THREE.SphereGeometry(this.radius, 64, 64);
+                this.material = new THREE.MeshPhysicalMaterial({
+                    color: new THREE.Color(color),
+                    metalness: 0.9,
+                    roughness: 0.15,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.1,
+                    emissive: new THREE.Color(color),
+                    emissiveIntensity: 0.15,
+                    envMapIntensity: 1.0
+                });
+
+                this.mesh = new THREE.Mesh(geometry, this.material);
+                this.mesh.position.copy(position);
+                this.mesh.castShadow = true;
+                this.mesh.receiveShadow = true;
+
+                // ตัวแปรฟิสิกส์
+                this.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1,
+                    0
+                );
+                this.rotSpeed = new THREE.Vector3(
+                    Math.random() * 0.02,
+                    Math.random() * 0.02,
+                    Math.random() * 0.02
+                );
+
+                scene.add(this.mesh);
+            }
+
+            updatePhysics(xLimit, yLimit) {
+                if (this.isGrabbed) {
+                    // หากถูกจับ จะขยับตามระบบตรวจจับมือ (ควบคุมโดยลูปผลลัพธ์วิดีโอ)
+                    this.mesh.rotation.x += 0.01;
+                    this.mesh.rotation.y += 0.01;
+                    return;
+                }
+
+                // หมุนตัวอิสระตามความเร็วที่กำหนด
+                this.mesh.rotation.x += this.rotSpeed.x;
+                this.mesh.rotation.y += this.rotSpeed.y;
+
+                // ใช้แรงโน้มถ่วง
+                if (config.gravityEnabled) {
+                    this.velocity.y += config.gravityValue;
+                }
+
+                // ปรับปรุงตำแหน่งตามความเร็ว
+                this.mesh.position.add(this.velocity);
+
+                // ตรวจสอบและเด้งขอบเขตหน้าจอในพิกัด 3D
+                const bufferX = xLimit - this.radius;
+                const bufferY = yLimit - this.radius;
+
+                // ด้านข้าง (ซ้าย-ขวา)
+                if (this.mesh.position.x > bufferX) {
+                    this.mesh.position.x = bufferX;
+                    this.velocity.x *= -config.bounciness;
+                    this.rotSpeed.y *= -0.8;
+                } else if (this.mesh.position.x < -bufferX) {
+                    this.mesh.position.x = -bufferX;
+                    this.velocity.x *= -config.bounciness;
+                    this.rotSpeed.y *= -0.8;
+                }
+
+                // ด้านบน-ล่าง
+                if (this.mesh.position.y > bufferY) {
+                    this.mesh.position.y = bufferY;
+                    this.velocity.y *= -config.bounciness;
+                    this.velocity.x *= 0.98; // เสียดสีขอบเล็กน้อย
+                } else if (this.mesh.position.y < -bufferY) {
+                    this.mesh.position.y = -bufferY;
+                    this.velocity.y *= -config.bounciness;
+                    this.velocity.x *= 0.98; // เสียดสีขอบเล็กน้อย
+                }
+
+                // การดริฟต์แกน Z เล็กน้อย (จำกัดให้อยู่ใกล้เคียงกับระนาบ z=0 เสมอ)
+                const zLimit = 1.5;
+                if (this.mesh.position.z > zLimit) {
+                    this.mesh.position.z = zLimit;
+                    this.velocity.z *= -0.5;
+                } else if (this.mesh.position.z < -zLimit) {
+                    this.mesh.position.z = -zLimit;
+                    this.velocity.z *= -0.5;
+                }
+                
+                // ค่อยๆ ดึงวัตถุกลับเข้ามาระนาบหน้าจอ z=0 ช้าๆ เพื่อป้องกันหลุดหายไปในความลึก
+                this.mesh.position.z += (0 - this.mesh.position.z) * 0.02;
+            }
+
+            destroy() {
+                scene.remove(this.mesh);
+                this.geometry?.dispose();
+                this.material?.dispose();
+            }
+        }
+
+        // สร้างลูกบอลใหม่เข้าสู่ระบบ
+        function spawnBall(position, color) {
+            const ball = new InteractionBall(position, color);
+            balls.push(ball);
+        }
+
+        // จัดการชนกันเองของลูกบอลแต่ละลูก (Elastic Collision)
+        function handleBallToBallCollisions() {
+            for (let i = 0; i < balls.length; i++) {
+                for (let j = i + 1; j < balls.length; j++) {
+                    const b1 = balls[i];
+                    const b2 = balls[j];
+
+                    const dist = b1.mesh.position.distanceTo(b2.mesh.position);
+                    const minDist = b1.radius + b2.radius;
+
+                    if (dist < minDist) {
+                        // คำนวณการทับซ้อนและผลักออกจากกัน
+                        const overlap = minDist - dist;
+                        const normal = b2.mesh.position.clone().sub(b1.mesh.position).normalize();
+
+                        if (!b1.isGrabbed && !b2.isGrabbed) {
+                            // ผลักออกคนละครึ่งทาง
+                            b1.mesh.position.addScaledVector(normal, -overlap * 0.5);
+                            b2.mesh.position.addScaledVector(normal, overlap * 0.5);
+
+                            // คำนวณความเร็วสัมพัทธ์สะท้อนกลับแบบยืดหยุ่น
+                            const relativeVelocity = b1.velocity.clone().sub(b2.velocity);
+                            const speed = relativeVelocity.dot(normal);
+
+                            if (speed > 0) {
+                                const impulse = speed * config.bounciness;
+                                b1.velocity.addScaledVector(normal, -impulse);
+                                b2.velocity.addScaledVector(normal, impulse);
+                            }
+                        } else if (b1.isGrabbed && !b2.isGrabbed) {
+                            // ผลักเฉพาะลูกที่ไม่ได้จับ
+                            b2.mesh.position.addScaledVector(normal, overlap);
+                            // เพิ่มแรงกระแทกจากความเร็วการขยับมือ
+                            b2.velocity.addScaledVector(normal, 0.2 + Math.abs(handVelocity.length() * 1.5));
+                        } else if (!b1.isGrabbed && b2.isGrabbed) {
+                            b1.mesh.position.addScaledVector(normal, -overlap);
+                            b1.velocity.addScaledVector(normal, -(0.2 + Math.abs(handVelocity.length() * 1.5)));
+                        }
+                    }
+                }
+            }
+        }
+
+        // ฟังก์ชันลบลูกบอลลูกล่าสุดออก
+        function removeLastBall() {
+            if (balls.length > 0) {
+                const ball = balls.pop();
+                ball.destroy();
+            }
+        }
+
+        // 2. การจัดการกล้องและการแมปพิกัดตำแหน่ง
+        async function setupCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    facingMode: activeCameraMode,
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
             };
-            overlay.appendChild(del);
 
-            container.appendChild(overlay);
-            initDragAndDrop(overlay);
-            lucide.createIcons();
-
-            document.getElementById('drag-tip').classList.remove('hidden');
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = currentStream;
+                
+                // ตรวจสอบสถานะกระจกเงา (ถ้าเป็นกล้องหน้า 'user' ต้องกลับด้านแนวนอน)
+                isMirrored = (activeCameraMode === 'user');
+                videoElement.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
+                
+                document.getElementById('status-camera').classList.replace('bg-red-500', 'bg-emerald-500');
+                return true;
+            } catch (err) {
+                console.error("เกิดข้อผิดพลาดในการเปิดกล้อง: ", err);
+                permissionScreen.classList.remove('hidden');
+                loadingScreen.classList.add('hidden');
+                return false;
+            }
         }
 
-        // --- DRAG AND DROP POINTER HANDLERS ---
-        function initDragAndDrop(el) {
-            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        // คำนวณพิกัด MediaPipe Normalized Coordinates ให้ตรงกับตำแหน่งวัตถุในระบบ 3D ของ Three.js
+        function mapLandmarkTo3DSpace(landmark) {
+            const videoWidth = videoElement.videoWidth;
+            const videoHeight = videoElement.videoHeight;
+            const canvasWidth = window.innerWidth;
+            const canvasHeight = window.innerHeight;
+
+            if (!videoWidth || !videoHeight) return new THREE.Vector3();
+
+            // คำนวณการปรับขนาดของวัตถุแบบ Object-fit Cover
+            const videoRatio = videoWidth / videoHeight;
+            const canvasRatio = canvasWidth / canvasHeight;
+
+            let scale, offsetX = 0, offsetY = 0;
+            if (videoRatio > canvasRatio) {
+                scale = canvasHeight / videoHeight;
+                offsetX = (videoWidth * scale - canvasWidth) / 2;
+            } else {
+                scale = canvasWidth / videoWidth;
+                offsetY = (videoHeight * scale - canvasHeight) / 2;
+            }
+
+            // แปลงพิกัดเฟรมดิบไปเป็นพิกัดหน้าจอจริง
+            let rx = landmark.x * videoWidth * scale;
+            let ry = landmark.y * videoHeight * scale;
+
+            // ลบขอบสัดส่วนการตัดส่วนเกินออก
+            let canvasX = rx - offsetX;
+            let canvasY = ry - offsetY;
+
+            // แปลงพิกัด Normalized Device Coordinates (NDC) ในช่วง [-1, 1] สำหรับ WebGL
+            let ndcX = (canvasX / canvasWidth) * 2 - 1;
+            let ndcY = -(canvasY / canvasHeight) * 2 + 1; // สลับแกนแนวตั้งตามระบบ WebGL
+
+            // กลับหน้าจอซ้าย-ขวา หากใช้โหมดกระจกเงา (กล้องหน้า)
+            if (isMirrored) {
+                ndcX = -ndcX;
+            }
+
+            // นำพิกัดไปโปรเจกต์ย้อนกลับบนระนาบ 3D ด้วย Raycasting เสมือนจริง
+            const vector = new THREE.Vector3(ndcX, ndcY, 0.5);
+            vector.unproject(camera);
             
-            el.onmousedown = dragMouseDown;
-            el.ontouchstart = dragMouseDown;
+            // หาจุดตัดความปลอดภัยบนแผ่นระนาบ Interaction แกน z=0 (แนวที่ลูกบอลอาศัยอยู่)
+            const dir = vector.sub(camera.position).normalize();
+            const distance = -camera.position.z / dir.z;
+            const finalWorldPos = camera.position.clone().add(dir.multiplyScalar(distance));
 
-            function dragMouseDown(e) {
-                e = e || window.event;
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                
-                pos3 = clientX;
-                pos4 = clientY;
-                
-                document.onmouseup = closeDragElement;
-                document.ontouchend = closeDragElement;
-                
-                document.onmousemove = elementDrag;
-                document.ontouchmove = elementDrag;
-            }
-
-            function elementDrag(e) {
-                e = e || window.event;
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                
-                pos1 = pos3 - clientX;
-                pos2 = pos4 - clientY;
-                pos3 = clientX;
-                pos4 = clientY;
-                
-                const newTop = el.offsetTop - pos2;
-                const newLeft = el.offsetLeft - pos1;
-
-                el.style.top = newTop + "px";
-                el.style.left = newLeft + "px";
-            }
-
-            function closeDragElement() {
-                document.onmouseup = null;
-                document.ontouchend = null;
-                document.onmousemove = null;
-                document.ontouchmove = null;
-            }
+            return finalWorldPos;
         }
 
-        // --- SLIDERS FILTER VALUE UPDATES ---
-        function applyFilters() {
-            // Update UI value labels
-            document.getElementById('lbl-beauty').innerText = document.getElementById('filter-beauty').value;
-            document.getElementById('lbl-pale').innerText = document.getElementById('filter-pale').value;
-            document.getElementById('lbl-circles').innerText = document.getElementById('filter-circles').value;
-            document.getElementById('lbl-blood').innerText = document.getElementById('filter-blood').value;
-            document.getElementById('lbl-vignette').innerText = document.getElementById('filter-vignette').value;
-            document.getElementById('lbl-grain').innerText = document.getElementById('filter-grain').value;
-            document.getElementById('lbl-saturation').innerText = document.getElementById('filter-saturation').value;
-            document.getElementById('lbl-contrast').innerText = document.getElementById('filter-contrast').value;
-
-            // Trigger fog element overlay
-            const fogChecked = document.getElementById('toggle-fog').checked;
-            document.getElementById('fog-layer').style.display = fogChecked ? 'block' : 'none';
-        }
-
-        // --- CATALOGUE CATEGORY FILTER ---
-        function filterGhosts(category) {
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.className = "tab-btn px-3 py-1.5 bg-zinc-900 text-zinc-400 hover:bg-zinc-800 rounded-full shrink-0 transition";
+        // 3. เริ่มต้นติดตั้งระบบประมวลผลโมเดล MediaPipe Hands
+        function initMediaPipe() {
+            hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
             });
-            event.target.className = "tab-btn px-3 py-1.5 bg-purple-950 text-purple-300 border border-purple-800/80 rounded-full shrink-0 transition";
 
-            document.querySelectorAll('.ghost-card').forEach(card => {
-                if (category === 'all' || card.dataset.category === category) {
-                    card.style.display = 'flex';
+            hands.setOptions({
+                maxNumHands: 1, // ตรวจจับมือหลักเพียงข้างเดียวเพื่อความลื่นไหลระดับสูง
+                modelComplexity: 1,
+                minDetectionConfidence: 0.65,
+                minTrackingConfidence: 0.65
+            });
+
+            hands.onResults(onHandResults);
+            
+            progressBar.style.width = '80%';
+        }
+
+        // ฟังก์ชันประมวลผลตำแหน่งมือและประยุกต์ใช้ฟิสิกส์การควบคุม
+        function onHandResults(results) {
+            const handStatusDot = document.getElementById('status-hand');
+            const actionStatusText = document.getElementById('status-action-text');
+            const actionStatusDot = document.getElementById('status-action');
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                // อัปเดตสถานะพบมือ
+                handStatusDot.classList.replace('bg-red-500', 'bg-emerald-500');
+                
+                const landmarks = results.multiHandLandmarks[0];
+
+                // อัปเดตตำแหน่งข้อต่อข้อหมุน 21 จุดใน Three.js
+                const mappedPositions = [];
+                for (let i = 0; i < 21; i++) {
+                    const pos = mapLandmarkTo3DSpace(landmarks[i]);
+                    mappedPositions.push(pos);
+                    handJoints[i].position.copy(pos);
+                    handJoints[i].visible = true;
+                }
+
+                // อัปเดตกระดูกเชื่อมต่อระนาบมือ
+                const positionsAttribute = handBones.geometry.attributes.position;
+                let index = 0;
+                HAND_CONNECTIONS.forEach(([start, end]) => {
+                    const pStart = mappedPositions[start];
+                    const pEnd = mappedPositions[end];
+
+                    positionsAttribute.setXYZ(index++, pStart.x, pStart.y, pStart.z);
+                    positionsAttribute.setXYZ(index++, pEnd.x, pEnd.y, pEnd.z);
+                });
+                positionsAttribute.needsUpdate = true;
+                handBones.visible = true;
+
+                // ------------------ ระบบวิเคราะห์ท่าทางมือจับ (Grab Gesture Logic) ------------------
+                const wrist = mappedPositions[0];
+                const indexMcp = mappedPositions[5];
+                
+                // หาค่าสเกลขนาดมือ เพื่อปรับความแม่นยำความใกล้ไกล
+                const handScale = wrist.distanceTo(indexMcp);
+
+                // ค้นหาระยะข้อนิ้วชี้จรดนิ้วโป้ง (Pinch Check)
+                const thumbTip = mappedPositions[4];
+                const indexTip = mappedPositions[8];
+                const pinchDist = thumbTip.distanceTo(indexTip);
+                const isPinching = pinchDist < (handScale * 0.7);
+
+                // ค้นหาระยะกำมือ (Fist Check) : วัดระยะห่างจากปลายนิ้วถึงข้อมือ
+                const fingerTips = [8, 12, 16, 20];
+                const fingerMcps = [5, 9, 13, 17];
+                let fingerCloseCount = 0;
+                
+                for(let i=0; i<4; i++) {
+                    const distToMcp = mappedPositions[fingerTips[i]].distanceTo(mappedPositions[fingerMcps[i]]);
+                    if (distToMcp < (handScale * 0.9)) {
+                        fingerCloseCount++;
+                    }
+                }
+                const isFist = fingerCloseCount >= 3; // กำนิ้วเข้ามาตั้งแต่ 3 นิ้วขึ้นไป
+
+                const isGrabbing = isPinching || isFist;
+
+                // เลือกจุดสัมผัสปฏิสัมพันธ์ในการหยิบจับ (ใช้จุดกึ่งกลางหรือข้อนิ้วกลางส่วนบน)
+                const grabAnchorPoint = mappedPositions[9]; // โคนนิ้วกลาง (เป็นศูนย์กลางศูนย์รวมฝ่ามือที่แม่นยำ)
+
+                // คำนวณหาความเร็วมือ (Velocity) เพื่อนำไปส่งแรงเฉื่อยให้กับลูกบอลเวลาเหวี่ยงปล่อย
+                handVelocity.subVectors(grabAnchorPoint, prevHandPos);
+                prevHandPos.copy(grabAnchorPoint);
+
+                if (isGrabbing) {
+                    actionStatusDot.className = "w-3.5 h-3.5 rounded-full bg-amber-500 animate-ping";
+                    actionStatusText.innerText = "สถานะ: กำมือ / จับอยู่";
+
+                    if (!currentlyGrabbedBall) {
+                        // ค้นหาลูกบอลที่ใกล้ฝ่ามือที่สุดเพื่อทำการหนีบจับ
+                        let closestBall = null;
+                        let minDistance = Infinity;
+
+                        balls.forEach(ball => {
+                            const distance = ball.mesh.position.distanceTo(grabAnchorPoint);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                closestBall = ball;
+                            }
+                        });
+
+                        // ตรวจสอบความห่างระหว่างมือกับวัตถุว่าเหมาะสมที่จะจับได้
+                        const grabRange = 2.4; 
+                        if (closestBall && minDistance < (closestBall.radius + grabRange)) {
+                            currentlyGrabbedBall = closestBall;
+                            currentlyGrabbedBall.isGrabbed = true;
+                            // เพิ่มสีสันเรืองแสงเมื่อถูกจับ
+                            currentlyGrabbedBall.material.emissiveIntensity = 0.5;
+                        }
+                    }
+
+                    // อัปเดตตำแหน่งลูกบอลที่จับ ให้วิ่งตามจุดจับมือ
+                    if (currentlyGrabbedBall) {
+                        // การเคลื่อนที่ตามแบบนุ่มนวล Damping ช่วยให้ดูธรรมชาติ
+                        currentlyGrabbedBall.mesh.position.lerp(grabAnchorPoint, 0.35);
+                        currentlyGrabbedBall.velocity.set(0, 0, 0); // รีเซ็ตความเร็วสะสมระหว่างจับ
+                    }
+
                 } else {
-                    card.style.display = 'none';
+                    // แบมือหรือปล่อย
+                    actionStatusDot.className = "w-3.5 h-3.5 rounded-full bg-emerald-500";
+                    actionStatusText.innerText = "สถานะ: พบมือ (แบมือ)";
+
+                    if (currentlyGrabbedBall) {
+                        currentlyGrabbedBall.isGrabbed = false;
+                        
+                        // ถ่ายทอดแรงส่งจากมือ (ขว้าง / เหวี่ยงลูกบอล)
+                        const throwFactor = 1.35; // สัมประสิทธิ์ความรุนแรงในการฟลิตขว้าง
+                        currentlyGrabbedBall.velocity.copy(handVelocity).multiplyScalar(throwFactor);
+                        
+                        // คืนความสว่างเอฟเฟกต์ปกติ
+                        currentlyGrabbedBall.material.emissiveIntensity = 0.15;
+                        currentlyGrabbedBall = null;
+                    }
+                }
+
+            } else {
+                // หากไม่ตรวจพบมือในหน้าจอ
+                handStatusDot.classList.replace('bg-emerald-500', 'bg-red-500');
+                actionStatusDot.className = "w-3.5 h-3.5 rounded-full bg-slate-500";
+                actionStatusText.innerText = "สถานะ: รอตรวจจับ";
+
+                // ซ่อนโครงข้อต่อและกระดูกทั้งหมด
+                handJoints.forEach(mesh => mesh.visible = false);
+                handBones.visible = false;
+
+                if (currentlyGrabbedBall) {
+                    currentlyGrabbedBall.isGrabbed = false;
+                    currentlyGrabbedBall.material.emissiveIntensity = 0.15;
+                    currentlyGrabbedBall = null;
+                }
+            }
+        }
+
+        // ลูปรันวิดีโอประมวลผลร่วมกับกล้องเว็บแคม
+        async function runHandTracking() {
+            async function step() {
+                if (videoElement.readyState >= 2) {
+                    const now = videoElement.currentTime;
+                    if (now !== lastVideoTime) {
+                        await hands.send({ image: videoElement });
+                        lastVideoTime = now;
+                    }
+                }
+                requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        // 4. เฟรมเรนเดอร์จำลองฟิสิกส์ (Animation Loop)
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // คำนวณขอบเขตหน้าจอยึดตามความกว้างยาวของมุมมองกล้อง
+            const aspect = window.innerWidth / window.innerHeight;
+            const vFOV = THREE.MathUtils.degToRad(camera.fov);
+            // ส่วนสูงที่คำนวณได้ ณ ระยะโฟกัสกล้อง
+            const visibleHeight = 2 * Math.tan(vFOV / 2) * camera.position.z;
+            const visibleWidth = visibleHeight * aspect;
+
+            const xLimit = visibleWidth / 2;
+            const yLimit = visibleHeight / 2;
+
+            // ตรวจสอบและประมวลผลการทำงานฟิสิกส์ของลูกบอลทุกลูก
+            balls.forEach(ball => {
+                ball.updatePhysics(xLimit, yLimit);
+            });
+
+            // ตรวจสอบการพุ่งชนกันระหว่างลูกบอลแต่ละลูก
+            handleBallToBallCollisions();
+
+            renderer.render(scene, camera);
+        }
+
+        // ฟังก์ชันเมื่อเปลี่ยนหน้าจอ (Responsive Viewport)
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // 5. จัดการปุ่มและการโต้ตอบทาง UI (Event Listeners)
+        function setupUIHandlers() {
+            // สลับกล้องหน้าและหลัง
+            document.getElementById('toggle-camera').addEventListener('click', async () => {
+                activeCameraMode = (activeCameraMode === 'user') ? 'environment' : 'user';
+                
+                loadingScreen.classList.remove('opacity-0');
+                loadingScreen.classList.remove('hidden');
+                
+                const success = await setupCamera();
+                
+                setTimeout(() => {
+                    loadingScreen.classList.add('opacity-0');
+                    setTimeout(() => loadingScreen.classList.add('hidden'), 500);
+                }, 800);
+            });
+
+            // รีเซ็ตตำแหน่งและพิกัดลูกบอลลอยตัวใหม่
+            document.getElementById('reset-balls').addEventListener('click', () => {
+                const colors = ['#00f3ff', '#ff007f', '#ffe600', '#a100ff', '#39ff14'];
+                
+                // ล้างลูกบอลเก่าออก
+                balls.forEach(ball => ball.destroy());
+                balls = [];
+                currentlyGrabbedBall = null;
+
+                // สุ่มสร้างใหม่บนตําแหน่งปลอดภัยกลางจอ
+                spawnBall(new THREE.Vector3(-2, 2, 0), config.activeColor);
+                spawnBall(new THREE.Vector3(2, 3, 0), colors[Math.floor(Math.random() * colors.length)]);
+            });
+
+            // ปุ่มสร้างลูกบอลเพิ่ม
+            document.getElementById('btn-add-ball').addEventListener('click', () => {
+                if (balls.length >= 8) return; // จำกัดไว้สูงสุด 8 ลูก เพื่อประสิทธิภาพความเร็วของเครื่องโทรศัพท์มือถือ
+                
+                const randX = (Math.random() - 0.5) * 4;
+                const randY = 2 + Math.random() * 3;
+                spawnBall(new THREE.Vector3(randX, randY, 0), config.activeColor);
+            });
+
+            // ปุ่มลดลูกบอล
+            document.getElementById('btn-remove-ball').addEventListener('click', () => {
+                removeLastBall();
+            });
+
+            // เปิด-ปิดแรงโน้มถ่วง
+            const gravityBtn = document.getElementById('btn-toggle-gravity');
+            gravityBtn.addEventListener('click', () => {
+                config.gravityEnabled = !config.gravityEnabled;
+                if (config.gravityEnabled) {
+                    gravityBtn.innerText = "เปิดใช้งาน";
+                    gravityBtn.className = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg text-xs font-bold transition";
+                } else {
+                    gravityBtn.innerText = "ปิดใช้งาน";
+                    gravityBtn.className = "bg-rose-500/20 text-rose-400 border border-rose-500/40 px-3 py-1 rounded-lg text-xs font-bold transition";
+                    // ล้างความเร็วดิ่งลงขณะปิดแรงโน้มถ่วง
+                    balls.forEach(b => b.velocity.y = 0);
                 }
             });
-        }
 
-        // --- RESET FILTERS ---
-        function resetAllFilters() {
-            document.getElementById('filter-beauty').value = 0;
-            document.getElementById('filter-pale').value = 0;
-            document.getElementById('filter-circles').value = 0;
-            document.getElementById('filter-blood').value = 0;
-            document.getElementById('filter-vignette').value = 30;
-            document.getElementById('filter-grain').value = 20;
-            document.getElementById('filter-saturation').value = 0;
-            document.getElementById('filter-contrast').value = 0;
-            document.getElementById('filter-tint').value = 'none';
-            document.getElementById('filter-bg').value = 'none';
-            document.getElementById('toggle-scanline').checked = false;
-            document.getElementById('toggle-glitch').checked = false;
-            document.getElementById('toggle-fog').checked = false;
+            // เลือกสีสร้างวัตถุใหม่
+            const colorButtons = document.querySelectorAll('#color-palette button');
+            colorButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    colorButtons.forEach(b => {
+                        b.classList.remove('scale-110', 'border-white', 'ring-2');
+                        b.classList.add('hover:scale-105', 'border-transparent');
+                    });
+                    
+                    btn.classList.add('scale-110', 'border-white', 'ring-2', `ring-[${btn.dataset.color}]/30`);
+                    btn.classList.remove('hover:scale-105', 'border-transparent');
+                    
+                    config.activeColor = btn.dataset.color;
+                });
+            });
 
-            setAccessoryOverlay(null);
-            applyFilters();
-            showCustomNotification("รีเซ็ตค่าตัวกรองความสยองทั้งหมดสำเร็จแล้ว!");
-        }
+            // สไลด์เดอร์ปรับแรงเด้ง
+            const bounceSlider = document.getElementById('bounciness');
+            bounceSlider.addEventListener('input', (e) => {
+                config.bounciness = e.target.value / 100;
+            });
 
-        // --- FILE PORTRAIT PHOTO UPLOADS ---
-        function triggerImageUpload() {
-            document.getElementById('image-loader').click();
-        }
-
-        function handleImageUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                disableWebcam();
+            // จัดการขอเปิดกล้องผ่าน Permission Screen
+            startCameraBtn.addEventListener('click', async () => {
+                permissionScreen.classList.add('hidden');
+                loadingScreen.classList.remove('hidden');
+                loadingScreen.classList.remove('opacity-0');
                 
-                imageSource = new Image();
-                imageSource.crossOrigin = "anonymous";
-                imageSource.onload = () => {
-                    adjustCanvasSize();
-                    showCustomNotification("โหลดรูปภาพหน้าพอร์ตเทรตตัวคุณสำเร็จแล้ว!");
-                };
-                imageSource.src = event.target.result;
-            }
-            reader.readAsDataURL(file);
+                await startSystem();
+            });
         }
 
-        // --- REAL-TIME CAMERA WEB STREAM ---
-        async function useWebcam() {
-            if (isWebcamOn) {
-                disableWebcam();
+        // 6. ฟังก์ชันเริ่มระบบความพร้อม (Initializer)
+        async function startSystem() {
+            progressBar.style.width = '20%';
+            
+            // ตรวจสอบสิทธิ์เปิดกล้อง
+            const cameraStarted = await setupCamera();
+            if (!cameraStarted) {
+                loadingScreen.classList.add('hidden');
+                permissionScreen.classList.remove('hidden');
                 return;
             }
 
-            const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-            try {
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Iframe restricted sandbox security");
-                }
-
-                const constraints = { video: { width: 1280, height: 720 }, audio: false };
-                streamObj = await navigator.mediaDevices.getUserMedia(constraints);
-                
-                const webcamVideo = document.createElement('video');
-                webcamVideo.id = 'webcam';
-                webcamVideo.autoplay = true;
-                webcamVideo.playsInline = true;
-                webcamVideo.srcObject = streamObj;
-                
-                // Nest webcam element invisibly in body so canvas can read from it
-                let oldCam = document.getElementById('webcam');
-                if (oldCam) oldCam.remove();
-                
-                webcamVideo.className = "hidden";
-                document.body.appendChild(webcamVideo);
-
-                isWebcamOn = true;
-                document.getElementById('camera-btn-text').innerText = "ปิดกล้องหน้า";
-                showCustomNotification("สตรีมกล้องหน้าเสร็จสมบูรณ์! ฟิลเตอร์จะทาบผิวคุณเรียลไทม์");
-
-            } catch (err) {
-                console.error("Camera denied:", err);
-                let debugMsg = "ไม่สามารถเชื่อมกล้องเว็บแคมผ่านระบบ Sandbox ได้";
-                if (!isSecure) debugMsg += " (ระบบต้องการการเชื่อมต่อแบบ HTTPS)";
-                showCustomNotification(`${debugMsg} โปรดสุ่มหน้าแกลลอรีด้านซ้าย หรือคลิก 'อัปโหลดภาพ' แทนได้เลยครับ!`);
-            }
-        }
-
-        function disableWebcam() {
-            if (streamObj) {
-                streamObj.getTracks().forEach(track => track.stop());
-                streamObj = null;
-            }
-            const webcamVideo = document.getElementById('webcam');
-            if (webcamVideo) webcamVideo.remove();
-
-            isWebcamOn = false;
-            document.getElementById('camera-btn-text').innerText = "เปิดกล้องจริง";
-        }
-
-        // --- SCREENSHOT SHUTTER SNAPPING ---
-        function captureSnapshot() {
-            playSpookyWhisper();
-            showCustomNotification("📸 แชะ! ถ่ายภาพความหลอนสำเร็จแล้ว ดาวน์โหลดไฟล์เพื่อเซฟได้เลย!");
-            downloadMasterpiece();
-        }
-
-        // --- MERGE CANVAS & DRAGGABLE SVGs FOR COMPLETE DOWNLOAD ---
-        function downloadMasterpiece() {
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
+            progressBar.style.width = '50%';
             
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
-
-            // 1. Draw base canvas filter image
-            tempCtx.drawImage(canvas, 0, 0);
-
-            // 2. Draw accessory overlays if exists
-            const containerRect = document.getElementById('viewport-container').getBoundingClientRect();
-            const draggable = document.querySelector('.draggable-mask');
-
-            if (draggable) {
-                const rect = draggable.getBoundingClientRect();
-                
-                // Get percentages
-                const pctX = (rect.left - containerRect.left) / containerRect.width;
-                const pctY = (rect.top - containerRect.top) / containerRect.height;
-                const widthPct = rect.width / containerRect.width;
-                const heightPct = rect.height / containerRect.height;
-
-                const destX = pctX * tempCanvas.width;
-                const destY = pctY * tempCanvas.height;
-                const destW = widthPct * tempCanvas.width;
-                const destH = heightPct * tempCanvas.height;
-
-                // Load inline SVG to base64 image
-                const svgString = draggable.querySelector('svg').outerHTML;
-                const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-                const URL = window.URL || window.webkitURL || window;
-                const blobURL = URL.createObjectURL(svgBlob);
-                
-                const img = new Image();
-                img.onload = () => {
-                    tempCtx.drawImage(img, destX, destY, destW, destH);
-                    
-                    // Click save virtual link
-                    const link = document.createElement('a');
-                    link.download = `GhostTryOn_Masterpiece_${Date.now()}.png`;
-                    link.href = tempCanvas.toDataURL('image/png');
-                    link.click();
-                    URL.revokeObjectURL(blobURL);
-                };
-                img.src = blobURL;
-            } else {
-                // No accessory overlay
-                const link = document.createElement('a');
-                link.download = `GhostTryOn_Masterpiece_${Date.now()}.png`;
-                link.href = tempCanvas.toDataURL('image/png');
-                link.click();
-            }
-        }
-
-        // --- SPOOKY AUDIO SYSTEM ---
-        function toggleSpookySound() {
-            if (isSpookySoundOn) {
-                stopAmbientWind();
-                document.getElementById('sound-icon').setAttribute('data-lucide', 'volume-x');
-                document.getElementById('btn-sound').classList.remove('bg-purple-900/60');
-                isSpookySoundOn = false;
-            } else {
-                startAmbientWind();
-                document.getElementById('sound-icon').setAttribute('data-lucide', 'volume-2');
-                document.getElementById('btn-sound').classList.add('bg-purple-900/60');
-                isSpookySoundOn = true;
-                
-                playCreepyLaugh();
-            }
-            lucide.createIcons();
-        }
-
-        function startAmbientWind() {
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                const bufferSize = 2 * audioCtx.sampleRate;
-                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const output = noiseBuffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    output[i] = Math.random() * 2 - 1;
-                }
-
-                const noise = audioCtx.createBufferSource();
-                noise.buffer = noiseBuffer;
-                noise.loop = true;
-
-                const filter = audioCtx.createBiquadFilter();
-                filter.type = 'bandpass';
-                filter.Q.value = 8.0;
-                filter.frequency.value = 350;
-
-                lfoNode = audioCtx.createOscillator();
-                lfoNode.type = 'sine';
-                lfoNode.frequency.value = 0.06;
-
-                const lfoGain = audioCtx.createGain();
-                lfoGain.gain.value = 200;
-
-                lfoNode.connect(lfoGain);
-                lfoGain.connect(filter.frequency);
-
-                const masterGain = audioCtx.createGain();
-                masterGain.gain.value = 0.025;
-
-                noise.connect(filter);
-                filter.connect(masterGain);
-                masterGain.connect(audioCtx.destination);
-
-                noise.start();
-                lfoNode.start();
-
-                windNoiseNode = noise;
-            } catch (err) {
-                console.warn("Spooky wind synthesis failed:", err);
-            }
-        }
-
-        function stopAmbientWind() {
-            if (windNoiseNode) {
-                try { windNoiseNode.stop(); } catch(e){}
-                windNoiseNode = null;
-            }
-            if (lfoNode) {
-                try { lfoNode.stop(); } catch(e){}
-                lfoNode = null;
-            }
-            if (audioCtx) {
-                audioCtx.close();
-                audioCtx = null;
-            }
-        }
-
-        function playSpookyWhisper() {
-            if (!audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(260, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(35, audioCtx.currentTime + 1.5);
-                
-                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
-                
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 1.6);
-            } catch(e){}
-        }
-
-        function playCreepyLaugh() {
-            if (!audioCtx) return;
-            try {
-                const now = audioCtx.currentTime;
-                for (let i = 0; i < 7; i++) {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(120 + (i * 70), now + (i * 0.12));
-                    osc.frequency.exponentialRampToValueAtTime(60 + (i * 30), now + (i * 0.12) + 0.10);
-                    
-                    gain.gain.setValueAtTime(0.045, now + (i * 0.12));
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.12) + 0.10);
-                    
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start(now + (i * 0.12));
-                    osc.stop(now + (i * 0.12) + 0.12);
-                }
-            } catch(e){}
-        }
-
-        // --- MODALS & NOTIFICATIONS ---
-        function toggleAboutModal() {
-            const modal = document.getElementById('about-modal');
-            modal.classList.toggle('hidden');
-        }
-
-        function showCustomNotification(msg) {
-            const toast = document.createElement('div');
-            toast.className = "fixed bottom-16 right-6 bg-purple-950/90 border-2 border-purple-500/50 backdrop-blur-md text-white font-semibold text-xs px-5 py-3.5 rounded-xl shadow-2xl z-[200] transition-transform animate-bounce flex items-center gap-3 max-w-sm";
-            toast.innerHTML = `<span>🔮</span><span>${msg}</span>`;
-            document.body.appendChild(toast);
+            // ตั้งค่า 3D ThreeJS และ MediaPipe
+            initThreeJS();
+            initMediaPipe();
             
+            progressBar.style.width = '100%';
+
             setTimeout(() => {
-                toast.classList.add('opacity-0');
-                setTimeout(() => toast.remove(), 500);
-            }, 6000);
+                // อนิเมชั่นปิดหน้า Loading สวยงาม
+                loadingScreen.classList.add('opacity-0');
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                }, 500);
+            }, 600);
+
+            // เริ่มการทำงานระบบตรวจจับท่าทางเรียลไทม์ และระบบฟิสิกส์แอนิเมชัน
+            runHandTracking();
+            animate();
         }
 
-        // Drag and drop photo onto the viewport
-        const viewport = document.getElementById('viewport-container');
-        ['dragenter', 'dragover'].forEach(name => {
-            viewport.addEventListener(name, (e) => { e.preventDefault(); viewport.classList.add('border-purple-400'); }, false);
-        });
-        ['dragleave', 'drop'].forEach(name => {
-            viewport.addEventListener(name, (e) => { e.preventDefault(); viewport.classList.remove('border-purple-400'); }, false);
-        });
-        viewport.addEventListener('drop', (e) => {
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    disableWebcam();
-                    
-                    imageSource = new Image();
-                    imageSource.crossOrigin = "anonymous";
-                    imageSource.onload = () => {
-                        adjustCanvasSize();
-                        showCustomNotification("วางรูปพอร์ตเทรตตัวคุณสำเร็จแล้ว!");
-                    };
-                    imageSource.src = event.target.result;
-                };
-                reader.readAsDataURL(file);
+        // เริ่มต้นตรวจสอบสิทธิ์ในการใช้งานตั้งแต่แรกเริ่มโหลดสคริปต์เสร็จสิ้น
+        window.addEventListener('load', async () => {
+            // ค้นหาสิทธิ์ความพร้อมเบื้องต้นก่อน
+            try {
+                const permissions = await navigator.permissions.query({ name: 'camera' });
+                if (permissions.state === 'granted') {
+                    await startSystem();
+                } else {
+                    // หากยังไม่ได้ขอสิทธิ์ ให้พาไปหน้าเริ่มเปิดกล้อง
+                    loadingScreen.classList.add('hidden');
+                    permissionScreen.classList.remove('hidden');
+                }
+            } catch (e) {
+                // เบราว์เซอร์บางรุ่นไม่ซัพพอร์ต Query ตัว permissions ค้นหาตรงๆ ให้ข้ามไปขั้นตอนเปิดโดยตรง
+                const cameraStarted = await setupCamera();
+                if (cameraStarted) {
+                    await startSystem();
+                }
             }
+            setupUIHandlers();
         });
-
-        // Initialize state on load
-        window.onload = function() {
-            applyFilters();
-            toggleAboutModal();
-        }
     </script>
 </body>
 </html>
