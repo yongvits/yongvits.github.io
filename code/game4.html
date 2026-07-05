@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGL WebAR Hand Grab Physics - UI Refined</title>
+    <title>WebGL Hand Physics - Studio & AR Edition</title>
     
     <!-- Tailwind CSS สำหรับควบคุม UI -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     
-    <!-- Lucide Icons สำหรับตกแต่งปุ่มและไอคอน -->
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
@@ -25,12 +25,12 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #0b0f19;
+            background-color: #060813;
             font-family: system-ui, -apple-system, sans-serif;
             user-select: none;
             -webkit-user-select: none;
         }
-        /* ลบรอยหยักขอบกล้องวิดีโอ */
+        /* วิดีโอกล้องพื้นหลัง */
         #webcam {
             position: absolute;
             top: 0;
@@ -39,7 +39,8 @@
             height: 100%;
             object-fit: cover;
             z-index: 1;
-            transform: scaleX(-1); /* สลับซ้ายขวาเพื่อให้เหมือนกระจกเงาสำหรับกล้องหน้า */
+            transform: scaleX(-1);
+            transition: opacity 0.5s ease;
         }
         /* Canvas สำหรับ Three.js ซ้อนทับบนวิดีโอ */
         #webgl-canvas {
@@ -55,24 +56,40 @@
         .hud-transition {
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        /* เอฟเฟกต์ขอบมืด Ambient Occlusion Vignette ครอบทับ */
+        #ao-vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.85);
+            transition: opacity 0.5s ease;
+            opacity: 0; /* จะสว่างเฉพาะในโหมด 3D Studio */
+        }
     </style>
 </head>
 <body>
 
     <!-- ระบบวิดีโอกล้องเบื้องหลัง -->
-    <video id="webcam" autoplay playsinline></video>
+    <video id="webcam" autoplay playsinline class="opacity-100"></video>
+    
+    <!-- เอฟเฟกต์จำลอง Ambient Occlusion ครอบทับขอบจอ -->
+    <div id="ao-vignette"></div>
 
     <!-- Canvas สำหรับแสดงผล 3D (Three.js) -->
     <canvas id="webgl-canvas"></canvas>
 
     <!-- หน้าจอแสดงผลการโหลดโปรแกรมและโมเดล -->
-    <div id="loading-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 z-50 transition-opacity duration-500">
+    <div id="loading-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 z-50 transition-opacity duration-500">
         <div class="relative w-24 h-24 mb-6">
             <div class="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
             <div class="absolute inset-0 border-4 border-t-cyan-400 rounded-full animate-spin"></div>
         </div>
-        <h1 class="text-2xl font-bold text-white mb-2 tracking-wider">WebGL AR HAND GRAB</h1>
-        <p class="text-cyan-400 text-sm animate-pulse mb-6">กำลังดาวน์โหลดโมเดลตรวจจับมือ (MediaPipe)...</p>
+        <h1 class="text-2xl font-bold text-white mb-2 tracking-wider">WebGL AR & STUDIO</h1>
+        <p class="text-cyan-400 text-sm animate-pulse mb-6">กำลังเชื่อมต่อและโหลดความเสมือนจริง...</p>
         <div class="w-64 bg-slate-800 h-2 rounded-full overflow-hidden">
             <div id="progress-bar" class="bg-cyan-400 h-full w-[10%]" style="transition: width 0.3s ease;"></div>
         </div>
@@ -82,25 +99,30 @@
     <div id="permission-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 z-40 hidden">
         <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md w-11/12 text-center shadow-2xl">
             <div class="w-16 h-16 bg-cyan-500/10 text-cyan-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                <i data-lucide="camera" class="w-8 h-8"></i>
+                <i data-lucide="video" class="w-8 h-8"></i>
             </div>
-            <h2 class="text-xl font-bold text-white mb-3">ต้องการสิทธิ์เข้าใช้งานกล้อง</h2>
-            <p class="text-slate-400 text-sm mb-6">เพื่อจำลองการจับวัตถุ 3D ในแบบโลกเสมือนจริง (AR) จำเป็นต้องเปิดใช้งานกล้องวิดีโอเพื่อวิเคราะห์ท่าทางมือของคุณ</p>
+            <h2 class="text-xl font-bold text-white mb-3">ต้องการเปิดใช้สิทธิ์การจับความเคลื่อนไหว</h2>
+            <p class="text-slate-400 text-sm mb-6">ระบบจำเป็นต้องเปิดกล้องเพื่อตรวจจับการเคลื่อนที่และการหยิบจับของข้อมือคุณแบบเรียลไทม์</p>
             <button id="start-camera-btn" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3 px-6 rounded-xl transition duration-300 transform active:scale-95 flex items-center justify-center gap-2">
-                <i data-lucide="video" class="w-5 h-5"></i>
-                อนุญาตเข้าใช้กล้องและเริ่มต้น
+                เริ่มต้นใช้งาน
             </button>
         </div>
     </div>
 
-    <!-- ปุ่มควบคุมซ่อน/แสดงหน้าจอ (Eye Toggle Button) - จะไม่ถูกซ่อนเมื่อกดซ่อนตัวอื่นเพื่อใช้เรียกคืน -->
-    <div class="absolute top-4 right-4 z-40 flex flex-col gap-3">
-        <button id="btn-toggle-hud" class="bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-cyan-400 p-3.5 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-95 shadow-lg" title="ซ่อน/แสดงเครื่องมือทั้งหมด">
+    <!-- ปุ่มควบคุมซ่อน/แสดงหน้าจอ (Eye Toggle Button) -->
+    <div class="absolute top-4 right-4 z-40 flex gap-3">
+        <!-- ปุ่มสลับโหมดกล้อง (AR) / สตูดิโอ 3D -->
+        <button id="btn-toggle-view" class="bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-cyan-400 px-4 py-3 rounded-xl flex items-center gap-2 transition-all duration-300 active:scale-95 shadow-lg" title="สลับโหมดห้องส่ง / ฉากหลัง">
+            <i id="view-icon" data-lucide="video-off" class="w-5 h-5"></i>
+            <span id="view-text" class="text-xs font-bold">โหมด 3D Studio</span>
+        </button>
+
+        <button id="btn-toggle-hud" class="bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-slate-300 p-3.5 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-95 shadow-lg" title="ซ่อน/แสดงเครื่องมือทั้งหมด">
             <i id="hud-icon" data-lucide="eye-off" class="w-5 h-5"></i>
         </button>
     </div>
 
-    <!-- กลุ่มควบคุมฝั่งขวาบน (สลับกล้อง / รีเซ็ตบอล) - ซ่อนได้ -->
+    <!-- กลุ่มควบคุมฝั่งขวาบน (สลับกล้องหน้าหลัง / รีเซ็ตบอล) - ซ่อนได้ -->
     <div id="hud-top-right-group" class="hud-transition absolute top-20 right-4 z-30 flex flex-col gap-3">
         <!-- ปุ่มสลับกล้อง -->
         <button id="toggle-camera" class="bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-white p-3.5 rounded-xl flex items-center justify-center transition active:scale-95 shadow-lg">
@@ -115,7 +137,7 @@
 
     <!-- แผงควบคุมและสถานะการแสดงผลด้านซ้าย - ซ่อนได้ -->
     <div id="hud-top-left" class="hud-transition absolute top-4 left-4 z-30 flex flex-col gap-3 pointer-events-none">
-        <!-- ป้ายสถานะการจับคู่ -->
+        <!-- ป้ายสถานะการตรวจจับ -->
         <div class="bg-slate-950/75 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-800 flex items-center gap-4 text-white pointer-events-auto">
             <div class="flex items-center gap-2">
                 <div id="status-camera" class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse"></div>
@@ -139,10 +161,10 @@
                 <i data-lucide="help-circle" class="w-4 h-4 text-cyan-400"></i>
                 <span class="text-xs font-bold text-cyan-400">วิธีควบคุม:</span>
             </div>
-            <ul class="text-xs text-slate-300 space-y-1 pl-4 list-disc">
-                <li><span class="font-bold text-white">กำมือ</span> หรือ <span class="font-bold text-white">จีบนิ้วชี้-โป้ง</span> เพื่อจับลูกบอล</li>
-                <li>ขยับมือเพื่อเลื่อนลูกบอล</li>
-                <li><span class="font-bold text-white">แบมือเพื่อปล่อย</span> หรือขว้างบอลออกไป</li>
+            <ul class="text-xs text-slate-300 space-y-1.5 pl-4 list-disc">
+                <li><span class="font-bold text-white">ใช้นิ้วชี้จีบชนนิ้วโป้ง</span> เพื่อคีบหยิบลูกบอล</li>
+                <li><span class="font-bold text-white">กำมือ</span> เพื่อรวบจับลูกบอล</li>
+                <li><span class="font-bold text-white">แบมือ</span> เพื่อปล่อยแรงส่ง</li>
             </ul>
         </div>
     </div>
@@ -152,7 +174,7 @@
         <!-- ตัวเปิด/ปิดสไลด์แถบด้านล่าง -->
         <div id="bottom-panel-header" class="self-center bg-slate-950/90 border-t border-x border-slate-800 px-6 py-2 rounded-t-2xl flex items-center gap-2 cursor-pointer pointer-events-auto hover:bg-slate-900 transition-colors shadow-lg">
             <span class="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <i data-lucide="sliders" class="w-3.5 h-3.5 text-cyan-400"></i> แผงควบคุมและฟิสิกส์
+                <i data-lucide="sliders" class="w-3.5 h-3.5 text-cyan-400"></i> ควบคุมฟิสิกส์และระบบจำลอง
             </span>
             <i id="chevron-icon" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform duration-300"></i>
         </div>
@@ -195,7 +217,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">ความเร็วการเด้งชน</label>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">ความยืดหยุ่นของแรงเด้ง</label>
                     <div class="flex items-center gap-2">
                         <i data-lucide="zap" class="w-4 h-4 text-slate-400"></i>
                         <input id="bounciness" type="range" min="30" max="95" value="75" class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
@@ -209,62 +231,91 @@
         // เริ่มต้นไอคอน Lucide
         lucide.createIcons();
 
-        // ตัวแปรควบคุมระบบกล้องและสถานะวิดีโอ
+        // ดึงองค์ประกอบ DOM
         const videoElement = document.getElementById('webcam');
         const canvasElement = document.getElementById('webgl-canvas');
         const loadingScreen = document.getElementById('loading-screen');
         const permissionScreen = document.getElementById('permission-screen');
         const startCameraBtn = document.getElementById('start-camera-btn');
         const progressBar = document.getElementById('progress-bar');
+        const aoVignette = document.getElementById('ao-vignette');
         
-        // ตัวแปรควบคุมสถานะ UI
+        // ตัวแปรควบคุมหน้าจอ UI และโหมดการเล่น
         let isHudVisible = true;
         let isBottomPanelExpanded = true;
+        let isVirtualMode = false; // ค่าเริ่มต้นเป็นโหมดกล้องปกติ (AR)
 
         // ตัวแปรหลักสำหรับ Three.js
         let scene, camera, renderer;
         let balls = [];
-        let shadowPlane;
-        let handJoints = [];
-        let handBones;
-        const HAND_CONNECTIONS = [
-            [0, 1], [1, 2], [2, 3], [3, 4],         // นิ้วโป้ง
-            [0, 5], [5, 6], [6, 7], [7, 8],         // นิ้วชี้
-            [5, 9], [9, 10], [10, 11], [11, 12],     // นิ้วกลาง
-            [9, 13], [13, 14], [14, 15], [15, 16],   // นิ้วนาง
-            [13, 17], [17, 18], [18, 19], [19, 20],  // นิ้วก้อย
-            [0, 17] // ฝ่ามือส่วนล่าง
-        ];
+        let backplateMesh; // แผ่นหลังรับเงาและโชว์ความลึก
+        let neonBorderLines; // กรอบแสงนีออนชนขอบในโหมด 3D Studio
+        let interactionHalo; // วงแหวนควบคุมตรงปลายนิ้วเวลาคีบหยิบ
 
-        // ตัวแปรประมวลผลของกล้องและ MediaPipe
-        let activeCameraMode = 'user'; // 'user' (กล้องหน้า) หรือ 'environment' (กล้องหลัง)
+        // ตัวแปรประมวลผลกล้องและ MediaPipe
+        let activeCameraMode = 'user'; 
         let isMirrored = true;
         let currentStream = null;
         let hands = null;
         let lastVideoTime = -1;
 
-        // ตัวแปรกำหนดคุณสมบัติฟิสิกส์และการจับลูกบอล
+        // ตัวแปรด้านฟิสิกส์
         let config = {
             gravityEnabled: true,
-            gravityValue: -0.012,
-            bounciness: 0.75, // ค่าเด้งกลับ (restitution)
-            activeColor: '#00f3ff', // สีตั้งต้น (ฟ้าเนออน)
-            interactionDepth: 0 // ระนาบแกน Z ที่ลูกบอลอยู่
+            gravityValue: -0.013,
+            bounciness: 0.75, 
+            activeColor: '#00f3ff', 
+            interactionDepth: 0
         };
 
         let currentlyGrabbedBall = null;
         let prevHandPos = new THREE.Vector3();
         let handVelocity = new THREE.Vector3();
+        let activePinchPoint = new THREE.Vector3();
+        let isHandPresent = false;
+
+        // ฟังก์ชันสร้าง Texture กริดดิจิทัลสำหรับพื้นหลังของโหมด 3D Studio (เพื่อจำลองมิติและความสมจริงแบบ AO)
+        function generateProceduralGrid() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            // พื้นหลังแล็บดิจิทัลสีน้ำเงินเข้มขรึม
+            ctx.fillStyle = '#080a13';
+            ctx.fillRect(0, 0, 512, 512);
+            
+            // เส้นตารางกริดหลัก (ความสว่างปานกลาง)
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, 512, 512);
+            
+            // เส้นย่อยพรีเมียม (บางเบา)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            const step = 64;
+            for (let i = step; i < 512; i += step) {
+                ctx.moveTo(i, 0); ctx.lineTo(i, 512);
+                ctx.moveTo(0, i); ctx.lineTo(512, i);
+            }
+            ctx.stroke();
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
 
         // 1. ตั้งค่าระบบ WebGL ด้วย Three.js
         function initThreeJS() {
             scene = new THREE.Scene();
 
-            // กล้อง Perspective ปรับให้ได้มิติที่ชัดขึ้น
+            // กล้อง Perspective
             camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.set(0, 0, 15); // ตั้งตำแหน่งกล้องห่าง 15 หน่วย
+            camera.position.set(0, 0, 15);
 
-            // เรนเดอร์เรอร์พื้นหลังโปร่งใส
+            // ตัวเรนเดอร์ WebGL แบบพรีเมียม สนับสนุนระบบเงา
             renderer = new THREE.WebGLRenderer({
                 canvas: canvasElement,
                 alpha: true,
@@ -275,91 +326,84 @@
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            // แสงสว่างรอบฉาก
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+            // ตั้งค่าระบบแสง 3 จุด (Three-Point Lighting)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
             scene.add(ambientLight);
 
-            // แสงหลักส่องตรงสร้างเงา
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
-            dirLight.position.set(5, 10, 7);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 1024;
-            dirLight.shadow.mapSize.height = 1024;
-            dirLight.shadow.camera.near = 0.5;
-            dirLight.shadow.camera.far = 25;
-            const dSide = 12;
-            dirLight.shadow.camera.left = -dSide;
-            dirLight.shadow.camera.right = dSide;
-            dirLight.shadow.camera.top = dSide;
-            dirLight.shadow.camera.bottom = -dSide;
-            scene.add(dirLight);
+            // แสงหลักสร้างความลึกและเงา (Key Light)
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+            keyLight.position.set(4, 10, 8);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048; // มิติเงาคุณภาพสูงระดับ HD
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.camera.near = 0.5;
+            keyLight.shadow.camera.far = 30;
+            const dSide = 14;
+            keyLight.shadow.camera.left = -dSide;
+            keyLight.shadow.camera.right = dSide;
+            keyLight.shadow.camera.top = dSide;
+            keyLight.shadow.camera.bottom = -dSide;
+            keyLight.shadow.bias = -0.0005; // ป้องกันขอบเงาแตกบนมือถือ
+            scene.add(keyLight);
 
-            // ระนาบรับเงาอยู่เบื้องหลัง (สร้างมิติความลึก)
-            const shadowPlaneGeo = new THREE.PlaneGeometry(100, 100);
-            const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.35 });
-            shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
-            shadowPlane.position.z = -2.5; 
-            shadowPlane.receiveShadow = true;
-            scene.add(shadowPlane);
+            // แสงสะท้อนข้าง (Fill Light) เติมเฉดขอบสีม่วงไซเบอร์พังก์ด้านหลัง
+            const fillLight = new THREE.PointLight(0xff007f, 1.5, 30);
+            fillLight.position.set(-6, -4, 4);
+            scene.add(fillLight);
 
-            // สร้างโครงสร้างข้อนิ้วมือ 21 จุด
-            const jointGeometry = new THREE.SphereGeometry(0.14, 16, 16);
-            const jointMaterial = new THREE.MeshPhysicalMaterial({ 
-                color: 0x00f3ff,
-                emissive: 0x00f3ff,
-                emissiveIntensity: 0.5,
-                metalness: 0.1,
-                roughness: 0.1,
-                transparent: true,
-                opacity: 0.85
-            });
+            // แสงขอบฟ้านีออน (Rim Light) เติมแสงสีฟ้าอ่อนด้านบน
+            const rimLight = new THREE.PointLight(0x00f3ff, 2.0, 25);
+            rimLight.position.set(6, 6, 3);
+            scene.add(rimLight);
+
+            // แผ่นรองรับเงาด้านหลัง (Backplate Mesh)
+            const backplateGeo = new THREE.PlaneGeometry(100, 100);
             
-            for (let i = 0; i < 21; i++) {
-                const mesh = new THREE.Mesh(jointGeometry, jointMaterial);
-                mesh.castShadow = true;
-                mesh.visible = false;
-                scene.add(mesh);
-                handJoints.push(mesh);
-            }
+            // สร้างวัสดุรับเงาโปร่งใส (สำหรับโหมด AR) และเตรียมสลับเป็นวัสดุผิวสัมผัส 3D Studio
+            backplateMesh = new THREE.Mesh(
+                backplateGeo,
+                new THREE.ShadowMaterial({ opacity: 0.45 })
+            );
+            backplateMesh.position.z = -2.5; 
+            backplateMesh.receiveShadow = true;
+            scene.add(backplateMesh);
 
-            // สร้างกระดูกเชื่อมต่อข้อต่อ
-            const lineMaterial = new THREE.LineBasicMaterial({ 
-                color: 0x00f3ff, 
-                transparent: true, 
-                opacity: 0.7
+            // สร้างโครงร่างวงแหวนชี้จุดจับที่ปลายนิ้ว (Interaction Halo) แทนจุดไกด์ไลน์มือแบบเดิม
+            const haloGeo = new THREE.RingGeometry(0.35, 0.45, 32);
+            const haloMat = new THREE.MeshBasicMaterial({
+                color: 0x00f3ff,
+                transparent: true,
+                opacity: 0, // ซ่อนไว้ตอนไม่มีการจับ
+                side: THREE.DoubleSide
             });
-            const lineGeometry = new THREE.BufferGeometry();
-            const linePositions = new Float32Array(HAND_CONNECTIONS.length * 2 * 3);
-            lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
-            handBones = new THREE.LineSegments(lineGeometry, lineMaterial);
-            handBones.visible = false;
-            scene.add(handBones);
+            interactionHalo = new THREE.Mesh(haloGeo, haloMat);
+            scene.add(interactionHalo);
 
-            // สร้างลูกบอลหลักสปอนไว้ในส่วนบนของหน้าจอเพื่อให้พ้นระยะ UI
-            spawnBall(new THREE.Vector3(-1.8, 2.5, 0), config.activeColor);
-            spawnBall(new THREE.Vector3(1.8, 3.0, 0), '#ff007f'); 
+            // สปอนลูกบอลลูกแรกเริ่ม 2 ลูก
+            spawnBall(new THREE.Vector3(-1.8, 3.0, 0), config.activeColor);
+            spawnBall(new THREE.Vector3(1.8, 3.5, 0), '#ff007f'); 
 
             window.addEventListener('resize', onWindowResize);
             progressBar.style.width = '40%';
         }
 
-        // คลาสลูกบอลควบคุมฟิสิกส์และการหมุน
+        // คลาสวัตถุลูกบอลฟิสิกส์โต้ตอบแบบ 3 มิติ
         class InteractionBall {
             constructor(position, color) {
-                this.radius = 1.05; // ปรับขนาดให้จับได้ถนัดตา
+                this.radius = 1.1;
                 this.isGrabbed = false;
                 this.color = color;
 
-                // สร้างรูปทรงและพื้นผิวแนว Metallic สะท้อนแสงหรูหรา
+                // พัฒนาวัสดุลูกบอลให้สมจริง เด้งกระทบแสงได้งดงาม (High-End Physical Material)
                 const geometry = new THREE.SphereGeometry(this.radius, 64, 64);
                 this.material = new THREE.MeshPhysicalMaterial({
                     color: new THREE.Color(color),
-                    metalness: 0.85,
-                    roughness: 0.12,
+                    metalness: 0.9,
+                    roughness: 0.1,
                     clearcoat: 1.0,
-                    clearcoatRoughness: 0.1,
+                    clearcoatRoughness: 0.05,
                     emissive: new THREE.Color(color),
-                    emissiveIntensity: 0.18,
+                    emissiveIntensity: 0.15,
                 });
 
                 this.mesh = new THREE.Mesh(geometry, this.material);
@@ -367,7 +411,7 @@
                 this.mesh.castShadow = true;
                 this.mesh.receiveShadow = true;
 
-                // กำหนดความเร็วแกนเริ่มต้น
+                // อัตราการเคลื่อนที่และแรงหมุนอิสระ
                 this.velocity = new THREE.Vector3(
                     (Math.random() - 0.5) * 0.08,
                     0,
@@ -384,59 +428,52 @@
 
             updatePhysics(xLimit, yLimit, bottomOffset) {
                 if (this.isGrabbed) {
-                    this.mesh.rotation.x += 0.01;
-                    this.mesh.rotation.y += 0.01;
+                    this.mesh.rotation.x += 0.015;
+                    this.mesh.rotation.y += 0.015;
                     return;
                 }
 
+                // หมุนตัวอิสระตามแรงหมุนล่าสุด
                 this.mesh.rotation.x += this.rotSpeed.x;
                 this.mesh.rotation.y += this.rotSpeed.y;
 
-                // ตรวจสอบแรงโน้มถ่วง
+                // จัดการฟิสิกส์แรงโน้มถ่วง
                 if (config.gravityEnabled) {
                     this.velocity.y += config.gravityValue;
                 }
 
-                // นำพิกัดไปคิดรวม
+                // ปรับปรุงพิกัดตำแหน่ง
                 this.mesh.position.add(this.velocity);
 
-                // ตรวจสอบขอบฝั่งซ้าย-ขวา
+                // 📌 ฟิสิกส์เด้งขอบจอแนวนอน (ซ้าย-ขวา)
                 const bufferX = xLimit - this.radius;
                 if (this.mesh.position.x > bufferX) {
                     this.mesh.position.x = bufferX;
                     this.velocity.x *= -config.bounciness;
+                    this.rotSpeed.y *= -0.8;
                 } else if (this.mesh.position.x < -bufferX) {
                     this.mesh.position.x = -bufferX;
                     this.velocity.x *= -config.bounciness;
+                    this.rotSpeed.y *= -0.8;
                 }
 
-                // ตรวจสอบขอบบนสุด
+                // 📌 ฟิสิกส์เด้งขอบจอแนวตั้ง (บนสุด)
                 const bufferYTop = yLimit - this.radius;
                 if (this.mesh.position.y > bufferYTop) {
                     this.mesh.position.y = bufferYTop;
                     this.velocity.y *= -config.bounciness;
                 }
 
-                // 📌 ระบบฟิสิกส์พื้นยืดหยุ่นตามความสูงของแผงควบคุม UI
+                // 📌 ฟิสิกส์พื้นรองล่างที่เปลี่ยนตามระยะความสูง UI ป้องกันการร่วงหายหลังแผงควบคุม
                 const bufferYBottom = -yLimit + this.radius + bottomOffset;
                 if (this.mesh.position.y < bufferYBottom) {
                     this.mesh.position.y = bufferYBottom;
                     this.velocity.y *= -config.bounciness;
-                    this.velocity.x *= 0.96; // ค่าเสียดทานกับพื้น
+                    this.velocity.x *= 0.95; // แรงต้านหนืดที่พื้น
                 }
 
-                // ควบคุมให้อยู่ในระนาบที่เล่นได้ (แกน Z)
-                const zLimit = 1.2;
-                if (this.mesh.position.z > zLimit) {
-                    this.mesh.position.z = zLimit;
-                    this.velocity.z *= -0.5;
-                } else if (this.mesh.position.z < -zLimit) {
-                    this.mesh.position.z = -zLimit;
-                    this.velocity.z *= -0.5;
-                }
-                
-                // ค่อยๆ ดึงวัตถุกลับเข้ามาระนาบ z=0 ช้าๆ ป้องกันหลุดระยะสายตา
-                this.mesh.position.z += (0 - this.mesh.position.z) * 0.015;
+                // ดึงพิกัดเข้ามาระนาบลอยตัวที่ z=0 เพื่อป้องกันหลุดหายไปแกนลึก
+                this.mesh.position.z += (0 - this.mesh.position.z) * 0.02;
             }
 
             destroy() {
@@ -451,7 +488,7 @@
             balls.push(ball);
         }
 
-        // การผลักชนกันระหว่างลูกบอล (Elastic Collisions)
+        // ประมวลการเด้งชนระหว่างวัตถุแบบยืดหยุ่น (Ball-to-Ball Collisions)
         function handleBallToBallCollisions() {
             for (let i = 0; i < balls.length; i++) {
                 for (let j = i + 1; j < balls.length; j++) {
@@ -466,9 +503,11 @@
                         const normal = b2.mesh.position.clone().sub(b1.mesh.position).normalize();
 
                         if (!b1.isGrabbed && !b2.isGrabbed) {
+                            // แบ่งกันถอยหลังคนละครึ่งทาง
                             b1.mesh.position.addScaledVector(normal, -overlap * 0.5);
                             b2.mesh.position.addScaledVector(normal, overlap * 0.5);
 
+                            // ส่งต่อโมเมนตัมสะท้อนกลับ
                             const relativeVelocity = b1.velocity.clone().sub(b2.velocity);
                             const speed = relativeVelocity.dot(normal);
 
@@ -478,11 +517,12 @@
                                 b2.velocity.addScaledVector(normal, impulse);
                             }
                         } else if (b1.isGrabbed && !b2.isGrabbed) {
+                            // ผลักตัวไม่ได้ถูกยึด
                             b2.mesh.position.addScaledVector(normal, overlap);
-                            b2.velocity.addScaledVector(normal, 0.18 + Math.abs(handVelocity.length() * 1.4));
+                            b2.velocity.addScaledVector(normal, 0.2 + Math.abs(handVelocity.length() * 1.5));
                         } else if (!b1.isGrabbed && b2.isGrabbed) {
                             b1.mesh.position.addScaledVector(normal, -overlap);
-                            b1.velocity.addScaledVector(normal, -(0.18 + Math.abs(handVelocity.length() * 1.4)));
+                            b1.velocity.addScaledVector(normal, -(0.2 + Math.abs(handVelocity.length() * 1.5)));
                         }
                     }
                 }
@@ -496,7 +536,7 @@
             }
         }
 
-        // 2. การจัดการกล้องและการแมปพิกัดตำแหน่ง
+        // 2. การควบคุมกล้องถ่ายภาพและคำนวณตำแหน่งพิกัด 3D
         async function setupCamera() {
             if (currentStream) {
                 currentStream.getTracks().forEach(track => track.stop());
@@ -520,14 +560,14 @@
                 document.getElementById('status-camera').classList.replace('bg-red-500', 'bg-emerald-500');
                 return true;
             } catch (err) {
-                console.error("เกิดข้อผิดพลาดในการเปิดกล้อง: ", err);
+                console.error("สิทธิ์ในการเปิดกล้องถูกปฏิเสธ: ", err);
                 permissionScreen.classList.remove('hidden');
                 loadingScreen.classList.add('hidden');
                 return false;
             }
         }
 
-        // แปลงพิกัด MediaPipe Normalized Coordinates ให้ตรงกับ Three.js Screen Space
+        // แปลงพิกัดการคํานวณพิกัดจากกล้อง MediaPipe ให้แมปกับความลึกใน Three.js ได้เป๊ะ
         function mapLandmarkTo3DSpace(landmark) {
             const videoWidth = videoElement.videoWidth;
             const videoHeight = videoElement.videoHeight;
@@ -569,7 +609,7 @@
             return camera.position.clone().add(dir.multiplyScalar(distance));
         }
 
-        // 3. เริ่มต้นติดตั้งประมวลผลโมเดล MediaPipe Hands
+        // 3. เริ่มระบบ Hand Tracking จาก MediaPipe โดยเอาการเรนเดอร์ข้อนิ้วออกตามจุดประสงค์ที่ 1
         function initMediaPipe() {
             hands = new Hands({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
@@ -586,7 +626,7 @@
             progressBar.style.width = '80%';
         }
 
-        // ฟังก์ชันประมวลผลตำแหน่งมือและฟิสิกส์การควบคุม
+        // จัดการผลลัพธ์การคํานวณวิถีมือ
         function onHandResults(results) {
             const handStatusDot = document.getElementById('status-hand');
             const actionStatusText = document.getElementById('status-action-text');
@@ -594,105 +634,116 @@
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 handStatusDot.classList.replace('bg-red-500', 'bg-emerald-500');
+                isHandPresent = true;
                 
                 const landmarks = results.multiHandLandmarks[0];
-                const mappedPositions = [];
+                
+                // คำนวณหาพิกัดปลายนิ้วชี้ นิ้วโป้ง และข้อมือหลักแบบ 3 มิติ
+                const wristPos = mapLandmarkTo3DSpace(landmarks[0]);
+                const indexMcpPos = mapLandmarkTo3DSpace(landmarks[5]);
+                const thumbTipPos = mapLandmarkTo3DSpace(landmarks[4]);
+                const indexTipPos = mapLandmarkTo3DSpace(landmarks[8]);
+                
+                const handScale = wristPos.distanceTo(indexMcpPos);
 
-                // อัปเดตโครงมือ 3D
-                for (let i = 0; i < 21; i++) {
-                    const pos = mapLandmarkTo3DSpace(landmarks[i]);
-                    mappedPositions.push(pos);
-                    handJoints[i].position.copy(pos);
-                    handJoints[i].visible = true;
-                }
+                // ตรวจหาท่าคีบจีบ (Pinch) ระหว่างชี้และโป้ง
+                const pinchDist = thumbTipPos.distanceTo(indexTipPos);
+                const isPinching = pinchDist < (handScale * 0.70);
 
-                // อัปเดตเส้นข้อต่อโครงมือ
-                const positionsAttribute = handBones.geometry.attributes.position;
-                let index = 0;
-                HAND_CONNECTIONS.forEach(([start, end]) => {
-                    const pStart = mappedPositions[start];
-                    const pEnd = mappedPositions[end];
-                    positionsAttribute.setXYZ(index++, pStart.x, pStart.y, pStart.z);
-                    positionsAttribute.setXYZ(index++, pEnd.x, pEnd.y, pEnd.z);
-                });
-                positionsAttribute.needsUpdate = true;
-                handBones.visible = true;
-
-                // ท่าทางวิเคราะห์ (Pinch & Fist Gesture Check)
-                const wrist = mappedPositions[0];
-                const indexMcp = mappedPositions[5];
-                const handScale = wrist.distanceTo(indexMcp);
-
-                const thumbTip = mappedPositions[4];
-                const indexTip = mappedPositions[8];
-                const pinchDist = thumbTip.distanceTo(indexTip);
-                const isPinching = pinchDist < (handScale * 0.72);
-
+                // ตรวจหาท่ากำมือ (Fist)
                 const fingerTips = [8, 12, 16, 20];
                 const fingerMcps = [5, 9, 13, 17];
                 let fingerCloseCount = 0;
                 for(let i=0; i<4; i++) {
-                    const distToMcp = mappedPositions[fingerTips[i]].distanceTo(mappedPositions[fingerMcps[i]]);
-                    if (distToMcp < (handScale * 0.95)) fingerCloseCount++;
+                    const mappedTip = mapLandmarkTo3DSpace(landmarks[fingerTips[i]]);
+                    const mappedMcp = mapLandmarkTo3DSpace(landmarks[fingerMcps[i]]);
+                    if (mappedTip.distanceTo(mappedMcp) < (handScale * 0.95)) fingerCloseCount++;
                 }
                 const isFist = fingerCloseCount >= 3;
                 const isGrabbing = isPinching || isFist;
 
-                const grabAnchorPoint = mappedPositions[9]; // ใช้โคนนิ้วกลางเป็นศูนย์กลางแกนควบคุม
-                handVelocity.subVectors(grabAnchorPoint, prevHandPos);
-                prevHandPos.copy(grabAnchorPoint);
+                // 📌 2. ปรับการยึดจุดเกาะ (Grab Anchor) ให้ยึดตรงกึ่งกลางตำแหน่งการจีบเป๊ะๆ
+                if (isPinching) {
+                    // หากเป็นการจีบ จุดเกาะจะอยู่ที่ระหว่างนิ้วโป้งกับนิ้วชี้
+                    activePinchPoint.addVectors(thumbTipPos, indexTipPos).multiplyScalar(0.5);
+                } else {
+                    // หากเป็นกำมือ จะใช้จุดศูนย์รวมโคนนิ้วกลาง/ฝ่ามือ
+                    activePinchPoint.addVectors(wristPos, mapLandmarkTo3DSpace(landmarks[9])).multiplyScalar(0.5);
+                }
 
+                // คำนวณแรงเหวี่ยงความเร็วสะสมของปลายนิ้ว
+                handVelocity.subVectors(activePinchPoint, prevHandPos);
+                prevHandPos.copy(activePinchPoint);
+
+                // เคลื่อนย้ายและควงวงแหวนสปาร์คนีออน (Halo Tracker) ตามตำแหน่งนิ้ว
+                interactionHalo.position.copy(activePinchPoint);
+                interactionHalo.rotation.z += 0.05; // หมุนเอฟเฟกต์ฟุ้งๆ
+                
                 if (isGrabbing) {
+                    interactionHalo.material.opacity = 0.85;
+                    interactionHalo.scale.set(1.0, 1.0, 1.0);
+                    interactionHalo.material.color.setHex(0x00ff7f); // สีเขียวนีออน สัญญาณหนีบแน่น
+
                     actionStatusDot.className = "w-3.5 h-3.5 rounded-full bg-amber-500 animate-ping";
-                    actionStatusText.innerText = "สถานะ: กำมือ / จับอยู่";
+                    actionStatusText.innerText = isPinching ? "สถานะ: จีบคีบปลายนิ้ว" : "สถานะ: กำรวบบอล";
 
                     if (!currentlyGrabbedBall) {
+                        // ค้นหาลูกบอลที่อยู่ใกล้จุดคีบที่สุด
                         let closestBall = null;
                         let minDistance = Infinity;
 
                         balls.forEach(ball => {
-                            const distance = ball.mesh.position.distanceTo(grabAnchorPoint);
+                            const distance = ball.mesh.position.distanceTo(activePinchPoint);
                             if (distance < minDistance) {
                                 minDistance = distance;
                                 closestBall = ball;
                             }
                         });
 
-                        const grabRange = 2.4; 
+                        const grabRange = 2.2; 
                         if (closestBall && minDistance < (closestBall.radius + grabRange)) {
                             currentlyGrabbedBall = closestBall;
                             currentlyGrabbedBall.isGrabbed = true;
-                            currentlyGrabbedBall.material.emissiveIntensity = 0.55;
+                            currentlyGrabbedBall.material.emissiveIntensity = 0.6; // เรืองแสงเข้มเมื่อโดนจับ
                         }
                     }
 
+                    // ลากลูกบอลวิ่งมาเกาะกลุ่มตามนิ้วอย่างเนียนตา (Lerp smooth control)
                     if (currentlyGrabbedBall) {
-                        currentlyGrabbedBall.mesh.position.lerp(grabAnchorPoint, 0.35);
+                        currentlyGrabbedBall.mesh.position.lerp(activePinchPoint, 0.4);
                         currentlyGrabbedBall.velocity.set(0, 0, 0); 
                     }
                 } else {
+                    // แค่ลอยมือเฉยๆ วงแหวนจะเป็นสีฟ้าเรืองแสงบางๆ
+                    interactionHalo.material.opacity = 0.35;
+                    interactionHalo.scale.set(0.7, 0.7, 0.7);
+                    interactionHalo.material.color.setHex(0x00f3ff);
+
                     actionStatusDot.className = "w-3.5 h-3.5 rounded-full bg-emerald-500";
-                    actionStatusText.innerText = "สถานะ: พบมือ (แบมือ)";
+                    actionStatusText.innerText = "สถานะ: พร้อมจับ";
 
                     if (currentlyGrabbedBall) {
                         currentlyGrabbedBall.isGrabbed = false;
-                        const throwFactor = 1.38;
-                        currentlyGrabbedBall.velocity.copy(handVelocity).multiplyScalar(throwFactor);
-                        currentlyGrabbedBall.material.emissiveIntensity = 0.18;
+                        
+                        // ขว้างลูกบอลออกไปตามทิศทางและความเร็วสะบัดมือจริง
+                        const throwPower = 1.35;
+                        currentlyGrabbedBall.velocity.copy(handVelocity).multiplyScalar(throwPower);
+                        currentlyGrabbedBall.material.emissiveIntensity = 0.15;
                         currentlyGrabbedBall = null;
                     }
                 }
             } else {
+                // หากไม่พบมือในหน้ากล้อง
                 handStatusDot.classList.replace('bg-emerald-500', 'bg-red-500');
                 actionStatusDot.className = "w-3.5 h-3.5 rounded-full bg-slate-500";
                 actionStatusText.innerText = "สถานะ: รอตรวจจับ";
-
-                handJoints.forEach(mesh => mesh.visible = false);
-                handBones.visible = false;
+                
+                isHandPresent = false;
+                interactionHalo.material.opacity = 0; // ซ่อนวงแหวนบ่งบอก
 
                 if (currentlyGrabbedBall) {
                     currentlyGrabbedBall.isGrabbed = false;
-                    currentlyGrabbedBall.material.emissiveIntensity = 0.18;
+                    currentlyGrabbedBall.material.emissiveIntensity = 0.15;
                     currentlyGrabbedBall = null;
                 }
             }
@@ -712,11 +763,11 @@
             requestAnimationFrame(step);
         }
 
-        // 4. เฟรมเรนเดอร์จำลองฟิสิกส์ (Animation Loop)
+        // 4. เฟรมเรนเดอร์และประมวลผลแสงเงา (Animation Loop)
         function animate() {
             requestAnimationFrame(animate);
 
-            // คำนวณขอบเขตหน้าจอยึดตามขนาดและความกว้าง
+            // คำนวณสัดส่วนตามมุมสายตากล้อง
             const aspect = window.innerWidth / window.innerHeight;
             const vFOV = THREE.MathUtils.degToRad(camera.fov);
             const visibleHeight = 2 * Math.tan(vFOV / 2) * camera.position.z;
@@ -725,25 +776,26 @@
             const xLimit = visibleWidth / 2;
             const yLimit = visibleHeight / 2;
 
-            // 📌 ส่วนคำนวณระยะขอบล่าง (Dynamic Floor) ตรวจจับขนาดจริงของ UI ตอนเด้ง
+            // ค้นหาส่วนต่างขนาดความสูงของแถบควบคุมด้านล่างเพื่อทำเป็นฟิสิกส์พื้นสะท้อนเด้ง
             let bottomOffset = 0;
             const bottomPanel = document.getElementById('bottom-settings-panel');
-            
             if (isHudVisible && bottomPanel) {
                 const rect = bottomPanel.getBoundingClientRect();
-                // นำพิกัด Pixel ที่แผงด้านล่างบดบังอยู่มาประยุกต์เป็นพิกัด 3D ของ Three.js
                 const visibleHeightPixels = window.innerHeight - rect.top;
                 if (visibleHeightPixels > 0) {
                     bottomOffset = (visibleHeightPixels / window.innerHeight) * visibleHeight;
                 }
             }
 
-            // ตรวจสอบฟิสิกส์และปรับปรุงตำแหน่งลูกบอล
+            // จัดการฟิสิกส์ความเด้งและการเคลื่อนไหวของบอล
             balls.forEach(ball => {
                 ball.updatePhysics(xLimit, yLimit, bottomOffset);
             });
 
+            // ตรวจการชนกระแทกชนกันเองของลูกบอล
             handleBallToBallCollisions();
+
+            // เรนเดอร์การสะท้อนฉากหลัง
             renderer.render(scene, camera);
         }
 
@@ -753,7 +805,67 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // 5. จัดการปุ่มและการโต้ตอบทาง UI (Event Listeners)
+        // 5. พัฒนาสลับมุมมองโหมด 3D Studio สมจริง พร้อมการจัดแสงและเงา AO (Vignette)
+        function switchViewMode() {
+            isVirtualMode = !isVirtualMode;
+            const viewIcon = document.getElementById('view-icon');
+            const viewText = document.getElementById('view-text');
+            const toggleViewBtn = document.getElementById('btn-toggle-view');
+
+            if (isVirtualMode) {
+                // 🚪 เข้าสู่โหมด 3D Studio สมจริง
+                videoElement.classList.add('opacity-0');
+                aoVignette.classList.add('opacity-100'); // เปิดเงาดำขอบจอเสมือนจริง (AO Effect)
+                
+                // เปลี่ยนแผ่นฉากหลังรับเงา (Backplate) เป็นผิวสัมผัสกริดเหล็กสะท้อนแสงงดงาม
+                backplateMesh.material = new THREE.MeshPhysicalMaterial({
+                    map: generateProceduralGrid(),
+                    roughness: 0.12,
+                    metalness: 0.8,
+                    clearcoat: 0.8,
+                    clearcoatRoughness: 0.1
+                });
+                backplateMesh.material.map.repeat.set(4, 4);
+                backplateMesh.material.map.needsUpdate = true;
+
+                // สร้างเส้นขอบกรอบไฟสว่างนีออนเพื่อบอกอาณาเขตการเด้งของลูกบอล
+                if (!neonBorderLines) {
+                    const borderGeo = new THREE.BoxGeometry(22, 13, 0.5);
+                    const borderEdge = new THREE.EdgesGeometry(borderGeo);
+                    neonBorderLines = new THREE.LineSegments(
+                        borderEdge,
+                        new THREE.LineBasicMaterial({ color: 0x00f3ff, linewidth: 2 })
+                    );
+                    neonBorderLines.position.set(0, 0, 0);
+                    scene.add(neonBorderLines);
+                } else {
+                    neonBorderLines.visible = true;
+                }
+
+                // เปลี่ยนปุ่มอินเตอร์เฟซให้สมชื่อโหมดสตูดิโอ
+                viewIcon.setAttribute('data-lucide', 'video');
+                viewText.innerText = "โหมด AR (เปิดกล้อง)";
+                toggleViewBtn.className = "bg-cyan-500 hover:bg-cyan-400 border border-cyan-300 text-slate-950 px-4 py-3 rounded-xl flex items-center gap-2 transition-all duration-300 active:scale-95 shadow-2xl";
+            } else {
+                // 📷 กลับเข้าสู่โหมด AR (ฉากหลังกล้องถ่ายสดจริง)
+                videoElement.classList.remove('opacity-0');
+                aoVignette.classList.remove('opacity-100'); 
+                
+                // คืนแผ่นหลังให้กลายเป็นแผ่นรับเงาลอยตัวโปร่งแสงที่ทาบไปบนห้องเราได้อย่างเนียนตา
+                backplateMesh.material = new THREE.ShadowMaterial({ opacity: 0.45 });
+                
+                if (neonBorderLines) {
+                    neonBorderLines.visible = false;
+                }
+
+                viewIcon.setAttribute('data-lucide', 'video-off');
+                viewText.innerText = "โหมด 3D Studio";
+                toggleViewBtn.className = "bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-cyan-400 px-4 py-3 rounded-xl flex items-center gap-2 transition-all duration-300 active:scale-95 shadow-lg";
+            }
+            lucide.createIcons();
+        }
+
+        // จัดการเหตุการณ์และแผงปุ่มโต้ตอบ UI ทั้งหมด
         function setupUIHandlers() {
             const hudToggleBtn = document.getElementById('btn-toggle-hud');
             const hudIcon = document.getElementById('hud-icon');
@@ -761,32 +873,29 @@
             const topRightHudGroup = document.getElementById('hud-top-right-group');
             const bottomSettingsPanel = document.getElementById('bottom-settings-panel');
 
-            // 👁️ ปุ่มสลับแสดง/ซ่อน UI ทั้งหมด (Toggle HUD)
+            // ปุ่มสลับซ่อนแสดงเครื่องมือทั้งหมด (HUD Switcher)
             hudToggleBtn.addEventListener('click', () => {
                 isHudVisible = !isHudVisible;
                 
                 if (isHudVisible) {
-                    // เปิดแสดงผล UI ทั้งหมด
                     topLeftHud.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
                     topRightHudGroup.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
                     bottomSettingsPanel.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
                     
                     hudIcon.setAttribute('data-lucide', 'eye-off');
-                    hudToggleBtn.className = "bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-cyan-400 p-3.5 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-95 shadow-lg";
+                    hudToggleBtn.className = "bg-slate-950/85 hover:bg-slate-900 border border-slate-800 text-slate-300 p-3.5 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-95 shadow-lg";
                 } else {
-                    // ซ่อน UI ทุกอย่างออกไปจากขอบหน้าจอ
                     topLeftHud.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
                     topRightHudGroup.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
                     bottomSettingsPanel.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
                     
                     hudIcon.setAttribute('data-lucide', 'eye');
-                    // ปรับแต่งปุ่มเรียกคืนให้โดดเด่นขึ้นตอนซ่อนเครื่องมือตัวอื่น
                     hudToggleBtn.className = "bg-cyan-500 hover:bg-cyan-400 border border-cyan-300 text-slate-950 p-3.5 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-95 shadow-2xl animate-pulse";
                 }
                 lucide.createIcons();
             });
 
-            // 🔽 พับเก็บบาร์ตั้งค่าด้านล่างชั่วคราว (Minimize Bottom Panel)
+            // ปุ่มพับสไลด์เก็บแผงปรับด้านล่าง
             const bottomHeader = document.getElementById('bottom-panel-header');
             const bottomContent = document.getElementById('bottom-panel-content');
             const chevronIcon = document.getElementById('chevron-icon');
@@ -807,7 +916,10 @@
                 }
             });
 
-            // สลับโหมดกล้องหน้า/กล้องหลัง
+            // ตรวจสอบการกดสลับโหมดห้องส่ง (AR / 3D Studio)
+            document.getElementById('btn-toggle-view').addEventListener('click', switchViewMode);
+
+            // สลับโหมดกล้องหน้ากล้องหลัง
             document.getElementById('toggle-camera').addEventListener('click', async () => {
                 activeCameraMode = (activeCameraMode === 'user') ? 'environment' : 'user';
                 
@@ -820,31 +932,30 @@
                 }, 800);
             });
 
-            // รีเซ็ตลูกบอลลอยตัวกลับตำแหน่งบนใหม่
+            // ปุ่มรีเซ็ตตำแหน่งลูกบอลทั้งหมด
             document.getElementById('reset-balls').addEventListener('click', () => {
                 const colors = ['#00f3ff', '#ff007f', '#ffe600', '#a100ff', '#39ff14'];
                 balls.forEach(ball => ball.destroy());
                 balls = [];
                 currentlyGrabbedBall = null;
 
-                spawnBall(new THREE.Vector3(-1.8, 2.5, 0), config.activeColor);
-                spawnBall(new THREE.Vector3(1.8, 3.0, 0), colors[Math.floor(Math.random() * colors.length)]);
+                spawnBall(new THREE.Vector3(-1.8, 3.0, 0), config.activeColor);
+                spawnBall(new THREE.Vector3(1.8, 3.5, 0), colors[Math.floor(Math.random() * colors.length)]);
             });
 
-            // ปุ่มสร้างลูกบอลเพิ่ม
+            // ปุ่มเพิ่มและลดลูกบอลลูกใหม่
             document.getElementById('btn-add-ball').addEventListener('click', () => {
                 if (balls.length >= 8) return; 
                 const randX = (Math.random() - 0.5) * 4.5;
-                const randY = 1.5 + Math.random() * 2.5; // ดันตำแหน่งสปอนขึ้นด้านบน
+                const randY = 1.5 + Math.random() * 2.5; 
                 spawnBall(new THREE.Vector3(randX, randY, 0), config.activeColor);
             });
 
-            // ปุ่มลดลูกบอล
             document.getElementById('btn-remove-ball').addEventListener('click', () => {
                 removeLastBall();
             });
 
-            // เปิด-ปิดแรงโน้มถ่วง
+            // เปิด-ปิดสลับขั้วแรงโน้มถ่วง
             const gravityBtn = document.getElementById('btn-toggle-gravity');
             gravityBtn.addEventListener('click', () => {
                 config.gravityEnabled = !config.gravityEnabled;
@@ -858,7 +969,7 @@
                 }
             });
 
-            // เลือกพาเลทสีสร้างวัตถุ
+            // เปลี่ยนสีลูกบอลใหม่ยึดตามพาเลทที่เลือก
             const colorButtons = document.querySelectorAll('#color-palette button');
             colorButtons.forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -873,7 +984,7 @@
                 });
             });
 
-            // ตัวสไลเดอร์ปรับเปลี่ยนแรงเด้ง
+            // ความเร็วเด้งชน
             const bounceSlider = document.getElementById('bounciness');
             bounceSlider.addEventListener('input', (e) => {
                 config.bounciness = e.target.value / 100;
@@ -886,9 +997,9 @@
             });
         }
 
-        // 6. ฟังก์ชันเริ่มระบบเมื่อได้รับสิทธิ์
+        // 6. เริ่มการรันระบบเมื่อเบราว์เซอร์พร้อมรับการเชื่อมต่อ
         async function startSystem() {
-            progressBar.style.width = '20%';
+            progressBar.style.width = '25%';
             
             const cameraStarted = await setupCamera();
             if (!cameraStarted) {
@@ -897,7 +1008,7 @@
                 return;
             }
 
-            progressBar.style.width = '50%';
+            progressBar.style.width = '55%';
             
             initThreeJS();
             initMediaPipe();
