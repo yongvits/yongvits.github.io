@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGL Hand Physics - Ultimate Studio & Multi-Shape Edition</title>
+    <title>WebGL Hand Physics - Ultimate Bright Studio Edition</title>
     
     <!-- Tailwind CSS สำหรับควบคุม UI -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -25,7 +25,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #f3f4f6;
+            background-color: #f8fafc;
             font-family: system-ui, -apple-system, sans-serif;
             user-select: none;
             -webkit-user-select: none;
@@ -56,7 +56,7 @@
         .hud-transition {
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        /* เอฟเฟกต์เงาไล่ระดับขอบจอเพื่อมิติที่ลึกขึ้น (Ambient Occlusion Vignette) */
+        /* เอฟเฟกต์เงาไล่ระดับขอบจอ (Ambient Occlusion Vignette) */
         #ao-vignette {
             position: absolute;
             top: 0;
@@ -65,13 +65,12 @@
             height: 100%;
             z-index: 3;
             pointer-events: none;
-            box-shadow: inset 0 0 120px rgba(0,0,0,0.15);
+            box-shadow: inset 0 0 120px rgba(0,0,0,0.06);
             transition: all 0.5s ease;
-            opacity: 0; /* จะเปิดและเปลี่ยนเป็นโทนขาวสว่างเมื่อเข้าโหมด 3D Studio */
+            opacity: 1;
         }
         #ao-vignette.studio-active {
-            opacity: 1;
-            box-shadow: inset 0 0 120px rgba(100, 116, 139, 0.2);
+            box-shadow: inset 0 0 150px rgba(148, 163, 184, 0.15);
         }
     </style>
 </head>
@@ -92,8 +91,8 @@
             <div class="absolute inset-0 border-4 border-cyan-500/20 rounded-full"></div>
             <div class="absolute inset-0 border-4 border-t-cyan-400 rounded-full animate-spin"></div>
         </div>
-        <h1 class="text-2xl font-bold text-white mb-2 tracking-wider">WebGL STUDIO & MULTI-SHAPE</h1>
-        <p class="text-cyan-400 text-sm animate-pulse mb-6">กำลังจัดเตรียมเครื่องมือ แสงเงาสตูดิโอ และโมเดลตรวจจับ...</p>
+        <h1 class="text-2xl font-bold text-white mb-2 tracking-wider">WebGL STUDIO & AR</h1>
+        <p class="text-cyan-400 text-sm animate-pulse mb-6">กำลังสร้างแสงจำลองสตูดิโอและระบบสะท้อนกระจกเงา...</p>
         <div class="w-64 bg-slate-800 h-2 rounded-full overflow-hidden">
             <div id="progress-bar" class="bg-cyan-400 h-full w-[10%]" style="transition: width 0.3s ease;"></div>
         </div>
@@ -288,13 +287,14 @@
 
         // ตัวแปรหลักสำหรับ Three.js
         let scene, camera, renderer;
-        let balls = []; // บอลและวัตถุฟิสิกส์ทั้งหมดในฉาก
-        let backplateMesh; // ฉากรับเงาและแสงสะท้อนสตูดิโอ
-        let neonBorderLines; // เส้นขอบขอบเขตชน
-        let interactionHalo; // วงแหวนควบคุมปลายนิ้ว
+        let balls = []; 
+        let backplateMesh; 
+        let neonBorderLines; 
+        let interactionHalo; 
 
-        // ตัวแปรแวดล้อมแสงและห้องสตูดิโอสีขาวแบบเหมือนจริง (Studio Lighting & Environment)
+        // ตัวแปรแวดล้อมแสงและแผนที่สะท้อน (Environment Map)
         let studioLightsGroup;
+        let proceduralEnvMap = null; // แผนที่สะท้อนเงาที่สร้างขึ้นแบบ Dynamic เพื่อแก้ปัญหาวัตถุมืดดำ
         let backplateGridTexture = null;
 
         // ตัวแปรประมวลผลกล้องและ MediaPipe
@@ -310,8 +310,8 @@
             gravityValue: -0.013,
             bounciness: 0.75, 
             activeColor: '#00f3ff',
-            activeShape: 'sphere', // รูปทรงเริ่มต้น: sphere, cube, cylinder, cone
-            activeMat: 'glass'     // วัสดุเริ่มต้น: glass, matrix, chrome, gold
+            activeShape: 'sphere', 
+            activeMat: 'glass'     
         };
 
         let currentlyGrabbedBall = null;
@@ -320,20 +320,54 @@
         let activePinchPoint = new THREE.Vector3();
         let estimatedDepthZ = 0; 
 
-        // 1. ฟังก์ชันสร้างพื้นผิวลายกระเบื้องห้องสตูดิโอสว่างเหมือนจริง (Realistic Bright Soft Grid)
+        // 🌟 ฟังก์ชันสร้างแผนที่สภาพแวดล้อมจำลองแบบพาโนรามา (Procedural Studio Equirectangular Reflection Map)
+        // เพื่อลบสีดำมืดจากตัววัตถุ และเพิ่มมิติสะท้อนขาววิบวับสว่างไสว
+        function createProceduralEnvMap() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            // 1. ระบายพื้นเป็นแสงสว่างนวลไล่เฉด (Bright Daylight Soft Gradient)
+            const grad = ctx.createLinearGradient(0, 0, 0, 256);
+            grad.addColorStop(0, '#ffffff');   // แสงจ้าจากท้องฟ้าด้านบน
+            grad.addColorStop(0.5, '#e2e8f0'); // แสงขาวนวลด้านข้าง
+            grad.addColorStop(1, '#94a3b8');   // พื้นล่างสีเทาอ่อนเพื่อให้เห็นรอยต่อที่สวยงาม
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 512, 256);
+            
+            // 2. จำลองหน้าต่างส่องแสงสีขาวจ้า (Softbox Studio Windows) เพื่อสร้างประกายไฮไลต์สีขาวพาดผ่านตัวแก้วและทอง
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(80, 50, 100, 120);
+            ctx.fillRect(320, 60, 80, 100);
+            
+            // 3. ใส่ความฟุ้งละมุนของโคมไฟสตูดิโอ (Glowing Radial Lights)
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 40;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(130, 110, 30, 0, Math.PI * 2);
+            ctx.arc(360, 110, 20, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // แปลง Canvas เป็น texture ใน Three.js ทันที
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.mapping = THREE.EquirectangularReflectionMapping; // แมปสะท้อนผิวทรงกลม 3D
+            return texture;
+        }
+
+        // ฟังก์ชันสร้างพื้นผิวลายกระเบื้องห้องสตูดิโอสีขาวสว่าง
         function generateStudioGridTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
             canvas.height = 1024;
             const ctx = canvas.getContext('2d');
             
-            // พื้นคอนกรีต/หินอ่อนสีขาวนวลอบอุ่น
-            ctx.fillStyle = '#fbfbfc';
+            ctx.fillStyle = '#fafafb';
             ctx.fillRect(0, 0, 1024, 1024);
             
-            // ลายจุดเซรามิกบางเบา (เพิ่มความสมจริงเหมือนมีเกล็ดหินอ่อน)
-            ctx.fillStyle = '#f0f2f5';
-            for (let i = 0; i < 500; i++) {
+            ctx.fillStyle = '#f1f5f9';
+            for (let i = 0; i < 400; i++) {
                 const rx = Math.random() * 1024;
                 const ry = Math.random() * 1024;
                 const rsize = 1 + Math.random() * 2;
@@ -342,11 +376,10 @@
                 ctx.fill();
             }
 
-            // เส้นร่องยาแนวกระเบื้องสีเทาอ่อนหรูหรา
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            const step = 256; // แบ่งตารางขนาดใหญ่สมจริง
+            const step = 256; 
             for (let i = step; i < 1024; i += step) {
                 ctx.moveTo(i, 0); ctx.lineTo(i, 1024);
                 ctx.moveTo(0, i); ctx.lineTo(1024, i);
@@ -363,6 +396,10 @@
         function initThreeJS() {
             scene = new THREE.Scene();
 
+            // สร้างระบบสะท้อนแสงจำลองขึ้นมาผูกกับฉากหลัก
+            proceduralEnvMap = createProceduralEnvMap();
+            scene.environment = proceduralEnvMap; // วัตถุทุกชิ้นจะได้รับอิทธิพลแสงขาวสว่างสตูดิโอโดยตรง!
+
             camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 0, 15);
 
@@ -376,14 +413,14 @@
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            // 📌 เริ่มต้นเซ็ตติ้งระบบไฟแบบ AR Mode
+            // เริ่มต้นตั้งระบบไฟ
             setupLighting(false);
 
-            // แผ่นหลังสตูดิโอและฉากรับเงา
+            // แผ่นหลังรับเงาตกกระทบ
             const backplateGeo = new THREE.PlaneGeometry(100, 100);
             backplateMesh = new THREE.Mesh(
                 backplateGeo,
-                new THREE.ShadowMaterial({ opacity: 0.45 })
+                new THREE.ShadowMaterial({ opacity: 0.35 })
             );
             backplateMesh.position.z = -6.5; 
             backplateMesh.receiveShadow = true;
@@ -408,9 +445,8 @@
             progressBar.style.width = '40%';
         }
 
-        // 3. ฟังก์ชันจัดแสงและสภาพแวดล้อมสว่างสไตล์สตูดิโอ (Studio Softbox Lighting)
+        // 3. ฟังก์ชันจัดแสงความสว่างสูงเพื่อลบความดำมืด (Hemisphere Light & Strong Directional Light)
         function setupLighting(isStudioMode) {
-            // ล้างกลุ่มแสงเก่า (หากมี)
             if (studioLightsGroup) {
                 scene.remove(studioLightsGroup);
             }
@@ -418,141 +454,126 @@
             studioLightsGroup = new THREE.Group();
             
             if (isStudioMode) {
-                // 💡 การจัดแสงระดับสตูดิโอถ่ายทำจริงแบบ High-Key (สว่าง ชัดเจน ไร้ขอบมืดสลัว)
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.85); // ปรับ Ambient สว่างมาก
-                studioLightsGroup.add(ambientLight);
+                // 💡 โหมดสตูดิโอขาวสว่างลบเงาดำสนิท
+                // ไฟโดมส่องสว่างนวลครอบคลุมทุกมุมมอง (HemisphereLight) ปรับความเข้มระดับสูง
+                const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 1.4);
+                studioLightsGroup.add(hemiLight);
 
-                // ไฟซอฟต์บ็อกซ์หลักขวาด้านบน (Key Softbox Light)
-                const keySoftbox = new THREE.DirectionalLight(0xffffff, 1.2);
-                keySoftbox.position.set(6, 12, 10);
-                keySoftbox.castShadow = true;
-                keySoftbox.shadow.mapSize.width = 2048;
-                keySoftbox.shadow.mapSize.height = 2048;
-                keySoftbox.shadow.camera.near = 0.5;
-                keySoftbox.shadow.camera.far = 30;
+                // ไฟส่องทิศทางหลักสร้างความคมชัด (Softbox Simulation Directional Light)
+                const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
+                mainLight.position.set(6, 12, 10);
+                mainLight.castShadow = true;
+                mainLight.shadow.mapSize.width = 1024;
+                mainLight.shadow.mapSize.height = 1024;
+                mainLight.shadow.camera.near = 0.5;
+                mainLight.shadow.camera.far = 30;
                 const dSide = 14;
-                keySoftbox.shadow.camera.left = -dSide;
-                keySoftbox.shadow.camera.right = dSide;
-                keySoftbox.shadow.camera.top = dSide;
-                keySoftbox.shadow.camera.bottom = -dSide;
-                keySoftbox.shadow.bias = -0.0002;
-                studioLightsGroup.add(keySoftbox);
+                mainLight.shadow.camera.left = -dSide;
+                mainLight.shadow.camera.right = dSide;
+                mainLight.shadow.camera.top = dSide;
+                mainLight.shadow.camera.bottom = -dSide;
+                mainLight.shadow.bias = -0.0003;
+                studioLightsGroup.add(mainLight);
 
-                // ไฟเสริมฝั่งซ้ายคอยลบขอบเงาดำปื้น (Fill Light)
-                const fillSoftbox = new THREE.DirectionalLight(0xf1f5f9, 0.5);
-                fillSoftbox.position.set(-6, 8, 8);
-                studioLightsGroup.add(fillSoftbox);
+                // ไฟสะท้อนพื้นนวลเพื่อเปิดใต้ล่างตัววัตถุ (Bounce Ambient Fill)
+                const groundLight = new THREE.DirectionalLight(0xf8fafc, 0.5);
+                groundLight.position.set(0, -10, 5);
+                studioLightsGroup.add(groundLight);
 
-                // ไฟสะท้อนจากพื้นด้านล่างช่วยเปิดรายละเอียดวัสดุ (Bounce Light)
-                const groundBounce = new THREE.DirectionalLight(0xf8fafc, 0.35);
-                groundBounce.position.set(0, -10, 5);
-                studioLightsGroup.add(groundBounce);
-
-                // ไฟสะท้อนขอบไฮไลต์จากขอบหน้าต่างด้านหลังเฉดฟ้าอ่อน (Rim Cool Light)
-                const coolRim = new THREE.PointLight(0xe0f2fe, 1.5, 35);
-                coolRim.position.set(8, -4, -2);
-                studioLightsGroup.add(coolRim);
-                
-                const warmRim = new THREE.PointLight(0xfef3c7, 0.8, 25);
-                warmRim.position.set(-8, 6, -2);
-                studioLightsGroup.add(warmRim);
-
-            } else {
-                // 📷 การจัดแสงสลัวแบบปรับแต่งสำหรับโหมด AR (ดึงวัตถุเด่นลอยออกมาจากภาพถ่าย)
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
-                studioLightsGroup.add(ambientLight);
-
-                const keyLight = new THREE.DirectionalLight(0xffffff, 1.3);
-                keyLight.position.set(4, 10, 8);
-                keyLight.castShadow = true;
-                keyLight.shadow.mapSize.width = 1048;
-                keyLight.shadow.mapSize.height = 1048;
-                keyLight.shadow.camera.near = 0.5;
-                keyLight.shadow.camera.far = 30;
-                const dSide = 14;
-                keyLight.shadow.camera.left = -dSide;
-                keyLight.shadow.camera.right = dSide;
-                keyLight.shadow.camera.top = dSide;
-                keyLight.shadow.camera.bottom = -dSide;
-                keyLight.shadow.bias = -0.0005;
-                studioLightsGroup.add(keyLight);
-
-                const fillLight = new THREE.PointLight(0xff007f, 1.3, 30);
-                fillLight.position.set(-6, -4, 4);
+                // ไฟสะท้อนเฉด Warm สีขาวสว่างดึงไฮไลต์
+                const fillLight = new THREE.PointLight(0xfffbeb, 1.2, 30);
+                fillLight.position.set(-8, 6, 4);
                 studioLightsGroup.add(fillLight);
 
-                const rimLight = new THREE.PointLight(0x00f3ff, 1.8, 25);
-                rimLight.position.set(6, 6, 3);
-                studioLightsGroup.add(rimLight);
+            } else {
+                // 📷 โหมดกล้องจริงความสว่างนวล (AR Mode Lighting)
+                const hemiLight = new THREE.HemisphereLight(0xffffff, 0xf1f5f9, 1.1);
+                studioLightsGroup.add(hemiLight);
+
+                const mainLight = new THREE.DirectionalLight(0xffffff, 1.3);
+                mainLight.position.set(4, 10, 8);
+                mainLight.castShadow = true;
+                mainLight.shadow.mapSize.width = 1024;
+                mainLight.shadow.mapSize.height = 1024;
+                mainLight.shadow.bias = -0.0005;
+                studioLightsGroup.add(mainLight);
+
+                const neonRimLeft = new THREE.PointLight(0xff007f, 1.5, 25);
+                neonRimLeft.position.set(-6, -4, 4);
+                studioLightsGroup.add(neonRimLeft);
+
+                const neonRimRight = new THREE.PointLight(0x00f3ff, 1.8, 25);
+                neonRimRight.position.set(6, 6, 3);
+                studioLightsGroup.add(neonRimRight);
             }
 
             scene.add(studioLightsGroup);
         }
 
-        // 4. ฟังก์ชันวิเคราะห์การสร้างสรรค์รูปแบบวัสดุพรีเมียม (Premium Materials System)
+        // 4. ระบบวิเคราะห์พารามิเตอร์วัสดุพรีเมียม (แก้ไขระบบแสงตกกระทบและดัชนีหักเหเพื่อความสวยงามขั้นสุด)
         function getPremiumMaterial(matType, baseColor) {
             const parsedColor = new THREE.Color(baseColor);
             
             switch (matType) {
                 case 'glass':
-                    // 🧪 1. วัสดุแก้วคริสตัลใส (Translucent Physical Glass)
-                    return new THREE.MeshPhysicalMaterial({
-                        color: parsedColor,
-                        metalness: 0.05,
-                        roughness: 0.05,
-                        transparent: true,
-                        opacity: 0.65,
-                        transmission: 0.9,     // ความทะลุผ่านของลำแสง
-                        ior: 1.52,             // ดัชนีการหักเหแสงของแก้วบริสุทธิ์
-                        thickness: 1.5,        // ความหนาขอบแก้ว
-                        specularIntensity: 1.0,
-                        clearcoat: 1.0,
-                        clearcoatRoughness: 0.02,
-                        emissive: parsedColor,
-                        emissiveIntensity: 0.1
-                    });
-                    
-                case 'matrix':
-                    // 🕸️ 2. ตารางเนออนเมทริกซ์ (Matrix Pattern Wireframe)
+                    // 🧪 ปรับสูตรแก้วใสพรีเมียมสว่างใส (Optimized Refraction Glass)
                     return new THREE.MeshPhysicalMaterial({
                         color: parsedColor,
                         metalness: 0.1,
-                        roughness: 0.2,
-                        wireframe: true,        // แปลงโครงสร้างโมเดลเป็นตะแกรงข่ายเรืองแสง
+                        roughness: 0.08,
+                        transparent: true,
+                        opacity: 0.55,
+                        transmission: 0.7,        // สัมประสิทธิ์หักเหแสงผ่านเนื้อแก้ว
+                        ior: 1.48,                // ดัชนีความหักเหคริสตัลใส
+                        thickness: 1.2,           // ความหนาผิวขอบแก้ว
+                        envMapIntensity: 2.0,     // ปรับให้สะท้อนแสงไฟโดมขาวจัดจ้ามากยิ่งขึ้น
+                        clearcoat: 1.0,
+                        clearcoatRoughness: 0.02,
                         emissive: parsedColor,
-                        emissiveIntensity: 0.95
+                        emissiveIntensity: 0.15   // ใส่แสงเรืองในตัวเองเพื่อไม่ให้แก้วมืดเวลาฉายกล้องมืดๆ
+                    });
+                    
+                case 'matrix':
+                    // 🕸️ โครงข่ายไซเบอร์เมทริกซ์เรืองแสงขรึม
+                    return new THREE.MeshPhysicalMaterial({
+                        color: parsedColor,
+                        metalness: 0.2,
+                        roughness: 0.2,
+                        wireframe: true,        
+                        emissive: parsedColor,
+                        emissiveIntensity: 1.2
                     });
                     
                 case 'chrome':
-                    // 🪞 3. วัสดุปรอทโครเมียมสะท้อนแสง (Mirror Chrome)
+                    // 🪞 ปรอทโครเมียมสะท้อนภาพคมชัดระดับ HD (Mirror Chrome)
                     return new THREE.MeshPhysicalMaterial({
-                        color: new THREE.Color('#cbd5e1'), // พื้นโครมเทาสะท้อนกระจก
-                        metalness: 1.0,                    // ความเป็นโลหะบริสุทธิ์สูงสุด
-                        roughness: 0.02,                   // ไร้ความสาก ผิวมันเงามือ
+                        color: new THREE.Color('#e2e8f0'), 
+                        metalness: 1.0,                    // ความเป็นโลหะ 100%
+                        roughness: 0.03,                   // ไร้ความสาก ผิวมันวับสูงสุด
+                        envMapIntensity: 3.2,              // ดึงภาพ Window Softbox สตูดิโอมาสะท้อนเงาวับสวยงามมาก
                         clearcoat: 1.0,
-                        clearcoatRoughness: 0.01,
-                        specularIntensity: 2.0
+                        clearcoatRoughness: 0.01
                     });
                     
                 case 'gold':
-                    // 🪙 4. ทองคำสลักสะท้อนแสงพรีเมียม (Polished Cyber Gold)
+                    // 🪙 ปรับปรุงเนื้อทองคำสะท้อนแสง (Cyber Shiny Gold)
                     return new THREE.MeshPhysicalMaterial({
-                        color: new THREE.Color('#eab308'), // สีทองสว่างอบอุ่น
+                        color: new THREE.Color('#ffe066'), // ปรับโทนทองให้สว่างพรีเมียมขึ้น
                         metalness: 0.95,
-                        roughness: 0.12,
-                        clearcoat: 0.9,
+                        roughness: 0.08,
+                        envMapIntensity: 2.8,
+                        clearcoat: 0.8,
                         clearcoatRoughness: 0.05,
                         emissive: new THREE.Color('#ca8a04'),
-                        emissiveIntensity: 0.08
+                        emissiveIntensity: 0.1
                     });
                     
                 default:
-                    // โหมดป้องกันข้อผิดพลาด
                     return new THREE.MeshStandardMaterial({ color: parsedColor });
             }
         }
 
-        // 5. คลาสวัตถุ 3 มิติเชิงฟิสิกส์ ที่รองรับการเปลี่ยนรูปทรงและพื้นผิว
+        // 5. คลาสวัตถุ 3 มิติเชิงฟิสิกส์
         class InteractionShape {
             constructor(position, color, shapeType, matType) {
                 this.shapeType = shapeType;
@@ -560,9 +581,8 @@
                 this.color = color;
                 this.isGrabbed = false;
                 this.releaseCooldown = 0; 
-                this.radius = 1.05; // ขนาดขอบรวมโดยมาตรฐาน
+                this.radius = 1.05; 
 
-                // 📌 คัดเลือกเรขาคณิตสามมิติตามเชพที่ระบุ (Shape Selection Setup)
                 let geometry;
                 switch (shapeType) {
                     case 'cube':
@@ -580,7 +600,6 @@
                         break;
                 }
 
-                // สวมวัสดุแบบพรีเมียมล่าสุด
                 this.material = getPremiumMaterial(matType, color);
 
                 this.mesh = new THREE.Mesh(geometry, this.material);
@@ -588,7 +607,6 @@
                 this.mesh.castShadow = true;
                 this.mesh.receiveShadow = true;
 
-                // อัตราการเคลื่นที่แบบสุ่ม
                 this.velocity = new THREE.Vector3(
                     (Math.random() - 0.5) * 0.08,
                     0,
@@ -609,13 +627,11 @@
                 }
 
                 if (this.isGrabbed) {
-                    // ควงตัวเล่นระหว่างถูกคีบหยิบ
                     this.mesh.rotation.x += 0.012;
                     this.mesh.rotation.y += 0.012;
                     return;
                 }
 
-                // หมุนตัวรอบแกน
                 this.mesh.rotation.x += this.rotSpeed.x;
                 this.mesh.rotation.y += this.rotSpeed.y;
 
@@ -625,7 +641,6 @@
 
                 this.mesh.position.add(this.velocity);
 
-                // คํานวณขนาดกรอบหน้าจออิงตามพิกัดทัศนมิติของตำแหน่ง Z
                 const aspect = window.innerWidth / window.innerHeight;
                 const vFOV = THREE.MathUtils.degToRad(camera.fov);
                 const visibleHeightAtZ = 2 * Math.tan(vFOV / 2) * (camera.position.z - this.mesh.position.z);
@@ -634,7 +649,6 @@
                 const xLimit = visibleWidthAtZ / 2;
                 const yLimit = visibleHeightAtZ / 2;
 
-                // ชนขอบซ้าย-ขวา
                 const bufferX = xLimit - this.radius;
                 if (this.mesh.position.x > bufferX) {
                     this.mesh.position.x = bufferX;
@@ -644,14 +658,12 @@
                     this.velocity.x *= -config.bounciness;
                 }
 
-                // ชนเพดานบนสุด
                 const bufferYTop = yLimit - this.radius;
                 if (this.mesh.position.y > bufferYTop) {
                     this.mesh.position.y = bufferYTop;
                     this.velocity.y *= -config.bounciness;
                 }
 
-                // ชนพื้นสไลด์ล่าง
                 const bufferYBottom = -yLimit + this.radius + bottomOffset;
                 if (this.mesh.position.y < bufferYBottom) {
                     this.mesh.position.y = bufferYBottom;
@@ -659,7 +671,6 @@
                     this.velocity.x *= 0.95; 
                 }
 
-                // ตรวจขอบความลึกแกน Z ลอยตัวไม่ให้หลุดพิกัดไกลเกิน
                 const maxZBoundary = 6.0; 
                 const minZBoundary = -6.0; 
                 if (this.mesh.position.z > maxZBoundary) {
@@ -684,13 +695,11 @@
             }
         }
 
-        // สปอนวัตถุเข้าสู่ห้องแล็บ
         function spawnBall(position, color) {
             const ball = new InteractionShape(position, color, config.activeShape, config.activeMat);
             balls.push(ball);
         }
 
-        // คํานวณแรงปะทะชนกันระหว่างวัตถุพรีเมียม
         function handleBallToBallCollisions() {
             for (let i = 0; i < balls.length; i++) {
                 for (let j = i + 1; j < balls.length; j++) {
@@ -835,7 +844,6 @@
                 
                 const landmarks = results.multiHandLandmarks[0];
                 
-                // คํานวณสแปนมิติความกว้างฝ่ามือสแกนระยะตื้นลึกแกน Z (Depth Estimation)
                 const wrist2D = landmarks[0];
                 const middleMcp2D = landmarks[9];
                 const handSpan2D = Math.hypot(wrist2D.x - middleMcp2D.x, wrist2D.y - middleMcp2D.y);
@@ -861,7 +869,6 @@
                 const pinchDist = thumbTipPos.distanceTo(indexTipPos);
                 const isPinching = pinchDist < (handScale3D * 0.65); 
 
-                // จุดสัมผัสจับอยู่ที่กึ่งกลางปลายนิ้วคีบเท่านั้น
                 activePinchPoint.addVectors(thumbTipPos, indexTipPos).multiplyScalar(0.5);
 
                 handVelocity.subVectors(activePinchPoint, prevHandPos);
@@ -873,8 +880,7 @@
                 if (isPinching) {
                     interactionHalo.material.opacity = 0.85;
                     interactionHalo.scale.set(1.0, 1.0, 1.0);
-                    // เปลี่ยนสีวงแหวนตามสีหลักวัตถุที่ถูกเลือกเพื่อความเป็นเนื้อเดียวกัน
-                    interactionHalo.material.color.set(config.activeColor);
+                    interactionHalo.material.color.set(new THREE.Color(config.activeColor));
 
                     actionStatusDot.className = "w-3.5 h-3.5 rounded-full bg-amber-500 animate-ping";
                     actionStatusText.innerText = `สถานะ: หนีบคีบวัตถุ 3D (Z-Depth: ${estimatedDepthZ.toFixed(1)})`;
@@ -897,7 +903,6 @@
                         if (closestBall && minDistance < (closestBall.radius + grabRange)) {
                             currentlyGrabbedBall = closestBall;
                             currentlyGrabbedBall.isGrabbed = true;
-                            // โหมดไฮไลท์เรืองแสงขึ้นตอนโดนจีบ
                             currentlyGrabbedBall.material.emissiveIntensity = 0.65; 
                         }
                     }
@@ -919,10 +924,9 @@
                         
                         const throwPower = 1.35;
                         currentlyGrabbedBall.velocity.copy(handVelocity).multiplyScalar(throwPower);
-                        // คืนแรงสว่างความเด้งวัสดุเดิม
                         currentlyGrabbedBall.material.emissiveIntensity = currentlyGrabbedBall.matType === 'matrix' ? 0.95 : 0.15;
                         
-                        currentlyGrabbedBall.releaseCooldown = 30; // คูลดาวน์หน่วงป้องกันดีดดูดกลับ
+                        currentlyGrabbedBall.releaseCooldown = 30; 
                         currentlyGrabbedBall = null;
                     }
                 }
@@ -960,7 +964,6 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // คํานวณสเกลพับของบอร์ดเพื่อเป็นพื้นกระดอนชน
             let bottomOffset = 0;
             const bottomPanel = document.getElementById('bottom-settings-panel');
             
@@ -990,7 +993,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // 9. 📌 ฟังก์ชันสลับเข้าสู่โหมด 3D Studio สีขาวสว่างสมจริง (White Studio Light Mode)
+        // 9. ฟังก์ชันสลับเข้าสู่โหมด 3D Studio สีขาวสว่างสมจริง
         function switchViewMode() {
             isVirtualMode = !isVirtualMode;
             const viewIcon = document.getElementById('view-icon');
@@ -998,41 +1001,37 @@
             const toggleViewBtn = document.getElementById('btn-toggle-view');
 
             if (isVirtualMode) {
-                // 🚪 สู่โหมด 3D Studio สีขาวนวลสว่างหรูหราระดับไฮเอนด์
+                // 🚪 สู่โหมด 3D Studio สีขาวนวลสว่างหรูหรา
                 videoElement.classList.add('opacity-0');
                 aoVignette.classList.add('studio-active'); 
                 
-                // ปรับระบบเซ็ตไฟในฉากให้สว่างไสวเหมือนห้องถ่ายสตูดิโอระดับโปร
                 setupLighting(true);
 
-                // หากยังไม่โหลดลวดลายกริดสีขาวนวล ให้สร้างสเกลพื้นผิวสดขึ้นมา
                 if (!backplateGridTexture) {
                     backplateGridTexture = generateStudioGridTexture();
                 }
 
-                // สวมฉากหลังด้วยผิวสะท้อนแสงนุ่มและเงาตกกระทบแบบหินอ่อนขาวขัดเงา
                 backplateMesh.material = new THREE.MeshPhysicalMaterial({
                     map: backplateGridTexture,
-                    roughness: 0.18,
-                    metalness: 0.05,
-                    clearcoat: 0.8,
-                    clearcoatRoughness: 0.05
+                    roughness: 0.22,
+                    metalness: 0.02,
+                    clearcoat: 0.5,
+                    clearcoatRoughness: 0.1
                 });
                 backplateMesh.material.map.repeat.set(4, 4);
                 backplateMesh.material.map.needsUpdate = true;
 
-                // วาดเส้นขอบเรืองแสงกั้นพิกัดตกแบบมินิมอลสีฟ้าสลัว
                 if (!neonBorderLines) {
                     const borderGeo = new THREE.BoxGeometry(22, 13, 0.5);
                     const borderEdge = new THREE.EdgesGeometry(borderGeo);
                     neonBorderLines = new THREE.LineSegments(
                         borderEdge,
-                        new THREE.LineBasicMaterial({ color: 0x94a3b8, linewidth: 2 }) // สี Slate เทาพรีเมียมเข้ากับห้องสว่าง
+                        new THREE.LineBasicMaterial({ color: 0xcbd5e1, linewidth: 2 }) // สี Slate เทาเข้ากับฉากสว่าง
                     );
                     neonBorderLines.position.set(0, 0, 0);
                     scene.add(neonBorderLines);
                 } else {
-                    neonBorderLines.material.color.setHex(0x94a3b8);
+                    neonBorderLines.material.color.setHex(0xcbd5e1);
                     neonBorderLines.visible = true;
                 }
 
@@ -1044,10 +1043,9 @@
                 videoElement.classList.remove('opacity-0');
                 aoVignette.classList.remove('studio-active'); 
                 
-                // สลับไฟฉากหลังให้เหมาะสมกับความทึบแสงในสเตจกล้อง
                 setupLighting(false);
 
-                backplateMesh.material = new THREE.ShadowMaterial({ opacity: 0.45 });
+                backplateMesh.material = new THREE.ShadowMaterial({ opacity: 0.35 });
                 
                 if (neonBorderLines) {
                     neonBorderLines.visible = false;
@@ -1068,7 +1066,6 @@
             const topRightHudGroup = document.getElementById('hud-top-right-group');
             const bottomSettingsPanel = document.getElementById('bottom-settings-panel');
 
-            // ปุ่มซ่อนแสดงเครื่องมือทั้งหมด
             hudToggleBtn.addEventListener('click', () => {
                 isHudVisible = !isHudVisible;
                 
@@ -1090,7 +1087,6 @@
                 lucide.createIcons();
             });
 
-            // พับเก็บตัวตั้งค่าด้านล่าง
             const bottomHeader = document.getElementById('bottom-panel-header');
             const bottomContent = document.getElementById('bottom-panel-content');
             const chevronIcon = document.getElementById('chevron-icon');
@@ -1111,7 +1107,6 @@
                 }
             });
 
-            // 📌 ตัวสวิตเซอร์เลือกรูปทรงเพื่อสร้างตัวใหม่ (Shape Selector Click Event)
             const shapeButtons = document.querySelectorAll('.shape-btn');
             shapeButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -1123,7 +1118,6 @@
                 });
             });
 
-            // 📌 ตัวสวิตเซอร์เลือกประเภทวัสดุ (Material Selector Click Event)
             const matButtons = document.querySelectorAll('.mat-btn');
             matButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -1135,7 +1129,6 @@
                 });
             });
 
-            // สลับโหมดกล้องหน้าหลัง
             document.getElementById('toggle-camera').addEventListener('click', async () => {
                 activeCameraMode = (activeCameraMode === 'user') ? 'environment' : 'user';
                 
@@ -1148,7 +1141,6 @@
                 }, 800);
             });
 
-            // ปุ่มรีเซ็ตวัตถุทั้งหมดสุ่มเชพและสีใหม่
             document.getElementById('reset-balls').addEventListener('click', () => {
                 const colors = ['#00f3ff', '#ff007f', '#ffe600', '#a100ff', '#39ff14'];
                 const shapes = ['sphere', 'cube', 'cylinder', 'cone'];
@@ -1158,7 +1150,6 @@
                 balls = [];
                 currentlyGrabbedBall = null;
 
-                // สุ่มวัตถุหลากหลายรูปทรงขึ้นมาริมหน้าจอแบบเรียงรายสวยงาม
                 const b1 = new InteractionShape(
                     new THREE.Vector3(-2.2, 3.0, 0), 
                     config.activeColor, 
@@ -1175,10 +1166,8 @@
                 balls.push(b1, b2);
             });
 
-            // สลับโหมดกล้องและโหมดสตูดิโอสว่าง
             document.getElementById('btn-toggle-view').addEventListener('click', switchViewMode);
 
-            // ปุ่มเพิ่มและลดวัตถุลูกใหม่
             document.getElementById('btn-add-ball').addEventListener('click', () => {
                 if (balls.length >= 8) return; 
                 const randX = (Math.random() - 0.5) * 4.5;
@@ -1190,7 +1179,6 @@
                 removeLastBall();
             });
 
-            // ปุ่มสลับขั้วเปิด-ปิดแรงโน้มถ่วง
             const gravityBtn = document.getElementById('btn-toggle-gravity');
             gravityBtn.addEventListener('click', () => {
                 config.gravityEnabled = !config.gravityEnabled;
@@ -1204,7 +1192,6 @@
                 }
             });
 
-            // ปรับเปลี่ยนสีตามพาเลทที่เลือก
             const colorButtons = document.querySelectorAll('#color-palette button');
             colorButtons.forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -1219,7 +1206,6 @@
                 });
             });
 
-            // ความยืดหยุ่นของแรงเด้ง
             const bounceSlider = document.getElementById('bounciness');
             bounceSlider.addEventListener('input', (e) => {
                 config.bounciness = e.target.value / 100;
@@ -1232,7 +1218,6 @@
             });
         }
 
-        // เริ่มต้นการรันระบบ
         async function startSystem() {
             progressBar.style.width = '25%';
             
@@ -1281,4 +1266,5 @@
     </script>
 </body>
 </html>
+
 ```
