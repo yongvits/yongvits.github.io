@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GHOST AI STUDIO - Hollywood Ghost Generator</title>
-    <!-- Tailwind CSS for Premium Gothic UI -->
+    <title>GHOST AI STUDIO - Easy Hollywood Ghost Generator</title>
+    <!-- Tailwind CSS for Premium Dark UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -16,7 +16,7 @@
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #030305;
+            background-color: #020204;
             color: #f1f5f9;
         }
         .spooky-title {
@@ -29,7 +29,7 @@
             width: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #08080c;
+            background: #060608;
         }
         ::-webkit-scrollbar-thumb {
             background: #1e1b4b;
@@ -38,294 +38,230 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #6d28d9;
         }
-        /* Custom Pulse glow for processing */
+        /* Pulse glow for AI rendering status */
         @keyframes spooky-glow {
-            0%, 100% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.2); }
-            50% { box-shadow: 0 0 35px rgba(139, 92, 246, 0.5); }
+            0%, 100% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.15); }
+            50% { box-shadow: 0 0 30px rgba(139, 92, 246, 0.4); }
         }
         .ai-processing-glow {
             animation: spooky-glow 2.5s infinite ease-in-out;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between overflow-x-hidden bg-[#030305]">
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden bg-[#020204]">
 
     <!-- HEADER BAR -->
-    <header class="border-b border-purple-950/40 bg-[#06060a] px-6 py-4 flex items-center justify-between z-50">
+    <header class="border-b border-purple-950/40 bg-[#050508]/90 backdrop-blur-md px-6 py-4 flex items-center justify-between z-50 sticky top-0">
         <div class="flex items-center gap-3">
             <span class="text-3xl animate-pulse">🔮</span>
             <div>
-                <h1 class="text-3xl font-bold text-purple-400 spooky-title">GHOST AI STUDIO</h1>
-                <p class="text-xs text-zinc-400 font-medium tracking-wide">Pure Generative AI Ghost Transformer (No Stickers)</p>
+                <h1 class="text-2xl sm:text-3xl font-bold text-purple-400 spooky-title">GHOST AI STUDIO</h1>
+                <p class="text-[10px] sm:text-xs text-zinc-400 font-medium tracking-wide">แปลงโฉมใบหน้าของคุณเป็นภาพผีสมจริงด้วยพลัง Generative AI</p>
             </div>
         </div>
         
         <div class="flex items-center gap-3">
-            <button onclick="toggleAboutModal()" class="px-4 py-2 bg-purple-950/30 hover:bg-purple-900/50 border border-purple-800/50 text-purple-300 rounded-lg text-sm transition flex items-center gap-2">
+            <button onclick="toggleAboutModal()" class="px-3.5 py-2 bg-purple-950/30 hover:bg-purple-900/50 border border-purple-800/50 text-purple-300 rounded-lg text-xs sm:text-sm transition flex items-center gap-2">
                 <i data-lucide="help-circle" class="w-4 h-4"></i>
-                <span>แนะนำวิธีใช้</span>
+                <span>วิธีใช้</span>
             </button>
-            <button id="btn-sound" onclick="toggleSpookySound()" class="p-2.5 bg-zinc-900 hover:bg-purple-900/40 border border-zinc-800 text-purple-400 rounded-lg transition" title="เปิด/ปิด เสียงหลอน">
-                <i id="sound-icon" data-lucide="volume-x" class="w-5 h-5"></i>
+            <button id="btn-sound" onclick="toggleSpookySound()" class="p-2 bg-zinc-900 hover:bg-purple-900/40 border border-zinc-800 text-purple-400 rounded-lg transition text-xs" title="เปิด/ปิด เสียงหลอน">
+                <i id="sound-icon" data-lucide="volume-x" class="w-4.5 h-4.5"></i>
             </button>
         </div>
     </header>
 
     <!-- MAIN APP INTERFACE -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col lg:flex-row gap-6 items-stretch justify-center">
         
-        <!-- COLUMN 1: PORTRAIT INPUT & PRESETS (lg:col-span-4) -->
-        <section class="lg:col-span-4 bg-[#08080d] border border-zinc-900 rounded-2xl p-4 flex flex-col gap-4">
-            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900">
-                <i data-lucide="image" class="text-purple-400 w-5 h-5"></i>
-                <h2 class="font-bold text-zinc-200 tracking-wide">1. ภาพต้นฉบับ (ORIGINAL PHOTO)</h2>
+        <!-- COLUMN 1: PORTRAIT INPUT / YOUR PHOTO (lg:w-1/2) -->
+        <section class="flex-1 bg-[#060609] border border-zinc-900 rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
+            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900 justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="user" class="text-purple-400 w-5 h-5"></i>
+                    <h2 class="font-bold text-zinc-200 tracking-wide">1. รูปของคุณ (BEFORE)</h2>
+                </div>
+                <span class="text-[10px] text-zinc-500 font-mono">STEP 1</span>
             </div>
 
-            <!-- Original Image Display Frame -->
-            <div class="relative aspect-[4/5] bg-black border border-zinc-800/80 rounded-xl overflow-hidden flex items-center justify-center group" id="upload-zone">
-                <img id="input-preview" src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800" class="w-full h-full object-cover transition-all" alt="Input Face">
+            <!-- Original Image Display / Active Camera Frame -->
+            <div class="relative aspect-[4/5] bg-black border border-zinc-900 rounded-xl overflow-hidden flex items-center justify-center group" id="upload-zone">
+                <!-- Fallback Icon Placeholder when empty -->
+                <div id="placeholder-elements" class="absolute flex flex-col items-center justify-center p-6 text-center z-10 pointer-events-none transition-all duration-300">
+                    <div class="w-16 h-16 rounded-full bg-purple-950/20 border border-purple-900/30 flex items-center justify-center mb-3">
+                        <i data-lucide="upload-cloud" class="w-8 h-8 text-purple-400"></i>
+                    </div>
+                    <p class="text-sm text-zinc-300 font-bold mb-1">เปิดกล้องถ่ายภาพ หรืออัปโหลดรูปถ่าย</p>
+                    <p class="text-xs text-zinc-500 max-w-xs">ลากและวางไฟล์รูปภาพลงในบริเวณนี้ หรือกดเลือกปุ่มคำสั่งด้านล่าง</p>
+                </div>
+
+                <!-- Input Image Display -->
+                <img id="input-preview" class="w-full h-full object-cover transition-all hidden" alt="Input User Face">
                 
-                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4 text-center pointer-events-none">
-                    <i data-lucide="upload-cloud" class="w-10 h-10 text-purple-400 mb-2"></i>
-                    <p class="text-xs text-zinc-300 font-semibold">ลากรูปภาพใบหน้ามาวางตรงนี้</p>
-                    <p class="text-[10px] text-zinc-500 mt-1">หรือใช้วิธีเปลี่ยนโมเดลด้านล่าง</p>
-                </div>
-
-                <!-- Small Tag -->
-                <div class="absolute bottom-3 left-3 px-2.5 py-1 bg-black/80 border border-zinc-800 rounded-md text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
-                    ก่อนแปลงร่าง (Before)
-                </div>
+                <!-- Live Webcam Stream -->
+                <video id="webcam" autoplay playsinline class="hidden w-full h-full object-cover transform scale-x-[-1] absolute inset-0"></video>
             </div>
 
-            <!-- Actions Panel for Input -->
-            <div class="grid grid-cols-2 gap-2">
-                <button onclick="triggerImageUpload()" class="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-300 rounded-xl transition flex items-center justify-center gap-1.5">
-                    <i data-lucide="upload" class="w-4 h-4 text-purple-400"></i>
-                    <span>อัปโหลดภาพตนเอง</span>
+            <!-- Main controls directly linked to capturing/loading -->
+            <div class="grid grid-cols-2 gap-3 mt-auto">
+                <button onclick="useWebcam()" id="btn-webcam" class="py-3 px-4 bg-zinc-900 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-800/40 text-xs font-bold text-zinc-300 hover:text-purple-300 rounded-xl transition flex items-center justify-center gap-2 shadow-md">
+                    <i data-lucide="camera" class="w-4.5 h-4.5 text-purple-400"></i>
+                    <span id="camera-btn-text">เปิดกล้องจริง</span>
                 </button>
-                <button onclick="useWebcam()" class="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-semibold text-zinc-300 rounded-xl transition flex items-center justify-center gap-1.5">
-                    <i data-lucide="camera" class="w-4 h-4 text-purple-400"></i>
-                    <span id="camera-btn-text">เปิดกล้องถ่ายหน้า</span>
+                <button onclick="triggerImageUpload()" class="py-3 px-4 bg-zinc-900 hover:bg-purple-950/20 border border-zinc-800 hover:border-purple-800/40 text-xs font-bold text-zinc-300 hover:text-purple-300 rounded-xl transition flex items-center justify-center gap-2 shadow-md">
+                    <i data-lucide="image-plus" class="w-4.5 h-4.5 text-purple-400"></i>
+                    <span>อัปโหลดรูปถ่าย</span>
                 </button>
             </div>
             
             <input type="file" id="image-loader" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
-            <video id="webcam" autoplay playsinline class="hidden"></video>
-
-            <!-- PRESET PORTRAITS (To run instant transformation) -->
-            <div class="space-y-2 border-t border-zinc-900 pt-3 mt-auto">
-                <span class="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block">ใบหน้าทดสอบ (Portrait Presets)</span>
-                <div class="grid grid-cols-4 gap-2">
-                    <div onclick="selectPreset('asian-girl', this)" class="preset-card border-2 border-purple-500 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
-                        <img src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 1">
-                    </div>
-                    <div onclick="selectPreset('mysterious-guy', this)" class="preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
-                        <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 2">
-                    </div>
-                    <div onclick="selectPreset('gothic-queen', this)" class="preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
-                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 3">
-                    </div>
-                    <div onclick="selectPreset('cute-boy', this)" class="preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all">
-                        <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150" class="w-full h-11 object-cover" alt="Preset 4">
-                    </div>
-                </div>
-            </div>
         </section>
 
-        <!-- COLUMN 2: REAL-TIME AI RESULT (lg:col-span-5) -->
-        <section class="lg:col-span-5 flex flex-col gap-4">
+        <!-- COLUMN 2: PARAMETERS & AI RESULTS MERGED (lg:w-1/2) -->
+        <section class="flex-1 bg-[#060609] border border-zinc-900 rounded-2xl p-5 flex flex-col gap-4 shadow-xl">
             <div class="flex items-center gap-2 pb-2 border-b border-zinc-900 justify-between">
                 <div class="flex items-center gap-2">
                     <i data-lucide="sparkles" class="text-purple-400 w-5 h-5"></i>
-                    <h2 class="font-bold text-zinc-200 tracking-wide">2. ภาพแปลงกายโดย AI (AI TRANSFORMATION)</h2>
+                    <h2 class="font-bold text-zinc-200 tracking-wide">2. ปรับความสยอง & แปลงรูป (AFTER)</h2>
                 </div>
-                <div class="bg-purple-950/40 text-purple-300 border border-purple-800/40 text-[10px] px-2 py-0.5 rounded-full font-semibold animate-pulse">
-                    Realistic Generative
+                <span class="text-[10px] text-zinc-500 font-mono">STEP 2</span>
+            </div>
+
+            <!-- Eerie Config Panels -->
+            <div class="grid grid-cols-2 gap-3 bg-zinc-950/40 p-3.5 rounded-xl border border-zinc-900">
+                <!-- Archetype Selection -->
+                <div>
+                    <label class="block text-[10px] font-bold text-zinc-500 mb-1.5 uppercase tracking-wide">ประเภทวิญญาณ</label>
+                    <select id="ghost-archetype" class="w-full bg-black border border-zinc-850 rounded-lg px-2 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-purple-500">
+                        <option value="vengeful-onryo" selected>ผีคายาโกะ (Onryo)</option>
+                        <option value="gothic-vampire">แวมไพร์ (Vampire)</option>
+                        <option value="decayed-corpse">ซอมบี้ผิวเน่า (Zombie)</option>
+                        <option value="ancient-demon">ปีศาจอเวจี (Demon)</option>
+                        <option value="spectral-phantom">ผีโปร่งแสง (Phantom)</option>
+                    </select>
+                </div>
+
+                <!-- Film Visual style selector -->
+                <div>
+                    <label class="block text-[10px] font-bold text-zinc-500 mb-1.5 uppercase tracking-wide">โทนกล้อง/สไตล์ฟิล์ม</label>
+                    <select id="film-style" class="w-full bg-black border border-zinc-850 rounded-lg px-2 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-purple-500">
+                        <option value="hollywood-35mm" selected>กล้องหนัง 35มม.</option>
+                        <option value="found-footage">กล้องวงจรปิดร้าง</option>
+                        <option value="vintage-polaroid">ภาพโพลารอยด์ยุคเก่า</option>
+                        <option value="creepypasta">สตอรี่สยอง Creepypasta</option>
+                    </select>
+                </div>
+
+                <!-- Horror Intensity Multiplier Slider -->
+                <div class="col-span-2 border-t border-zinc-900/60 pt-3 mt-1">
+                    <div class="flex justify-between text-[11px] font-semibold text-zinc-400 mb-1.5">
+                        <span class="flex items-center gap-1">
+                            <i data-lucide="skull" class="w-3.5 h-3.5 text-red-500"></i>
+                            ระดับความสยองขวัญ (Horror Level)
+                        </span>
+                        <span class="text-purple-400 font-bold" id="lbl-intensity">65%</span>
+                    </div>
+                    <input type="range" id="horror-intensity" min="15" max="100" value="65" oninput="updateIntensityLabel()" class="w-full accent-purple-500 bg-black h-1.5 rounded-lg appearance-none cursor-pointer">
                 </div>
             </div>
 
-            <!-- AI Render Output Window -->
-            <div class="relative aspect-[4/5] bg-black border-2 border-purple-950 rounded-2xl overflow-hidden flex items-center justify-center shadow-2xl ai-processing-glow" id="output-viewport">
-                <!-- Glitch noise layer for eerie feeling -->
-                <div class="absolute inset-0 pointer-events-none bg-transparent opacity-[0.06] z-10" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;100&quot; height=&quot;100&quot; viewBox=&quot;0 0 100 100&quot;><filter id=&quot;noise&quot;><feTurbulence type=&quot;fractalNoise&quot; baseFrequency=&quot;0.9&quot; numOctaves=&quot;3&quot; stitchTiles=&quot;stitch&quot;/></filter><rect width=&quot;100&quot; height=&quot;100&quot; filter=&quot;url(%23noise)&quot;/></svg>');"></div>
-                
-                <!-- CCTV scanning line -->
-                <div class="absolute top-0 left-0 right-0 h-0.5 bg-purple-500/10 shadow-[0_0_10px_rgba(168,85,247,0.4)] pointer-events-none z-15 animate-pulse" style="animation-duration: 4s;"></div>
+            <!-- RESULT VIEWPORT -->
+            <div class="relative aspect-[4/5] bg-black border-2 border-purple-950/80 rounded-xl overflow-hidden flex items-center justify-center ai-processing-glow" id="output-viewport">
+                <!-- CCTV scanning visual line overlay -->
+                <div class="absolute top-0 left-0 right-0 h-[1px] bg-purple-500/10 shadow-[0_0_8px_rgba(168,85,247,0.3)] pointer-events-none z-10 animate-pulse" style="animation-duration: 3s;"></div>
 
-                <!-- Final Output Ghost Image -->
-                <img id="output-image" src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800" class="w-full h-full object-cover transition-all" alt="AI Ghost Output" style="filter: brightness(80%) saturate(20%) hue-rotate(180deg) contrast(120%);">
+                <!-- AI output img tag (initialized with spooky placeholder until run) -->
+                <img id="output-image" src="https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800" class="w-full h-full object-cover opacity-30 transition-all duration-300" alt="AI Spooky Output">
 
-                <!-- Tag -->
-                <div class="absolute bottom-3 right-3 px-2.5 py-1 bg-purple-950/90 border border-purple-500/40 rounded-md text-[10px] font-mono text-purple-300 uppercase tracking-widest z-20">
-                    หลังแปลงร่าง (After)
+                <!-- Helper tip on display when no output yet -->
+                <div id="result-overlay-tip" class="absolute flex flex-col items-center justify-center p-4 text-center z-10 pointer-events-none">
+                    <p class="text-xs text-purple-300 font-mono uppercase tracking-widest bg-purple-950/40 px-3 py-1 border border-purple-900/30 rounded-full">พร้อมอัญเชิญผี</p>
                 </div>
 
-                <!-- AI RENDER LOADING SCREEN -->
+                <!-- LOADING SPINNER (Shows only when AI generating) -->
                 <div id="ai-loading" class="absolute inset-0 bg-black/95 z-40 hidden flex-col items-center justify-center p-6 text-center">
-                    <div class="relative w-28 h-28 mb-6">
-                        <!-- Outer rotating eerie portal -->
-                        <div class="absolute inset-0 rounded-full border-4 border-dashed border-purple-800/60 animate-spin" style="animation-duration: 12s;"></div>
-                        <!-- Inner spinning magical orb -->
-                        <div class="absolute inset-2 rounded-full border-4 border-t-purple-400 border-r-transparent animate-spin"></div>
-                        <div class="absolute inset-4 rounded-full border border-zinc-800 animate-ping" style="animation-duration: 2s;"></div>
-                        <!-- Floating spooky entity -->
-                        <div class="absolute inset-0 flex items-center justify-center text-4xl animate-bounce" style="animation-duration: 3s;">🧛</div>
+                    <div class="relative w-24 h-24 mb-5">
+                        <div class="absolute inset-0 rounded-full border-4 border-dashed border-purple-900/40 animate-spin" style="animation-duration: 15s;"></div>
+                        <div class="absolute inset-2 rounded-full border-4 border-t-purple-500 border-r-transparent animate-spin"></div>
+                        <div class="absolute inset-4 rounded-full border border-zinc-800 animate-ping"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-3xl">🧛</div>
                     </div>
                     
-                    <h3 class="text-xl font-bold text-purple-400 spooky-title tracking-widest animate-pulse" id="loading-title">SUMMONING GHOST AI</h3>
-                    <p class="text-xs text-zinc-400 mt-2 max-w-sm font-medium" id="loading-subtitle">กำลังปรับปรุงโครงสร้างใบหน้าตามข้อมูลสยองขวัญ...</p>
+                    <h3 class="text-lg font-bold text-purple-400 spooky-title tracking-widest animate-pulse" id="loading-title">SUMMONING GHOST AI</h3>
+                    <p class="text-xs text-zinc-500 mt-1 max-w-xs font-medium" id="loading-subtitle">กำลังชโลมสารเคมีขจัดเลือดเนื้อปรับปรุงใบหน้า...</p>
                     
-                    <!-- Dynamic Spooky Tip of the Day -->
-                    <div class="mt-6 px-4 py-2.5 bg-zinc-950 border border-purple-950 rounded-xl text-[11px] text-purple-300 font-mono tracking-wide" id="spooky-tips">
-                        "กำลังชโลมสารเคมีขจัดเลือดเนื้อและผิวหนัง..."
+                    <div class="mt-5 px-3.5 py-2 bg-zinc-950 border border-purple-950 rounded-lg text-[10px] text-purple-400 font-mono tracking-wide" id="spooky-tips">
+                        "กำลังสวดคาถาปลุกวิญญาณ Gemini AI..."
                     </div>
                 </div>
             </div>
 
-            <!-- Action buttons below viewport -->
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="downloadMasterpiece()" class="py-3 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white rounded-xl transition flex items-center justify-center gap-2 shadow-md">
-                    <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
-                    <span>บันทึกรูปผลงาน (Download)</span>
+            <!-- CORE CTA BUTTON: GENERATE -->
+            <div class="grid grid-cols-3 gap-3">
+                <button onclick="summonSpookyAI()" class="col-span-2 relative group bg-gradient-to-r from-purple-700 to-fuchsia-800 hover:from-purple-600 hover:to-fuchsia-700 border-2 border-purple-400/30 text-white font-bold py-3.5 px-4 rounded-xl text-xs sm:text-sm tracking-wider uppercase transition shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2 overflow-hidden">
+                    <span class="absolute inset-0 w-full h-full bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition duration-500"></span>
+                    <i data-lucide="wand2" class="w-4 h-4 animate-pulse text-purple-200"></i>
+                    <span>แปลงโฉมเป็นผี!</span>
                 </button>
-                <button onclick="resetAIStudio()" class="py-3 px-4 bg-zinc-900 hover:bg-red-950/20 border border-zinc-900 hover:border-red-900/30 text-xs font-bold text-zinc-400 hover:text-red-400 rounded-xl transition flex items-center justify-center gap-2">
-                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                    <span>เริ่มต้นแต่งใหม่</span>
+                <button onclick="downloadMasterpiece()" class="py-3.5 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold text-zinc-300 hover:text-white rounded-xl transition flex items-center justify-center gap-1.5 shadow-md" title="ดาวน์โหลดภาพถ่ายผี">
+                    <i data-lucide="download" class="w-5 h-5 text-emerald-400"></i>
+                    <span class="hidden sm:inline">บันทึกรูป</span>
                 </button>
             </div>
-        </section>
-
-        <!-- COLUMN 3: AI PARAMETERS & STYLES (lg:col-span-3) -->
-        <section class="lg:col-span-3 bg-[#08080d] border border-zinc-900 rounded-2xl p-4 flex flex-col gap-4">
-            <div class="flex items-center gap-2 pb-2 border-b border-zinc-900">
-                <i data-lucide="sliders" class="text-purple-400 w-5 h-5"></i>
-                <h2 class="font-bold text-zinc-200 tracking-wide">3. ตั้งค่าวิญญาณ (AI SETTINGS)</h2>
-            </div>
-
-            <div class="space-y-4 flex-1 overflow-y-auto max-h-[450px] pr-1">
-                <!-- Ghost Type Selector -->
-                <div>
-                    <label class="block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wide">ประเภทผีต้นแบบ (Ghost Archetype)</label>
-                    <select id="ghost-archetype" onchange="updatePromptPreview()" class="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2.5 text-xs font-medium text-zinc-200 focus:outline-none focus:border-purple-500">
-                        <option value="vengeful-onryo" selected>ผีคายาโกะอาฆาต (Vengeful Onryo)</option>
-                        <option value="gothic-vampire">แวมไพร์ยุคโกธิก (Gothic Vampire)</option>
-                        <option value="decayed-corpse">ซากศพเน่าเปื่อย (Decayed Zombie)</option>
-                        <option value="ancient-demon">ปีศาจอเวจีโบราณ (Ancient Pit Demon)</option>
-                        <option value="spectral-phantom">วิญญาณโปร่งใสลอยคว้าง (Spectral Phantom)</option>
-                    </select>
-                </div>
-
-                <!-- Cinematic Horror Filter style -->
-                <div>
-                    <label class="block text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wide">สไตล์ภาพยนตร์ (Visual Film Style)</label>
-                    <select id="film-style" onchange="updatePromptPreview()" class="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2.5 text-xs font-medium text-zinc-200 focus:outline-none focus:border-purple-500">
-                        <option value="found-footage"> Found Footage (CCTV เกลนสั่นไหว)</option>
-                        <option value="hollywood-35mm" selected> Hollywood Cinematic (ฟิล์ม 35 มม.)</option>
-                        <option value="vintage-polaroid"> Vintage Polaroid (ภาพถ่ายผียุค 1970)</option>
-                        <option value="creepypasta"> Creepypasta Web (ความสยองเว็บบอร์ด)</option>
-                    </select>
-                </div>
-
-                <!-- Sliders directly modulating the Prompt -->
-                <div class="space-y-3.5 border-t border-zinc-900 pt-3">
-                    <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">ความหนาแน่นมวลวิญญาณ (Fleshy Details)</span>
-                    
-                    <!-- Skin Pallor -->
-                    <div>
-                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
-                            <span>ความขาวซีดผิวหนัง (Skin Pallor)</span>
-                            <span class="text-purple-400 font-bold" id="lbl-pale">80%</span>
-                        </div>
-                        <input type="range" id="param-pale" min="10" max="100" value="80" oninput="updateParamValue('pale')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
-                    </div>
-
-                    <!-- Eye Hollows -->
-                    <div>
-                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
-                            <span>รอยคล้ำเบ้าตา (Corpse Eye Hollows)</span>
-                            <span class="text-purple-400 font-bold" id="lbl-eyes">75%</span>
-                        </div>
-                        <input type="range" id="param-eyes" min="10" max="100" value="75" oninput="updateParamValue('eyes')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
-                    </div>
-
-                    <!-- Blood Intensity -->
-                    <div>
-                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
-                            <span>บาดแผลเหวอะ/เลือด (Flesh Decay & Blood)</span>
-                            <span class="text-purple-400 font-bold" id="lbl-blood">60%</span>
-                        </div>
-                        <input type="range" id="param-blood" min="0" max="100" value="60" oninput="updateParamValue('blood')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
-                    </div>
-
-                    <!-- Supernatural Glow -->
-                    <div>
-                        <div class="flex justify-between text-xs text-zinc-400 mb-1">
-                            <span>ดวงตาเรืองแสงหลอน (Supernatural Glow)</span>
-                            <span class="text-purple-400 font-bold" id="lbl-glow">50%</span>
-                        </div>
-                        <input type="range" id="param-glow" min="0" max="100" value="50" oninput="updateParamValue('glow')" class="w-full accent-purple-500 bg-zinc-950 h-1 rounded-lg appearance-none cursor-pointer">
-                    </div>
-                </div>
-
-                <!-- Real-time Live Prompt preview (Tells user what AI gets) -->
-                <div class="border-t border-zinc-900 pt-3 space-y-1">
-                    <span class="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">คำสั่งคาถา AI (Current Prompt)</span>
-                    <div class="bg-black/90 p-2.5 rounded-xl border border-purple-950/30 text-[10px] font-mono text-zinc-400 leading-relaxed max-h-[85px] overflow-y-auto" id="prompt-preview">
-                        Loading spell...
-                    </div>
-                </div>
-            </div>
-
-            <!-- MAGIC TRIGGER BUTTON -->
-            <button onclick="summonSpookyAI()" class="relative group mt-auto bg-gradient-to-r from-purple-700 to-fuchsia-800 hover:from-purple-600 hover:to-fuchsia-700 border border-purple-400/40 text-white font-bold py-3 px-4 rounded-xl text-xs transition shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2 overflow-hidden">
-                <span class="absolute inset-0 w-full h-full bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition duration-500"></span>
-                <i data-lucide="wand2" class="w-4 h-4 animate-pulse text-purple-200"></i>
-                <span class="tracking-widest uppercase">ส่ง AI แปลงโฉมสยอง!</span>
-            </button>
         </section>
 
     </main>
 
-    <!-- ABOUT MODAL -->
+    <!-- FOOTER INFO -->
+    <footer class="border-t border-zinc-950 bg-[#020204] px-6 py-3 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-600 gap-2">
+        <p>Works best on front camera & photo uploads (WebGL & Generative AI Active)</p>
+        <p class="flex items-center gap-1">
+            <span>Powered by Gemini 2.5 Flash</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+            <span class="text-[10px] uppercase font-bold text-emerald-500 tracking-wider">Connected</span>
+        </p>
+    </footer>
+
+    <!-- ABOUT / HELP MODAL -->
     <div id="about-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4">
-        <div class="bg-[#0b0b12] border border-purple-950/80 max-w-md w-full rounded-2xl p-6 relative shadow-2xl">
+        <div class="bg-[#09090f] border border-purple-950/80 max-w-md w-full rounded-2xl p-6 relative shadow-2xl">
             <button onclick="toggleAboutModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white transition">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
-            <h3 class="text-2xl font-bold text-purple-400 spooky-title mb-4">🔮 แนะนำวิธีใช้งาน AI GHOST STUDIO</h3>
+            <h3 class="text-2xl font-bold text-purple-400 spooky-title mb-4">🔮 วิธีใช้ AI GHOST STUDIO</h3>
             
             <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
-                <div class="bg-purple-950/40 p-3 rounded-lg border border-purple-500/20 text-xs text-purple-200">
-                    <span class="font-bold">🌌 ปฏิวัติสู่ระบบ Generative ปัญญาประดิษฐ์แท้:</span>
-                    ตัดระบบสติกเกอร์การ์ตูนราคาถูกออกทั้งหมด! ระบบใหม่จะนำสัดส่วนโครงหน้าของคุณ ผสมกับพารามิเตอร์ที่คุณสไลด์ปรับแต่ง ส่งไปประมวลผลวาดใหม่ผ่านโมเดล <strong>Gemini 2.5 Flash Image Model</strong> เพื่อให้ผลลัพธ์เนียนกลืนกับแสงเงาอย่างสมจริงที่สุด
+                <div class="bg-purple-950/30 p-3.5 rounded-lg border border-purple-500/20 text-xs text-purple-200">
+                    <span class="font-bold">✨ ระบบแปลงรูปภาพเสมือนจริง:</span>
+                    แค่คุณอัปโหลดหรือเปิดกล้องหน้าของคุณ แล้วกดปุ่ม <strong>"แปลงโฉมเป็นผี!"</strong> ระบบจะทำการแคปเจอร์รูปถ่ายใบหน้าของคุณแล้วให้ AI วาดแต่งแผล แสงเงา ขอบตาดำ คราบเลือดอย่างแนบเนียนไปกับผิวจริงอย่างมหัศจรรย์
                 </div>
 
                 <div class="flex items-start gap-3">
                     <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">1</div>
-                    <p>เลือกใบหน้าโมเดลทดสอบด้านซ้าย หรือกด <strong>"อัปโหลดภาพตนเอง"</strong> / <strong>"เปิดกล้อง"</strong></p>
+                    <p>กดปุ่ม <strong>"เปิดกล้องจริง"</strong> เพื่อถ่ายสตรีมสด หรือกด <strong>"อัปโหลดรูปถ่าย"</strong> เพื่อเลือกภาพถ่ายตัวเองในมือถือ</p>
                 </div>
                 <div class="flex items-start gap-3">
                     <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">2</div>
-                    <p>เลือกประเภทผี และสไตล์มู้ดกล้องฟิล์มสยองขวัญที่ชอบทางด้านขวา</p>
+                    <p>เลือกประเภทผี (เช่น ผีคายาโกะ, แวมไพร์) และสไตล์ฟิล์มสยองขวัญที่ชอบ</p>
                 </div>
                 <div class="flex items-start gap-3">
                     <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">3</div>
-                    <p>เลื่อนสไลเดอร์เพื่อเลือกความสยดสยอง เช่น ปริมาณคราบเลือด แผลเน่า หรือความลึกเบ้าตา</p>
+                    <p>ปรับความหลอนสยดสยองโดยใช้แถบเลื่อน <strong>ระดับความสยองขวัญ</strong></p>
                 </div>
                 <div class="flex items-start gap-3">
                     <div class="w-6 h-6 rounded bg-purple-900/40 flex items-center justify-center text-xs text-purple-300 shrink-0 font-bold">4</div>
-                    <p class="font-semibold text-purple-300">คลิกปุ่ม "ส่ง AI แปลงโฉมสยอง!" เพื่อให้โมเดล AI ของ Google ประมวลผลและวาดหน้าผีที่เหมือนจริงให้คุณทันที!</p>
+                    <p class="font-semibold text-purple-300">คลิกปุ่ม "แปลงโฉมเป็นผี!" จากนั้นรอ AI ร่ายมนต์วิเศษวาดความสยองลงบนหน้าจริงของคุณทันที!</p>
                 </div>
             </div>
 
             <button onclick="toggleAboutModal()" class="mt-6 w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition text-sm">
-                เข้าสู่ดินแดนสยองขวัญ!
+                เข้าสู่สุสาน AI!
             </button>
         </div>
     </div>
 
     <script>
-        // Initiate Lucide Icons
+        // Initialize Lucide Icons
         lucide.createIcons();
 
         // Application State
@@ -334,18 +270,56 @@
         let streamObj = null;
         const apiKey = ""; // Runtime automatically binds this in execution environment
 
-        // Audio Synthesis Context for Ambient Sound
+        // Audio Synthesis Context
         let audioCtx = null;
         let windNoiseNode = null;
         let lfoNode = null;
 
-        // Face Preset Portrait Photos
-        const portraitPresets = {
-            'asian-girl': 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800',
-            'mysterious-guy': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800',
-            'gothic-queen': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800',
-            'cute-boy': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800'
-        };
+        // Update Slider value display label
+        function updateIntensityLabel() {
+            const val = document.getElementById('horror-intensity').value;
+            document.getElementById('lbl-intensity').innerText = `${val}%`;
+        }
+
+        // --- DYNAMIC PROMPT BUILDER FOR GEMINI ---
+        function buildGhostPrompt() {
+            const archetype = document.getElementById('ghost-archetype').value;
+            const style = document.getElementById('film-style').value;
+            const intensity = parseInt(document.getElementById('horror-intensity').value);
+
+            // 1. Ghost Archetype Mapping
+            let archetypeText = "a terrifying movie ghost";
+            if (archetype === 'vengeful-onryo') {
+                archetypeText = "a vengeful Japanese Onryo spirit, long messy dripping wet black hair covering parts of the face, haunting black eyes";
+            } else if (archetype === 'gothic-vampire') {
+                archetypeText = "a pale gothic Victorian vampire with long dark hair, visible sharp fangs, red bloody dripping lips, and intense gaze";
+            } else if (archetype === 'decayed-corpse') {
+                archetypeText = "a horrific decomposed zombie corpse, rotting greenish-grey skin, exposed flesh and necrotic decay texture";
+            } else if (archetype === 'ancient-demon') {
+                archetypeText = "an ancient dark demon from hell, glowing lava veins, red skin tone, and charcoal lines covering parts of the forehead";
+            } else if (archetype === 'spectral-phantom') {
+                archetypeText = "a haunting misty spectral phantom ghost, glowing supernatural white aura, transparent vapor surrounding the face";
+            }
+
+            // 2. Cinematic Film Style
+            let styleText = "cinematic photorealistic";
+            if (style === 'hollywood-35mm') {
+                styleText = "captured on cinematic 35mm horror film, professional Hollywood special effects makeup, low-key dramatic shadows, high contrast";
+            } else if (style === 'found-footage') {
+                styleText = "captured on old CCTV found footage security camera, heavy static noise, green analog scanlines, digital glitch artifacts";
+            } else if (style === 'vintage-polaroid') {
+                styleText = "old 1970s paranormal evidence polaroid photo, yellowish faded colors, camera flash glare, dust and scratches";
+            } else if (style === 'creepypasta') {
+                styleText = "digital portrait of a creepypasta urban legend ghost, dark vignettes, spooky internet folklore aesthetic";
+            }
+
+            // Assemble modifiers based on intensity
+            let paleModifier = intensity > 50 ? "extremely dead pale white-greyish skin" : "pale skin";
+            let eyeModifier = intensity > 40 ? `deep hollow sunken eye-sockets with realistic dark bruising (intensity: ${intensity}/100)` : "sunken eyes";
+            let bloodModifier = intensity > 25 ? `, dripping dark blood cuts and gashes (intensity: ${intensity}/100)` : "";
+            
+            return `Transform the person in this photo into ${archetypeText}. Face features ${paleModifier}, ${eyeModifier}${bloodModifier}. The visual style must be ${styleText}. Render with high-realism, photorealistic horror textures, cinematic eerie shadows. Crucial: Maintain the basic underlying face shape, structural layout, and recognizable identity of the person so they can still recognize themselves, but professionally styled like a Hollywood horror movie. Return only the final horror output image.`;
+        }
 
         // --- EXPONENTIAL BACKOFF FOR GEMINI API ---
         async function fetchGeminiWithRetry(url, payload, retries = 5, delay = 1000) {
@@ -358,109 +332,54 @@
                     });
                     if (res.ok) return await res.json();
                 } catch (e) {
-                    console.warn(`Retrying API call in ${delay}ms...`);
+                    console.warn(`Retrying AI service call in ${delay}ms...`);
                 }
                 await new Promise(resolve => setTimeout(resolve, delay));
                 delay *= 2;
             }
-            throw new Error("Unable to connect to Gemini AI services after retries.");
+            throw new Error("Unable to summon the AI ghost. Retries depleted.");
         }
 
-        // --- DYNAMIC PROMPT BUILDER ---
-        function buildHorrorPrompt() {
-            const archetype = document.getElementById('ghost-archetype').value;
-            const style = document.getElementById('film-style').value;
-            
-            const paleVal = document.getElementById('param-pale').value;
-            const eyesVal = document.getElementById('param-eyes').value;
-            const bloodVal = document.getElementById('param-blood').value;
-            const glowVal = document.getElementById('param-glow').value;
-
-            // 1. Archetype description
-            let archetypeText = "";
-            if (archetype === 'vengeful-onryo') {
-                archetypeText = "a terrifying Japanese Onryo ghost, long messy dripping wet black hair draping over the face";
-            } else if (archetype === 'gothic-vampire') {
-                archetypeText = "a pale gothic Victorian vampire with long dark hair, visible sharp fangs, and subtle dark shadows";
-            } else if (archetype === 'decayed-corpse') {
-                archetypeText = "a horrific decomposed zombie corpse, rotting green-grey necrotic flesh, with exposed muscle and severe skin deterioration";
-            } else if (archetype === 'ancient-demon') {
-                archetypeText = "an ancient dark demon from the abyss, crimson skin, charcoal veins popping, and jagged demonic runes marked on the face";
-            } else if (archetype === 'spectral-phantom') {
-                archetypeText = "a hauntingly beautiful floating transparent spectral phantom ghost, misty outline, and an eerie supernatural presence";
-            }
-
-            // 2. Camera & Style
-            let styleText = "";
-            if (style === 'found-footage') {
-                styleText = "captured on an eerie security CCTV camera, low quality security footage style, green scanlines, high noise and camera static, extreme digital glitch artifacts";
-            } else if (style === 'hollywood-35mm') {
-                styleText = "shot on cinematic 35mm horror film, low key dramatic studio lighting, deep cinematic dark shadows, high-contrast, professional hollywood makeup effects realism";
-            } else if (style === 'vintage-polaroid') {
-                styleText = "captured on a 1970s vintage polaroid ghost photo, grainy texture, yellowish faded dye colors, dramatic flash glare, realistic creepy paranormal evidence styling";
-            } else if (style === 'creepypasta') {
-                styleText = "digital portrait of a creepypasta urban legend ghost, haunting internet forum styling, dark vignette, spooky internet folklore aesthetic";
-            }
-
-            // 3. Modulators
-            let modifiers = `The face must feature extremely pale greyish skin (intensity: ${paleVal}/100), deep hollow sunken eye-sockets with realistic dark bruising (intensity: ${eyesVal}/100)`;
-            
-            if (parseInt(bloodVal) > 10) {
-                modifiers += `, realistic dripping dark coagulated red blood and jagged flesh cuts (intensity: ${bloodVal}/100)`;
-            }
-            if (parseInt(glowVal) > 10) {
-                modifiers += `, supernatural glowing fire eyes (intensity: ${glowVal}/100)`;
-            }
-
-            // Assemble
-            return `Transform the person in this photo into ${archetypeText}. ${modifiers}. The image style should be ${styleText}. Eerie, terrifying, photorealistic horror detail. Ensure the underlying basic facial structure and gender of the original person remains recognizable so the user can see it is still them, but heavily customized with this special effects horror makeup. Return only the output horror image.`;
-        }
-
-        function updatePromptPreview() {
-            const prompt = buildHorrorPrompt();
-            document.getElementById('prompt-preview').innerText = prompt;
-        }
-
-        function updateParamValue(paramId) {
-            const val = document.getElementById(`param-${paramId}`).value;
-            let suffix = "%";
-            if (paramId === 'pale' || paramId === 'eyes') suffix = "% intensity";
-            document.getElementById(`lbl-${paramId}`).innerText = val + suffix;
-            updatePromptPreview();
-        }
-
-        // --- SUMMON GHOST PROCESSOR ---
+        // --- SUMMON GHOST AI ---
         async function summonSpookyAI() {
-            // Pre-process checking
+            // Check if there is an image to transform
+            const inputPreview = document.getElementById('input-preview');
+            const placeholder = document.getElementById('placeholder-elements');
+
+            if (!isWebcamOn && (inputPreview.classList.contains('hidden') || !inputPreview.src)) {
+                showCustomNotification("กรุณาเปิดกล้อง หรืออัปโหลดรูปพอร์ตเทรตของคุณก่อนกดเจนผี!");
+                return;
+            }
+
             const loadingOverlay = document.getElementById('ai-loading');
             const loadingTitle = document.getElementById('loading-title');
             const loadingSubtitle = document.getElementById('loading-subtitle');
             const progressTips = document.getElementById('spooky-tips');
 
             loadingTitle.innerText = "SUMMONING GHOST AI";
-            loadingSubtitle.innerText = "กำลังประมวลผลสัดส่วนใบหน้าเพื่อวาดมวลสยองขวัญ...";
+            loadingSubtitle.innerText = "กำลังเชื่อมประตูมิติมวลวิญญาณประมวลผลใบหน้า...";
             loadingOverlay.classList.remove('hidden');
 
             playSpookyWhisper();
 
-            const incantations = [
-                "กำลังลอกชั้นผิวเพื่อชโลมสีขาวซีดสุสาน...",
-                "กำลังบีบเค้นเบ้าตาให้กลวงมืดกระตุกขวัญ...",
-                "กำลังประเมินรอยแผลและคราบเลือดสด...",
-                "กำลังปรับมุมกล้องสแกนไลน์ฟิล์ม 35 มม...",
-                "กราบเซ่นไหว้ระบบ AI ด้วยดวงวิญญาณ..."
+            const messages = [
+                "กำลังวาดรอยแผลเหวอะสยอง...",
+                "กำลังชโลมผิวขาวซีดราวกระดาษศพ...",
+                "กำลังกรีดสีกระเบื้องดวงตาเรืองแสง...",
+                "กำลังสวดอัญเชิญพลังงานปัญญาประดิษฐ์...",
+                "เตรียมใจพบกับใบหน้ารอยแผลภาพยนตร์..."
             ];
             
-            let tipIdx = 0;
-            const incantationInterval = setInterval(() => {
-                progressTips.innerText = `"${incantations[tipIdx % incantations.length]}"`;
-                tipIdx++;
+            let msgIdx = 0;
+            const msgInterval = setInterval(() => {
+                progressTips.innerText = `"${messages[msgIdx % messages.length]}"`;
+                msgIdx++;
             }, 1800);
 
             try {
-                // Captures input frame
+                // Captures base64 of photo source
                 const base64Photo = await captureInputBase64();
-                const spookyPrompt = buildHorrorPrompt();
+                const spookyPrompt = buildGhostPrompt();
 
                 const payload = {
                     contents: [{
@@ -486,45 +405,26 @@
                 if (base64Out) {
                     const outputImg = document.getElementById('output-image');
                     outputImg.src = `data:image/png;base64,${base64Out}`;
+                    outputImg.classList.remove('opacity-30');
                     
-                    // Reset styling filters since AI outputs the perfect visual already
-                    outputImg.style.filter = "none";
+                    // Hide the static instruction tip over result
+                    document.getElementById('result-overlay-tip').classList.add('hidden');
                     
-                    showCustomNotification("อัญเชิญความสยองขวัญเสร็จสิ้น! วิญญาณสถิตในรูปแล้ว");
+                    showCustomNotification("แปลงโฉมเสร็จสมบูรณ์! ภาพผีเสมือนจริงวาดเสร็จแล้ว");
                 } else {
-                    throw new Error("Empty image returned from generative model");
+                    throw new Error("Empty image payload from Gemini API");
                 }
 
             } catch (err) {
                 console.error(err);
-                showCustomNotification("ล้มเหลวในการเชื่อมโลกวิญญาณ: โมเดล AI ขัดข้อง กรุณาลองใหม่อีกรอบ!");
+                showCustomNotification("การส่งคาถาปลุกผีขัดข้อง: เซิร์ฟเวอร์วิญญาณติดขัด กรุณาลองใหม่อีกครั้ง!");
             } finally {
-                clearInterval(incantationInterval);
+                clearInterval(msgInterval);
                 loadingOverlay.classList.add('hidden');
             }
         }
 
-        // --- PORTRAIT SELECTOR SYSTEM ---
-        function selectPreset(presetKey, element) {
-            const url = portraitPresets[presetKey];
-            if (!url) return;
-
-            // Terminate camera if running
-            disableWebcam();
-
-            const inputPreview = document.getElementById('input-preview');
-            inputPreview.src = url;
-
-            // Select highlighting
-            document.querySelectorAll('.preset-card').forEach(card => {
-                card.className = "preset-card border border-zinc-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all";
-            });
-            element.className = "preset-card border-2 border-purple-500 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-all";
-            
-            showCustomNotification("เปลี่ยนหน้าต้นแบบทดลองสำเร็จแล้ว!");
-        }
-
-        // --- IMAGE UPLOADER HANDLERS ---
+        // --- FILE UPLOADS ---
         function triggerImageUpload() {
             document.getElementById('image-loader').click();
         }
@@ -537,14 +437,17 @@
             reader.onload = function(event) {
                 const inputPreview = document.getElementById('input-preview');
                 inputPreview.src = event.target.result;
+                inputPreview.classList.remove('hidden');
+
+                document.getElementById('placeholder-elements').classList.add('hidden');
                 
                 disableWebcam();
-                showCustomNotification("โหลดรูปภาพหน้าพอร์ตเทรตของคุณสำเร็จแล้ว! เริ่มเจนรูปได้เลย");
+                showCustomNotification("โหลดรูปภาพต้นแบบของคุณเสร็จแล้ว! กดปุ่มสีม่วงด้านขวาเพื่อแปลงโฉมได้เลย");
             }
             reader.readAsDataURL(file);
         }
 
-        // --- WEBCAM STREAM CONTROLLERS ---
+        // --- WEBCAM STREAM CONTROLLER ---
         async function useWebcam() {
             if (isWebcamOn) {
                 disableWebcam();
@@ -555,7 +458,7 @@
 
             try {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Iframe block security constraint");
+                    throw new Error("Iframe restricted security");
                 }
 
                 const constraints = { video: { width: 800, height: 1000 }, audio: false };
@@ -565,24 +468,23 @@
                 webcamVideo.srcObject = streamObj;
                 webcamVideo.classList.remove('hidden');
 
-                // Swap Preview display to use video feed
-                const inputPreview = document.getElementById('input-preview');
-                inputPreview.classList.add('hidden');
-                
-                // Nest video stream directly in container
-                const zone = document.getElementById('upload-zone');
-                webcamVideo.className = "w-full h-full object-cover transform scale-x-[-1] absolute inset-0";
-                zone.appendChild(webcamVideo);
+                // Toggle views
+                document.getElementById('input-preview').classList.add('hidden');
+                document.getElementById('placeholder-elements').classList.add('hidden');
 
                 isWebcamOn = true;
-                document.getElementById('camera-btn-text').innerText = "ปิดกล้องสตรีม";
-                showCustomNotification("เปิดกล้องถ่ายหน้าตัวคุณเพื่อเจนผีเรียลไทม์สำเร็จ!");
+                
+                // Style Active Button
+                document.getElementById('btn-webcam').classList.add('bg-purple-600', 'text-white', 'border-purple-400');
+                document.getElementById('camera-btn-text').innerText = "ปิดกล้องหน้า";
+                
+                showCustomNotification("เปิดกล้องถ่ายหน้าเรียลไทม์สำเร็จแล้ว!");
 
             } catch (err) {
-                console.error("Camera denied:", err);
-                let debugMsg = "ไม่สามารถเชื่อมกล้องในหน้าต่างพรีวิวได้เนื่องจากความปลอดภัยของระบบ Sandbox";
-                if (!isSecure) debugMsg += " (โปรดใช้การเชื่อมต่อแบบ HTTPS เท่านั้น)";
-                showCustomNotification(`${debugMsg} โปรดสุ่มหน้า 'Preset Models' หรืออัปโหลดรูปภาพตนเองแทน!`);
+                console.error("Camera failed:", err);
+                let debugMsg = "ไม่สามารถเชื่อมกล้องเว็บแคมผ่านระบบ Sandbox ได้";
+                if (!isSecure) debugMsg += " (ระบบต้องการการเชื่อมต่อแบบ HTTPS)";
+                showCustomNotification(`${debugMsg} เพื่อความง่ายในการเล่น โปรดคลิก 'อัปโหลดรูปถ่าย' แทนเพื่อเล่นได้ทันที!`);
             }
         }
 
@@ -596,13 +498,20 @@
             webcamVideo.srcObject = null;
             
             const inputPreview = document.getElementById('input-preview');
-            inputPreview.classList.remove('hidden');
+            const placeholder = document.getElementById('placeholder-elements');
+
+            if (inputPreview.src && !inputPreview.src.endsWith('undefined')) {
+                inputPreview.classList.remove('hidden');
+            } else {
+                placeholder.classList.remove('hidden');
+            }
 
             isWebcamOn = false;
-            document.getElementById('camera-btn-text').innerText = "เปิดกล้องถ่ายหน้า";
+            document.getElementById('btn-webcam').classList.remove('bg-purple-600', 'text-white', 'border-purple-400');
+            document.getElementById('camera-btn-text').innerText = "เปิดกล้องจริง";
         }
 
-        // Capture base64 of input source
+        // Capture base64 snapshot
         async function captureInputBase64() {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -627,67 +536,47 @@
             return canvas.toDataURL('image/png').split(',')[1];
         }
 
-        // --- DOWNLOAD RESULT Masterpiece ---
+        // --- DOWNLOAD MASTERPIECE ---
         function downloadMasterpiece() {
             const outputImg = document.getElementById('output-image');
             if (!outputImg.src || outputImg.src.startsWith('https://images.unsplash.com')) {
-                showCustomNotification("กรุณากดส่งคำสั่งให้ AI เจนภาพผีสมจริงของคุณก่อนบันทึก!");
+                showCustomNotification("กรุณากด 'แปลงโฉมเป็นผี!' ให้สำเร็จเพื่อรับรูปผีจริงก่อนเซฟไฟล์!");
                 return;
             }
 
             const link = document.createElement('a');
-            link.download = `Ghost_AI_Studio_Masterpiece_${Date.now()}.png`;
+            link.download = `Ghost_AI_Studio_${Date.now()}.png`;
             link.href = outputImg.src;
             link.click();
-            showCustomNotification("ดาวน์โหลดผลงานผีระดับภาพยนตร์เสร็จเรียบร้อย! 💀");
+            showCustomNotification("บันทึกผลงานผีเรียลไทม์เซฟลงเครื่องแล้วเรียบร้อย! 💀");
         }
 
         // --- RESET STUDIO STATE ---
         function resetAIStudio() {
-            document.getElementById('param-pale').value = 80;
-            document.getElementById('param-eyes').value = 75;
-            document.getElementById('param-blood').value = 60;
-            document.getElementById('param-glow').value = 50;
-
-            updateParamValue('pale');
-            updateParamValue('eyes');
-            updateParamValue('blood');
-            updateParamValue('glow');
+            document.getElementById('horror-intensity').value = 65;
+            updateIntensityLabel();
 
             document.getElementById('ghost-archetype').value = 'vengeful-onryo';
             document.getElementById('film-style').value = 'hollywood-35mm';
 
-            // Reset Output to demo style
+            // Reset Output to dummy placeholder
             const outputImg = document.getElementById('output-image');
             outputImg.src = "https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&q=80&w=800";
-            outputImg.style.filter = "brightness(80%) saturate(20%) hue-rotate(180deg) contrast(120%)";
+            outputImg.classList.add('opacity-30');
+            
+            document.getElementById('result-overlay-tip').classList.remove('hidden');
 
-            updatePromptPreview();
-            showCustomNotification("รีเซ็ตสตูดิโอพร้อมทำงานอัญเชิญผีรอบใหม่!");
+            disableWebcam();
+            
+            // Show placeholder upload again
+            document.getElementById('input-preview').classList.add('hidden');
+            document.getElementById('input-preview').removeAttribute('src');
+            document.getElementById('placeholder-elements').classList.remove('hidden');
+
+            showCustomNotification("รีเซ็ตแอปพลิเคชันพร้อมทำงานอัญเชิญรอบใหม่!");
         }
 
-        // --- DRAG AND DROP PHOTO INTERFACES ---
-        const zone = document.getElementById('upload-zone');
-        ['dragenter', 'dragover'].forEach(name => {
-            zone.addEventListener(name, (e) => { e.preventDefault(); zone.classList.add('border-purple-500'); }, false);
-        });
-        ['dragleave', 'drop'].forEach(name => {
-            zone.addEventListener(name, (e) => { e.preventDefault(); zone.classList.remove('border-purple-500'); }, false);
-        });
-        zone.addEventListener('drop', (e) => {
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('input-preview').src = event.target.result;
-                    disableWebcam();
-                    showCustomNotification("ลากวางรูปพอร์ตเทรตสำเร็จแล้ว!");
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // --- SPOOKY AUDIO GENERATOR (No asset dependencies) ---
+        // --- SPOOKY AUDIO GENERATOR ---
         function toggleSpookySound() {
             if (isSpookySoundOn) {
                 stopAmbientWind();
@@ -809,28 +698,53 @@
             } catch(e){}
         }
 
-        // Toggle about modal view
+        // Toggle help manual modal
         function toggleAboutModal() {
             const modal = document.getElementById('about-modal');
             modal.classList.toggle('hidden');
         }
 
-        // Spooky Toast Alert
+        // Spooky Toast Alert Notification
         function showCustomNotification(msg) {
             const toast = document.createElement('div');
-            toast.className = "fixed bottom-16 right-6 bg-purple-950/90 border-2 border-purple-500/50 backdrop-blur-md text-white font-semibold text-xs px-5 py-3.5 rounded-xl shadow-2xl z-[200] transition-transform animate-bounce flex items-center gap-3 max-w-sm";
+            toast.className = "fixed bottom-16 right-6 bg-purple-950/95 border-2 border-purple-500/50 backdrop-blur-md text-white font-semibold text-xs px-5 py-3.5 rounded-xl shadow-2xl z-[200] transition-transform animate-bounce flex items-center gap-3 max-w-sm";
             toast.innerHTML = `<span>🔮</span><span>${msg}</span>`;
             document.body.appendChild(toast);
             
             setTimeout(() => {
                 toast.classList.add('opacity-0');
                 setTimeout(() => toast.remove(), 500);
-            }, 6000);
+            }, 5500);
         }
 
-        // Initialize App states
+        // Drag and Drop files onto Input Viewport Zone
+        const uploaderZone = document.getElementById('upload-zone');
+        ['dragenter', 'dragover'].forEach(name => {
+            uploaderZone.addEventListener(name, (e) => { e.preventDefault(); uploaderZone.classList.add('border-purple-500'); }, false);
+        });
+        ['dragleave', 'drop'].forEach(name => {
+            uploaderZone.addEventListener(name, (e) => { e.preventDefault(); uploaderZone.classList.remove('border-purple-500'); }, false);
+        });
+        uploaderZone.addEventListener('drop', (e) => {
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const inputPreview = document.getElementById('input-preview');
+                    inputPreview.src = event.target.result;
+                    inputPreview.classList.remove('hidden');
+
+                    document.getElementById('placeholder-elements').classList.add('hidden');
+                    
+                    disableWebcam();
+                    showCustomNotification("วางรูปพอร์ตเทรตของคุณสำเร็จแล้ว!");
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Initialize state on load
         window.onload = function() {
-            updatePromptPreview();
             toggleAboutModal();
         }
     </script>
