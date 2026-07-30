@@ -2,7 +2,7 @@
 <html lang="th" class="h-full bg-slate-950 text-slate-100">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>WebAR Image Tracker Authoring Studio</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -21,32 +21,40 @@
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #475569; }
-    .canvas-container canvas { outline: none; }
+    .canvas-container canvas { outline: none; touch-action: none; }
+    #ar-view-container video {
+      object-fit: cover !important;
+      width: 100% !important;
+      height: 100% !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+    }
   </style>
 </head>
 <body class="h-full flex flex-col font-sans overflow-hidden select-none bg-slate-950">
 
   <!-- Top Navigation Header -->
-  <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0">
-    <div class="flex items-center space-x-3">
-      <div class="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
+  <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 md:px-4 z-20 shrink-0">
+    <div class="flex items-center space-x-2 md:space-x-3">
+      <div class="p-1.5 md:p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
         </svg>
       </div>
       <div>
-        <h1 class="text-sm font-bold tracking-wide text-slate-100 flex items-center gap-2">
-          WebAR Image Tracker Studio
-          <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">MindAR Native Engine</span>
+        <h1 class="text-xs md:text-sm font-bold tracking-wide text-slate-100 flex items-center gap-1.5">
+          WebAR Studio
+          <span class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-medium">Modular Exporter</span>
         </h1>
-        <p class="text-[11px] text-slate-400">ระบบจัดวาง 3D บนรูปภาพ และจำลองการส่อง AR แบบ Real-time</p>
+        <p class="text-[10px] text-slate-400 hidden md:block">ระบบจัดวาง 3D บนรูปภาพ และส่งออกเป็นโครงสร้างโปรเจกต์ WebAR สมบูรณ์</p>
       </div>
     </div>
 
     <!-- Quick Action Controls -->
-    <div class="flex items-center space-x-2">
+    <div class="flex items-center space-x-1.5 md:space-x-2 overflow-x-auto py-1">
       <!-- Gizmo Controls -->
-      <div class="bg-slate-800 p-1 rounded-lg border border-slate-700/80 flex space-x-1 mr-3">
+      <div class="bg-slate-800 p-1 rounded-lg border border-slate-700/80 flex space-x-1 mr-1">
         <button id="btn-gizmo-translate" onclick="setGizmoMode('translate')" title="ย้ายตำแหน่ง (W)" class="p-1.5 rounded bg-indigo-600 text-white transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"/></svg>
         </button>
@@ -58,49 +66,43 @@
         </button>
       </div>
 
-      <!-- Sample Demo Preset -->
-      <button onclick="loadSampleScene()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 rounded-lg flex items-center space-x-1.5 transition">
-        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
-        <span>ตัวอย่างโมเดล</span>
-      </button>
-
-      <!-- Camera AR Preview Trigger -->
-      <button onclick="startARLivePreview()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center space-x-1.5 shadow transition">
+      <!-- Live Mobile Camera Preview -->
+      <button onclick="startARLivePreview()" class="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center space-x-1 shadow transition shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
         <span>Preview AR ⭐ (ส่องกล้องจริง)</span>
       </button>
 
-      <!-- Export Package Button -->
-      <button onclick="exportProjectPackage()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-lg shadow-emerald-600/20 transition">
+      <!-- Export Full Structure Package Button -->
+      <button onclick="exportProjectPackage()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center space-x-1 shadow-lg transition shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         <span>Export Package ⭐⭐⭐⭐⭐</span>
       </button>
     </div>
   </header>
 
-  <!-- Main Layout Workspace -->
-  <div class="flex-1 flex overflow-hidden">
+  <!-- Workspace Container -->
+  <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
     
-    <!-- Left Navigation Sidebar -->
-    <aside class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col shrink-0 z-10">
+    <!-- Sidebar Navigation -->
+    <aside class="w-full md:w-80 bg-slate-900/95 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col shrink-0 z-10 max-h-56 md:max-h-none overflow-hidden">
       
       <!-- Studio Tabs -->
       <div class="grid grid-cols-4 border-b border-slate-800 text-[11px] font-medium bg-slate-950/50">
-        <button onclick="switchTab('tracker')" id="tab-btn-tracker" class="py-2.5 text-center text-indigo-400 border-b-2 border-indigo-500 font-semibold transition">
+        <button onclick="switchTab('tracker')" id="tab-btn-tracker" class="py-2 text-center text-indigo-400 border-b-2 border-indigo-500 font-semibold transition">
           Tracker
         </button>
-        <button onclick="switchTab('add')" id="tab-btn-add" class="py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
+        <button onclick="switchTab('add')" id="tab-btn-add" class="py-2 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
           + โมเดล/สื่อ
         </button>
-        <button onclick="switchTab('hierarchy')" id="tab-btn-hierarchy" class="py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
+        <button onclick="switchTab('hierarchy')" id="tab-btn-hierarchy" class="py-2 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
           Hierarchy
         </button>
-        <button onclick="switchTab('sequence')" id="tab-btn-sequence" class="py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
+        <button onclick="switchTab('sequence')" id="tab-btn-sequence" class="py-2 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
           Sequence⭐
         </button>
       </div>
 
-      <!-- Panel Contents -->
+      <!-- Tab Content Panels -->
       <div class="flex-1 overflow-y-auto p-3 space-y-4">
 
         <!-- TAB 1: Image Tracker Manager -->
@@ -111,20 +113,19 @@
             </h2>
           </div>
 
-          <!-- Drag & Drop Marker Upload -->
-          <div id="marker-dropzone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-950/50 rounded-xl p-4 text-center cursor-pointer transition group">
+          <div id="marker-dropzone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-950/50 rounded-xl p-3 text-center cursor-pointer transition group">
             <input type="file" id="marker-file-input" accept="image/png, image/jpeg" class="hidden" onchange="handleMarkerUpload(this.files[0])">
             <div onclick="document.getElementById('marker-file-input').click()">
-              <svg class="w-8 h-8 mx-auto text-slate-500 group-hover:text-indigo-400 mb-2 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              <p class="text-xs text-slate-300 font-medium">Drag & Drop Image Target</p>
-              <p class="text-[11px] text-slate-500 mt-0.5">รองรับ PNG / JPG ความละเอียดสูง</p>
+              <svg class="w-6 h-6 mx-auto text-slate-500 group-hover:text-indigo-400 mb-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <p class="text-xs text-slate-300 font-medium">อัปโหลดรูปภาพ AR Marker</p>
+              <p class="text-[10px] text-slate-500 mt-0.5">รองรับไฟล์ PNG / JPG</p>
             </div>
           </div>
 
           <!-- Compiler Progress Indicator -->
-          <div id="compiler-status-box" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+          <div id="compiler-status-box" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
             <div class="flex justify-between items-center text-xs">
-              <span class="text-indigo-400 font-medium">กำลังสกัด Feature Points (AR Target)...</span>
+              <span class="text-indigo-400 font-medium">ประมวลผล AR Feature Points...</span>
               <span id="compiler-percent" class="font-mono text-emerald-400">0%</span>
             </div>
             <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
@@ -132,7 +133,7 @@
             </div>
           </div>
 
-          <!-- Target Preview & Real Scale Input -->
+          <!-- Target Preview & Real Scale -->
           <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
             <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span class="text-xs font-medium text-slate-300">ตัวอย่าง Marker</span>
@@ -156,13 +157,12 @@
                   </div>
                 </div>
                 <div>
-                  <span class="text-[10px] text-slate-500">Height (คำนวณอัตโนมัติ):</span>
+                  <span class="text-[10px] text-slate-500">Height (อัตโนมัติ):</span>
                   <div class="mt-1 bg-slate-900/60 border border-slate-800 rounded px-2 py-1 text-xs font-mono text-slate-400" id="marker-height-cm">
                     Auto
                   </div>
                 </div>
               </div>
-              <p class="text-[10px] text-slate-500 italic">* ใช้คำนวณพิกัดลอยตัวของโมเดล 3D บนกล้อง AR</p>
             </div>
           </div>
         </div>
@@ -178,7 +178,7 @@
               <input type="file" id="glb-file-input" accept=".glb, .gltf" class="hidden" onchange="handleGLBUpload(this.files[0])">
               <button onclick="document.getElementById('glb-file-input').click()" class="w-full py-2 bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-medium rounded-lg flex items-center justify-center space-x-2 transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                <span>เลือกไฟล์ GLB / GLTF (Draco/KTX2)</span>
+                <span>เลือกไฟล์ GLB / GLTF</span>
               </button>
             </div>
           </div>
@@ -188,29 +188,21 @@
               3. Primitive Model Generator <span class="text-emerald-400">✅</span>
             </h2>
             <div class="grid grid-cols-2 gap-2">
-              <button onclick="createPrimitive('plane')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
-                <span>Plane (พิเศษ)</span>
+              <button onclick="createPrimitive('plane')" class="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Plane</span>
                 <span class="text-indigo-400">⬜</span>
               </button>
-              <button onclick="createPrimitive('cube')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
-                <span>Cube</span>
+              <button onclick="createPrimitive('cube')" class="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Cube / Box</span>
                 <span class="text-indigo-400">🧊</span>
               </button>
-              <button onclick="createPrimitive('sphere')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+              <button onclick="createPrimitive('sphere')" class="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
                 <span>Sphere</span>
                 <span class="text-indigo-400">🔮</span>
               </button>
-              <button onclick="createPrimitive('cylinder')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+              <button onclick="createPrimitive('cylinder')" class="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
                 <span>Cylinder</span>
                 <span class="text-indigo-400">🛢️</span>
-              </button>
-              <button onclick="createPrimitive('capsule')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
-                <span>Capsule</span>
-                <span class="text-indigo-400">💊</span>
-              </button>
-              <button onclick="createPrimitive('circle')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
-                <span>Circle</span>
-                <span class="text-indigo-400">⚪</span>
               </button>
             </div>
           </div>
@@ -224,7 +216,7 @@
               <input type="file" id="video-file-input" accept="video/mp4, video/webm" class="hidden" onchange="handleVideoUpload(this.files[0])">
               <button onclick="document.getElementById('video-file-input').click()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg flex items-center justify-center space-x-2 transition">
                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                <span>นำเข้าวิดีโอ (MP4, WebM, Alpha)</span>
+                <span>นำเข้าวิดีโอ (MP4, WebM)</span>
               </button>
             </div>
           </div>
@@ -234,25 +226,25 @@
         <div id="panel-hierarchy" class="space-y-3 hidden">
           <div class="flex items-center justify-between">
             <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider">
-              6. Scene Hierarchy (เหมือน Unity)
+              6. Scene Hierarchy (เหมือน UNITY)
             </h2>
             <span id="hierarchy-count" class="text-[10px] font-mono text-slate-500">0 Items</span>
           </div>
 
-          <div class="bg-slate-950 border border-slate-800 rounded-xl p-2 font-mono text-xs text-slate-300 min-h-[240px]">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-2 font-mono text-xs text-slate-300 min-h-[180px]">
             <div class="flex items-center py-1 px-2 text-indigo-400 font-bold border-b border-slate-800/80">
               <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
               <span>Scene</span>
             </div>
             
-            <div class="pl-3 pt-1">
+            <div class="pl-2 pt-1">
               <div class="flex items-center py-1 px-2 text-emerald-400 font-medium">
                 <span class="text-slate-600 mr-1.5">├──</span>
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h0.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
                 <span id="hierarchy-marker-name">Marker (Target01)</span>
               </div>
 
-              <div id="hierarchy-list" class="pl-6 space-y-1 mt-1">
+              <div id="hierarchy-list" class="pl-4 space-y-1 mt-1">
                 <div class="text-[11px] text-slate-600 italic py-1">(ไม่มีวัตถุในระบบ)</div>
               </div>
             </div>
@@ -266,14 +258,13 @@
           </h2>
           
           <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
-            <label class="block text-xs text-slate-400 font-medium">นำเข้าไฟล์เฟรมต่อเนื่อง (0001.png, 0002.png...)</label>
+            <label class="block text-xs text-slate-400 font-medium">นำเข้าไฟล์เฟรมต่อเนื่อง (PNGs)</label>
             <input type="file" id="sequence-files-input" accept="image/png, image/jpeg" multiple class="hidden" onchange="handleSequenceUpload(this.files)">
             <button onclick="document.getElementById('sequence-files-input').click()" class="w-full py-2 bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-medium rounded-lg flex items-center justify-center space-x-2 transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
               <span>เลือกหลายรูป (Multiple PNGs)</span>
             </button>
 
-            <!-- Sequence Settings -->
             <div id="sequence-controls" class="space-y-3 border-t border-slate-800 pt-3 hidden">
               <div>
                 <div class="flex justify-between text-[11px] text-slate-400 mb-1">
@@ -284,23 +275,12 @@
               </div>
 
               <div>
-                <label class="text-[11px] text-slate-400 block mb-1">รูปแบบการเล่น (Playback Mode):</label>
+                <label class="text-[11px] text-slate-400 block mb-1">รูปแบบการเล่น:</label>
                 <select id="seq-mode" onchange="updateSequenceSettings()" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200">
                   <option value="loop">Loop (เล่นวนลูป)</option>
                   <option value="pingpong">Ping Pong (ย้อนกลับ-ไปมา)</option>
                   <option value="once">Play Once (เล่นครั้งเดียว)</option>
                 </select>
-              </div>
-
-              <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
-                <label class="flex items-center space-x-2 cursor-pointer">
-                  <input type="checkbox" id="seq-autoplay" checked onchange="updateSequenceSettings()" class="accent-indigo-500 rounded">
-                  <span>Auto Play</span>
-                </label>
-                <label class="flex items-center space-x-2 cursor-pointer">
-                  <input type="checkbox" id="seq-trigger" checked onchange="updateSequenceSettings()" class="accent-indigo-500 rounded">
-                  <span>Trigger by Marker</span>
-                </label>
               </div>
             </div>
           </div>
@@ -312,56 +292,47 @@
     <!-- Center 3D Interactive Viewport -->
     <main class="flex-1 relative bg-slate-950 canvas-container flex flex-col overflow-hidden">
       
-      <div class="absolute top-3 left-3 z-10 flex items-center space-x-2">
-        <div class="bg-slate-900/90 backdrop-blur border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300 flex items-center space-x-3 shadow-lg">
+      <div class="absolute top-2 left-2 z-10 flex items-center space-x-2">
+        <div class="bg-slate-900/90 backdrop-blur border border-slate-800 px-2.5 py-1 rounded-lg text-[11px] font-mono text-slate-300 flex items-center space-x-2 shadow-lg">
           <span class="flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Viewport: 3D Authoring</span>
+            <span>3D Studio Viewport</span>
           </span>
-          <span class="text-slate-600">|</span>
-          <span id="viewport-fps" class="text-indigo-400">60 FPS</span>
         </div>
 
-        <button onclick="resetCameraView()" class="bg-slate-900/90 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 flex items-center space-x-1 shadow-lg transition">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-          <span>Reset Cam</span>
+        <button onclick="resetCameraView()" class="bg-slate-900/90 hover:bg-slate-800 border border-slate-800 px-2 py-1 rounded-lg text-[11px] text-slate-300 transition">
+          Reset Cam
         </button>
       </div>
 
       <div id="webgl-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
 
-      <div class="h-7 bg-slate-900/90 border-t border-slate-800/80 px-3 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
-        <div class="flex items-center space-x-4">
-          <span id="selected-status">Selected: None</span>
-          <span>Grid Scale: 1 unit = 1m</span>
-        </div>
-        <div>
-          <span>Press W (Move) | E (Rotate) | R (Scale)</span>
-        </div>
+      <div class="h-6 bg-slate-900/90 border-t border-slate-800/80 px-3 flex items-center justify-between text-[10px] font-mono text-slate-400 shrink-0">
+        <span id="selected-status">Selected: None</span>
+        <span class="hidden md:inline">1 unit = 1m</span>
       </div>
     </main>
 
-    <!-- Right Sidebar: Inspector -->
-    <aside class="w-80 bg-slate-900/95 border-l border-slate-800 flex flex-col shrink-0 z-10">
-      <div class="h-10 px-3 border-b border-slate-800 flex items-center justify-between">
+    <!-- Right Sidebar: Inspector Panel -->
+    <aside class="w-full md:w-80 bg-slate-900/95 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 z-10 max-h-52 md:max-h-none overflow-y-auto">
+      <div class="h-9 px-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 sticky top-0 z-10">
         <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-          7. Inspector <span class="text-emerald-400">✅</span>
+          7. INSPECTOR <span class="text-emerald-400">✅</span>
         </h2>
         <span id="inspector-target-type" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-indigo-400">None</span>
       </div>
 
-      <div id="inspector-content" class="flex-1 overflow-y-auto p-3 space-y-4">
+      <div id="inspector-content" class="p-3 space-y-3">
         
-        <div id="inspector-empty" class="text-center py-12 text-slate-500 text-xs">
-          <svg class="w-10 h-10 mx-auto text-slate-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/></svg>
-          คลิกเลือกวัตถุใน Hierarchy หรือ 3D Viewport เพื่อแก้ไขค่า
+        <div id="inspector-empty" class="text-center py-6 text-slate-500 text-xs">
+          คลิกเลือกวัตถุใน Hierarchy เพื่อแก้ไขค่า
         </div>
 
-        <div id="inspector-form" class="space-y-4 hidden">
+        <div id="inspector-form" class="space-y-3 hidden">
           <!-- Name & Basic Options -->
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             <label class="text-[11px] text-slate-400 font-medium">ชื่อวัตถุ (Name):</label>
-            <input type="text" id="obj-name" onchange="applyInspectorChanges()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-slate-100 font-mono focus:outline-none focus:border-indigo-500">
+            <input type="text" id="obj-name" onchange="applyInspectorChanges()" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-100 font-mono focus:outline-none focus:border-indigo-500">
             
             <div class="flex items-center space-x-4 pt-1 text-xs text-slate-300">
               <label class="flex items-center space-x-1.5 cursor-pointer">
@@ -376,44 +347,44 @@
           </div>
 
           <!-- Transform -->
-          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-2">
             <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">Transform</span>
             
             <div>
               <span class="text-[10px] text-slate-400 block mb-1">Position (X, Y, Z):</span>
-              <div class="grid grid-cols-3 gap-1.5 font-mono text-xs">
-                <input type="number" id="pos-x" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-red-400 text-center">
-                <input type="number" id="pos-y" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-emerald-400 text-center">
-                <input type="number" id="pos-z" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-sky-400 text-center">
+              <div class="grid grid-cols-3 gap-1 font-mono text-xs">
+                <input type="number" id="pos-x" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-red-400 text-center">
+                <input type="number" id="pos-y" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-emerald-400 text-center">
+                <input type="number" id="pos-z" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-sky-400 text-center">
               </div>
             </div>
 
             <div>
               <span class="text-[10px] text-slate-400 block mb-1">Rotation (X, Y, Z deg):</span>
-              <div class="grid grid-cols-3 gap-1.5 font-mono text-xs">
-                <input type="number" id="rot-x" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-red-400 text-center">
-                <input type="number" id="rot-y" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-emerald-400 text-center">
-                <input type="number" id="rot-z" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-sky-400 text-center">
+              <div class="grid grid-cols-3 gap-1 font-mono text-xs">
+                <input type="number" id="rot-x" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-red-400 text-center">
+                <input type="number" id="rot-y" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-emerald-400 text-center">
+                <input type="number" id="rot-z" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-sky-400 text-center">
               </div>
             </div>
 
             <div>
               <span class="text-[10px] text-slate-400 block mb-1">Scale (X, Y, Z):</span>
-              <div class="grid grid-cols-3 gap-1.5 font-mono text-xs">
-                <input type="number" id="scale-x" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-red-400 text-center">
-                <input type="number" id="scale-y" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-emerald-400 text-center">
-                <input type="number" id="scale-z" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-sky-400 text-center">
+              <div class="grid grid-cols-3 gap-1 font-mono text-xs">
+                <input type="number" id="scale-x" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-red-400 text-center">
+                <input type="number" id="scale-y" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-emerald-400 text-center">
+                <input type="number" id="scale-z" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1 py-1 text-sky-400 text-center">
               </div>
             </div>
           </div>
 
-          <!-- Material Properties -->
-          <div id="inspector-mat-section" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
+          <!-- Material -->
+          <div id="inspector-mat-section" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-2">
             <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">Material</span>
             
             <div class="flex items-center justify-between">
               <span class="text-xs text-slate-400">Color:</span>
-              <input type="color" id="mat-color" onchange="applyInspectorChanges()" class="w-8 h-7 bg-transparent cursor-pointer rounded border border-slate-700">
+              <input type="color" id="mat-color" onchange="applyInspectorChanges()" class="w-7 h-6 bg-transparent cursor-pointer rounded border border-slate-700">
             </div>
 
             <div class="space-y-1">
@@ -423,17 +394,6 @@
               </div>
               <input type="range" id="mat-opacity" min="0" max="1" step="0.05" value="1" oninput="applyInspectorChanges()" class="w-full accent-indigo-500">
             </div>
-          </div>
-
-          <!-- Animation Selector -->
-          <div id="inspector-anim-section" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2 hidden">
-            <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">
-              8. Animation Clips <span class="text-emerald-400">✅</span>
-            </span>
-            <label class="text-[11px] text-slate-400 block">เลือกท่าทาง (Idle, Walk, Jump...):</label>
-            <select id="obj-anim-select" onchange="changeGLBAnimation(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-indigo-300">
-              <option value="">-- No Animation --</option>
-            </select>
           </div>
 
           <button onclick="deleteSelectedObject()" class="w-full py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 text-xs font-medium rounded-lg flex items-center justify-center space-x-1.5 transition">
@@ -447,45 +407,40 @@
 
   </div>
 
-  <!-- Real WebAR Camera Overlay Modal -->
+  <!-- Real WebAR Camera View Overlay Modal -->
   <div id="ar-camera-modal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col hidden">
-    <!-- Camera Viewport Header -->
-    <div class="h-12 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between z-20">
-      <div class="flex items-center space-x-3">
+    <div class="h-12 bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between z-30">
+      <div class="flex items-center space-x-2">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-        <span class="text-xs font-bold text-slate-100">WebAR Camera Target Tracker Live</span>
+        <span class="text-xs font-bold text-slate-100">Live WebAR Phone Camera</span>
       </div>
       <div class="flex items-center space-x-2">
-        <span id="ar-tracking-status" class="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
-          กำลังค้นหา Marker รูปภาพ...
+        <span id="ar-tracking-status" class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium truncate max-w-[150px] md:max-w-none">
+          กำลังเปิดกล้องมือถือ...
         </span>
-        <button onclick="stopARLivePreview()" class="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition">
-          ปิดหน้าต่างส่อง AR
+        <button onclick="stopARLivePreview()" class="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition">
+          ปิด AR
         </button>
       </div>
     </div>
 
-    <!-- Live MindAR Canvas Viewport Container -->
-    <div id="ar-view-container" class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
-      <!-- Target Overlay Guide -->
-      <div class="absolute inset-0 pointer-events-none border-4 border-dashed border-indigo-500/30 m-8 rounded-2xl flex items-center justify-center z-10">
-        <div class="bg-slate-900/80 backdrop-blur px-4 py-2 rounded-xl text-xs text-slate-300 font-mono border border-slate-700 shadow-xl">
-          นำกล้องส่องไปที่รูป Target Marker ของคุณ
+    <div id="ar-view-container" class="flex-1 relative overflow-hidden bg-black">
+      <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-400/40 m-6 rounded-2xl flex items-center justify-center z-10">
+        <div class="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl text-xs text-slate-200 font-mono border border-slate-700 shadow-xl text-center max-w-[250px]">
+          ส่องกล้องหลังไปที่รูป Marker เพื่อให้วัตถุ 3D ลอยขึ้นมา
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Studio Script Engine -->
+  <!-- Main Engine Script -->
   <script>
-    // Global Application State
     let scene, camera, renderer, orbitControls, transformControls;
     let markerPlane, markerGridHelper;
     let sceneObjects = [];
     let selectedObject = null;
     let clock = new THREE.Clock();
 
-    // MindAR Live Session Variables
     let mindarThree = null;
     let compiledMindBuffer = null;
 
@@ -529,7 +484,6 @@
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       container.appendChild(renderer.domElement);
 
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
@@ -595,7 +549,6 @@
       scene.add(markerGridHelper);
     }
 
-    // Handle Marker Upload & Automatic Feature Point Compilation
     async function handleMarkerUpload(file) {
       if (!file) return;
       markerData.file = file;
@@ -619,7 +572,6 @@
           createMarkerPlane();
         });
 
-        // Trigger MindAR Image Target Compiler in Browser
         compileMarkerTarget(imageObj);
       };
       imageObj.src = url;
@@ -631,13 +583,13 @@
       const percentTxt = document.getElementById('compiler-percent');
 
       statusBox.classList.remove('hidden');
-      progressBar.style.width = "10%";
-      percentTxt.innerText = "10%";
+      progressBar.style.width = "15%";
+      percentTxt.innerText = "15%";
 
       try {
         if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
           const compiler = new window.MINDAR.IMAGE.Compiler();
-          const dataList = await compiler.compileImageTargets([imgElement], (progress) => {
+          await compiler.compileImageTargets([imgElement], (progress) => {
             const p = Math.round(progress * 100);
             progressBar.style.width = p + "%";
             percentTxt.innerText = p + "%";
@@ -647,7 +599,7 @@
           percentTxt.innerText = "พร้อมใช้งาน ✅";
         }
       } catch (err) {
-        console.warn("MindAR Compiler fallback or ready.", err);
+        console.warn("MindAR Compiler fallback ready", err);
         percentTxt.innerText = "Ready ✅";
       }
     }
@@ -660,7 +612,6 @@
       }
     }
 
-    // Primitive & GLB Handlers
     function createPrimitive(type) {
       let geom, mat;
       mat = new THREE.MeshStandardMaterial({ color: 0x6366f1, roughness: 0.3, metalness: 0.1 });
@@ -670,8 +621,6 @@
         case 'cube': geom = new THREE.BoxGeometry(0.08, 0.08, 0.08); break;
         case 'sphere': geom = new THREE.SphereGeometry(0.05, 32, 32); break;
         case 'cylinder': geom = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 32); break;
-        case 'capsule': geom = new THREE.SphereGeometry(0.04, 16, 16); break;
-        case 'circle': geom = new THREE.CircleGeometry(0.05, 32); break;
       }
 
       const mesh = new THREE.Mesh(geom, mat);
@@ -679,9 +628,10 @@
       mesh.castShadow = true;
 
       mesh.userData = {
-        id: 'obj_' + Date.now(),
+        id: 'obj_' + Date.now() + '_' + Math.floor(Math.random()*1000),
         name: type.charAt(0).toUpperCase() + type.slice(1),
-        type: type
+        type: type,
+        colorHex: '#6366f1'
       };
 
       scene.add(mesh);
@@ -709,9 +659,10 @@
         }
 
         model.userData = {
-          id: 'glb_' + Date.now(),
+          id: 'glb_' + Date.now() + '_' + Math.floor(Math.random()*1000),
           name: file.name.replace(/\.[^/.]+$/, ""),
           type: 'glb',
+          fileName: file.name,
           file: file,
           mixer: mixer,
           animations: animations
@@ -731,6 +682,8 @@
       video.src = url;
       video.loop = true;
       video.muted = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
       video.play();
 
       const videoTexture = new THREE.VideoTexture(video);
@@ -741,9 +694,10 @@
       mesh.position.set(0, 0.06, 0);
 
       mesh.userData = {
-        id: 'video_' + Date.now(),
+        id: 'video_' + Date.now() + '_' + Math.floor(Math.random()*1000),
         name: file.name,
         type: 'video',
+        fileName: file.name,
         videoElement: video,
         file: file
       };
@@ -774,7 +728,7 @@
       mesh.position.set(0, 0.05, 0);
 
       mesh.userData = {
-        id: 'seq_' + Date.now(),
+        id: 'seq_' + Date.now() + '_' + Math.floor(Math.random()*1000),
         name: 'Sequence (' + files.length + ' frames)',
         type: 'sequence'
       };
@@ -789,10 +743,29 @@
       sequenceData.fps = parseInt(document.getElementById('seq-fps').value);
       document.getElementById('seq-fps-val').innerText = sequenceData.fps;
       sequenceData.mode = document.getElementById('seq-mode').value;
-      sequenceData.autoPlay = document.getElementById('seq-autoplay').checked;
     }
 
-    // Hierarchy & Selection
+    function deleteObjectById(id) {
+      const obj = sceneObjects.find(o => o.userData.id === id);
+      if (!obj) return;
+      scene.remove(obj);
+      sceneObjects = sceneObjects.filter(o => o.userData.id !== id);
+      
+      if (selectedObject === obj) {
+        selectObject(null);
+      } else {
+        updateHierarchyTree();
+      }
+    }
+
+    function toggleObjectVisibility(id) {
+      const obj = sceneObjects.find(o => o.userData.id === id);
+      if (obj) {
+        obj.visible = !obj.visible;
+        updateHierarchyTree();
+      }
+    }
+
     function selectObject(obj) {
       selectedObject = obj;
       if (obj) {
@@ -824,13 +797,18 @@
         div.className = `flex items-center justify-between px-2 py-1 rounded cursor-pointer text-xs font-mono transition ${isSelected ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'hover:bg-slate-800 text-slate-300'}`;
         
         div.innerHTML = `
-          <div class="flex items-center space-x-1.5 truncate">
-            <span class="text-slate-500">├──</span>
+          <div class="flex items-center space-x-1.5 truncate flex-1 min-w-0 pr-1">
+            <span class="text-slate-500 shrink-0">├──</span>
             <span class="truncate">${obj.userData.name || 'Object'}</span>
           </div>
-          <button onclick="event.stopPropagation(); toggleObjectVisibility('${obj.userData.id}')" class="text-slate-500 hover:text-slate-300">
-            ${obj.visible ? '👁️' : '🙈'}
-          </button>
+          <div class="flex items-center space-x-1 shrink-0">
+            <button onclick="event.stopPropagation(); toggleObjectVisibility('${obj.userData.id}')" title="ซ่อน/แสดง" class="p-0.5 text-slate-400 hover:text-white transition">
+              ${obj.visible ? '👁️' : '🙈'}
+            </button>
+            <button onclick="event.stopPropagation(); deleteObjectById('${obj.userData.id}')" title="ลบวัตถุ 🗑️" class="p-0.5 text-slate-400 hover:text-red-400 transition">
+              🗑️
+            </button>
+          </div>
         `;
 
         div.onclick = () => selectObject(obj);
@@ -904,35 +882,46 @@
         parseFloat(document.getElementById('scale-z').value) || 1
       );
 
+      if (selectedObject.material && selectedObject.material.color) {
+        const hex = document.getElementById('mat-color').value;
+        selectedObject.material.color.setStyle(hex);
+        selectedObject.userData.colorHex = hex;
+      }
+
       updateHierarchyTree();
     }
 
     function deleteSelectedObject() {
       if (!selectedObject) return;
-      scene.remove(selectedObject);
-      sceneObjects = sceneObjects.filter(o => o !== selectedObject);
-      selectObject(null);
-      updateHierarchyTree();
+      deleteObjectById(selectedObject.userData.id);
     }
 
-    // REAL-TIME WEBAR CAMERA TRACKING SESSION
+    // REAL-TIME CAMERA PREVIEW
     async function startARLivePreview() {
       document.getElementById('ar-camera-modal').classList.remove('hidden');
       const container = document.getElementById('ar-view-container');
       const statusLbl = document.getElementById('ar-tracking-status');
 
+      statusLbl.innerText = "กำลังเปิดกล้อง...";
+      stopARLivePreview(false);
+
       try {
         if (!compiledMindBuffer && markerData.imgElement) {
-          statusLbl.innerText = "กำลังสร้าง Target File...";
+          statusLbl.innerText = "ประมวลผล Marker...";
           await compileMarkerTarget(markerData.imgElement);
         }
 
-        const blob = new Blob([compiledMindBuffer], { type: 'application/octet-stream' });
-        const mindUrl = URL.createObjectURL(blob);
+        let targetSrc;
+        if (compiledMindBuffer) {
+          const blob = new Blob([compiledMindBuffer], { type: 'application/octet-stream' });
+          targetSrc = URL.createObjectURL(blob);
+        } else {
+          targetSrc = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/examples/image-tracking/assets/card-example/card.mind';
+        }
 
         mindarThree = new window.MINDAR.IMAGE.MindARThree({
           container: container,
-          imageTargetSrc: mindUrl,
+          imageTargetSrc: targetSrc,
           uiLoading: "no",
           uiScanning: "no"
         });
@@ -940,45 +929,69 @@
         const { renderer: arRenderer, scene: arScene, camera: arCamera } = mindarThree;
         const anchor = mindarThree.addAnchor(0);
 
-        // Clone scene objects into AR Anchor group
         sceneObjects.forEach(obj => {
-          const cloneObj = obj.clone(true);
-          anchor.group.add(cloneObj);
+          if (obj.visible) {
+            const cloneObj = obj.clone(true);
+            anchor.group.add(cloneObj);
+          }
         });
 
         anchor.onTargetFound = () => {
-          statusLbl.innerText = "ตรวจพบ Target รูปภาพ! ✅";
-          statusLbl.className = "text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
+          statusLbl.innerText = "พบ Target รูปภาพ! ✅";
+          statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium truncate max-w-[150px] md:max-w-none";
         };
 
         anchor.onTargetLost = () => {
-          statusLbl.innerText = "กำลังค้นหา Marker รูปภาพ...";
-          statusLbl.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium";
+          statusLbl.innerText = "กำลังค้นหา Marker...";
+          statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium truncate max-w-[150px] md:max-w-none";
         };
 
         await mindarThree.start();
+
+        const videoElem = container.querySelector('video');
+        if (videoElem) {
+          videoElem.setAttribute('playsinline', '');
+          videoElem.setAttribute('webkit-playsinline', '');
+          videoElem.muted = true;
+          videoElem.play().catch(e => console.warn("Autoplay blocked:", e));
+        }
+
         arRenderer.setAnimationLoop(() => {
           arRenderer.render(arScene, arCamera);
         });
 
       } catch (err) {
-        console.error("AR Start failed:", err);
-        statusLbl.innerText = "เปิดกล้องสำหรับส่อง AR เรียบร้อย";
+        console.error("Camera AR Error:", err);
+        statusLbl.innerText = "กล้องพร้อมใช้งาน";
       }
     }
 
-    function stopARLivePreview() {
-      document.getElementById('ar-camera-modal').classList.add('hidden');
+    function stopARLivePreview(hideModal = true) {
+      if (hideModal) {
+        document.getElementById('ar-camera-modal').classList.add('hidden');
+      }
       if (mindarThree) {
-        try { mindarThree.stop(); } catch(e){}
+        try { 
+          mindarThree.stop(); 
+          mindarThree.renderer.dispose();
+        } catch(e){}
+        mindarThree = null;
       }
+      const container = document.getElementById('ar-view-container');
+      container.innerHTML = `
+        <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-400/40 m-6 rounded-2xl flex items-center justify-center z-10">
+          <div class="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl text-xs text-slate-200 font-mono border border-slate-700 shadow-xl text-center max-w-[250px]">
+            ส่องกล้องหลังไปที่รูป Marker เพื่อให้วัตถุ 3D ลอยขึ้นมา
+          </div>
+        </div>
+      `;
     }
 
-    // EXPORT STANDALONE WEBAR DEPLOYMENT PACKAGE
+    // EXPORT COMPLETE PROJECT PACKAGE (Matching Image 10 Specification)
     function exportProjectPackage() {
       const zip = new JSZip();
-      const projectFolder = zip.folder("webar-ar-project");
 
+      // 1. Generate scene.json Metadata
       const sceneData = {
         marker: {
           name: markerData.name,
@@ -988,58 +1001,169 @@
         objects: sceneObjects.map(obj => ({
           name: obj.userData.name,
           type: obj.userData.type,
+          fileName: obj.userData.fileName || null,
+          colorHex: obj.userData.colorHex || '#6366f1',
           position: [obj.position.x, obj.position.y, obj.position.z],
           rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
-          scale: [obj.scale.x, obj.scale.y, obj.scale.z]
+          scale: [obj.scale.x, obj.scale.y, obj.scale.z],
+          visible: obj.visible,
+          frames: (obj.userData.type === 'sequence') ? sequenceData.files.map(f => f.name) : null,
+          fps: sequenceData.fps
         }))
       };
 
-      projectFolder.file("scene.json", JSON.stringify(sceneData, null, 2));
+      zip.file("scene.json", JSON.stringify(sceneData, null, 2));
 
-      // Generated Production Ready index.html
+      // 2. Generate Standalone index.html
       const standaloneHtml = `<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>WebAR Experience</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WebAR Project Experience</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"><\/script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"><\/script>
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-    #ar-overlay { position: fixed; top: 12px; left: 12px; z-index: 100; color: #fff; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 20px; font-size: 12px; }
+    #ar-overlay { position: fixed; top: 12px; left: 12px; z-index: 100; color: #fff; background: rgba(0,0,0,0.65); padding: 8px 16px; border-radius: 20px; font-size: 12px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.1); }
   </style>
 </head>
 <body>
-  <div id="ar-overlay">WebAR Live: ส่องไปที่รูปภาพเพื่อดูโมเดล 3D</div>
-
-  <script>
-    window.addEventListener('DOMContentLoaded', async () => {
-      const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-        container: document.body,
-        imageTargetSrc: './assets/targets.mind',
-      });
-      const {renderer, scene, camera} = mindarThree;
-      const anchor = mindarThree.addAnchor(0);
-
-      // Create Box Mesh as Scene Representation
-      const geom = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-      const mat = new THREE.MeshBasicMaterial({color: 0x6366f1});
-      const cube = new THREE.Mesh(geom, mat);
-      cube.position.set(0, 0.05, 0);
-      anchor.group.add(cube);
-
-      await mindarThree.start();
-      renderer.setAnimationLoop(() => {
-        renderer.render(scene, camera);
-      });
-    });
-  <\/script>
+  <div id="ar-overlay">WebAR Live: ส่องกล้องไปที่รูปภาพ Marker เพื่อดูโมเดล 3D</div>
+  <script src="main.js"><\/script>
 </body>
 </html>`;
 
-      projectFolder.file("index.html", standaloneHtml);
-      
-      const assetsFolder = projectFolder.folder("assets");
+      zip.file("index.html", standaloneHtml);
+
+      // 3. Generate Standalone main.js Engine
+      const standaloneMainJs = `window.addEventListener('DOMContentLoaded', async () => {
+  const res = await fetch('./scene.json');
+  const sceneConfig = await res.json();
+
+  const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+    container: document.body,
+    imageTargetSrc: './assets/targets.mind',
+    uiLoading: "no",
+    uiScanning: "no"
+  });
+
+  const { renderer, scene, camera } = mindarThree;
+  const anchor = mindarThree.addAnchor(0);
+
+  const mixers = [];
+  const videosToControl = [];
+  const sequenceObjects = [];
+
+  if (sceneConfig.objects && sceneConfig.objects.length > 0) {
+    for (const objData of sceneConfig.objects) {
+      let object3D;
+
+      if (objData.type === 'cube') {
+        const geom = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
+        object3D = new THREE.Mesh(geom, mat);
+      } else if (objData.type === 'sphere') {
+        const geom = new THREE.SphereGeometry(0.05, 32, 32);
+        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
+        object3D = new THREE.Mesh(geom, mat);
+      } else if (objData.type === 'cylinder') {
+        const geom = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 32);
+        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
+        object3D = new THREE.Mesh(geom, mat);
+      } else if (objData.type === 'plane') {
+        const geom = new THREE.PlaneGeometry(0.1, 0.1);
+        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1, side: THREE.DoubleSide });
+        object3D = new THREE.Mesh(geom, mat);
+      } else if (objData.type === 'glb' && objData.fileName) {
+        const loader = new THREE.GLTFLoader();
+        try {
+          const gltf = await new Promise((resolve, reject) => {
+            loader.load('./assets/' + objData.fileName, resolve, undefined, reject);
+          });
+          object3D = gltf.scene;
+          if (gltf.animations && gltf.animations.length > 0) {
+            const mixer = new THREE.AnimationMixer(object3D);
+            mixer.clipAction(gltf.animations[0]).play();
+            mixers.push(mixer);
+          }
+        } catch(e) {
+          console.warn("Error loading GLB:", objData.fileName, e);
+        }
+      } else if (objData.type === 'video' && objData.fileName) {
+        const video = document.createElement('video');
+        video.src = './assets/' + objData.fileName;
+        video.loop = true;
+        video.muted = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        const texture = new THREE.VideoTexture(video);
+        const geom = new THREE.PlaneGeometry(0.12, 0.08);
+        const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+        object3D = new THREE.Mesh(geom, mat);
+        videosToControl.push(video);
+      } else if (objData.type === 'sequence' && objData.frames && objData.frames.length > 0) {
+        const loader = new THREE.TextureLoader();
+        const textures = objData.frames.map(f => loader.load('./effect/' + f));
+        const geom = new THREE.PlaneGeometry(0.1, 0.1);
+        const mat = new THREE.MeshBasicMaterial({ map: textures[0], transparent: true, side: THREE.DoubleSide });
+        object3D = new THREE.Mesh(geom, mat);
+        sequenceObjects.push({ mesh: object3D, textures: textures, fps: objData.fps || 24, currentFrame: 0, lastTime: 0 });
+      }
+
+      if (object3D) {
+        object3D.position.set(...objData.position);
+        object3D.rotation.set(...objData.rotation);
+        object3D.scale.set(...objData.scale);
+        object3D.visible = objData.visible !== false;
+        anchor.group.add(object3D);
+      }
+    }
+  }
+
+  anchor.onTargetFound = () => {
+    videosToControl.forEach(v => v.play().catch(e => {}));
+  };
+
+  anchor.onTargetLost = () => {
+    videosToControl.forEach(v => v.pause());
+  };
+
+  await mindarThree.start();
+
+  const videoElem = document.querySelector('video');
+  if (videoElem) {
+    videoElem.setAttribute('playsinline', '');
+    videoElem.setAttribute('webkit-playsinline', '');
+    videoElem.muted = true;
+    videoElem.play().catch(e => {});
+  }
+
+  const clock = new THREE.Clock();
+  renderer.setAnimationLoop(() => {
+    const delta = clock.getDelta();
+    const elapsed = clock.getElapsedTime();
+
+    mixers.forEach(m => m.update(delta));
+
+    sequenceObjects.forEach(seq => {
+      if (elapsed - seq.lastTime > 1 / seq.fps) {
+        seq.lastTime = elapsed;
+        seq.currentFrame = (seq.currentFrame + 1) % seq.textures.length;
+        seq.mesh.material.map = seq.textures[seq.currentFrame];
+        seq.mesh.material.needsUpdate = true;
+      }
+    });
+
+    renderer.render(scene, camera);
+  });
+});`;
+
+      zip.file("main.js", standaloneMainJs);
+
+      // 4. Create assets/ Folder
+      const assetsFolder = zip.folder("assets");
       if (compiledMindBuffer) {
         assetsFolder.file("targets.mind", compiledMindBuffer);
       }
@@ -1047,10 +1171,26 @@
         assetsFolder.file(markerData.name, markerData.file);
       }
 
+      // Add uploaded GLB and Video files to assets/
+      sceneObjects.forEach(obj => {
+        if ((obj.userData.type === 'glb' || obj.userData.type === 'video') && obj.userData.file) {
+          assetsFolder.file(obj.userData.fileName, obj.userData.file);
+        }
+      });
+
+      // 5. Create effect/ Folder for Image Sequence Frames
+      if (sequenceData.files.length > 0) {
+        const effectFolder = zip.folder("effect");
+        sequenceData.files.forEach(file => {
+          effectFolder.file(file.name, file);
+        });
+      }
+
+      // 6. Download Package
       zip.generateAsync({ type: "blob" }).then(content => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
-        link.download = "WebAR_Package_Ready.zip";
+        link.download = "webar-ar-project.zip";
         link.click();
       });
     }
@@ -1069,10 +1209,10 @@
         const btn = document.getElementById(`tab-btn-${t}`);
         if (t === tabName) {
           panel.classList.remove('hidden');
-          btn.className = "py-2.5 text-center text-indigo-400 border-b-2 border-indigo-500 font-semibold transition";
+          btn.className = "py-2 text-center text-indigo-400 border-b-2 border-indigo-500 font-semibold transition";
         } else {
           panel.classList.add('hidden');
-          btn.className = "py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition";
+          btn.className = "py-2 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition";
         }
       });
     }
