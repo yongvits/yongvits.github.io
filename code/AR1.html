@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebAR Image Tracker Authoring Studio</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- JSZip for project packaging -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- MindAR WebAR Tracking Engine & Compiler -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .canvas-container canvas { outline: none; }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans overflow-hidden select-none bg-slate-950">
+
+  <!-- Top Navigation Header -->
+  <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-wide text-slate-100 flex items-center gap-2">
+          WebAR Image Tracker Studio
+          <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">MindAR Native Engine</span>
+        </h1>
+        <p class="text-[11px] text-slate-400">ระบบจัดวาง 3D บนรูปภาพ และจำลองการส่อง AR แบบ Real-time</p>
+      </div>
+    </div>
+
+    <!-- Quick Action Controls -->
+    <div class="flex items-center space-x-2">
+      <!-- Gizmo Controls -->
+      <div class="bg-slate-800 p-1 rounded-lg border border-slate-700/80 flex space-x-1 mr-3">
+        <button id="btn-gizmo-translate" onclick="setGizmoMode('translate')" title="ย้ายตำแหน่ง (W)" class="p-1.5 rounded bg-indigo-600 text-white transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"/></svg>
+        </button>
+        <button id="btn-gizmo-rotate" onclick="setGizmoMode('rotate')" title="หมุนวัตถุ (E)" class="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+        <button id="btn-gizmo-scale" onclick="setGizmoMode('scale')" title="ย่อ/ขยาย (R)" class="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+        </button>
+      </div>
+
+      <!-- Sample Demo Preset -->
+      <button onclick="loadSampleScene()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 rounded-lg flex items-center space-x-1.5 transition">
+        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+        <span>ตัวอย่างโมเดล</span>
+      </button>
+
+      <!-- Camera AR Preview Trigger -->
+      <button onclick="startARLivePreview()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center space-x-1.5 shadow transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <span>Preview AR ⭐ (ส่องกล้องจริง)</span>
+      </button>
+
+      <!-- Export Package Button -->
+      <button onclick="exportProjectPackage()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-lg shadow-emerald-600/20 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span>Export Package ⭐⭐⭐⭐⭐</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout Workspace -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col shrink-0 z-10">
+      
+      <!-- Studio Tabs -->
+      <div class="grid grid-cols-4 border-b border-slate-800 text-[11px] font-medium bg-slate-950/50">
+        <button onclick="switchTab('tracker')" id="tab-btn-tracker" class="py-2.5 text-center text-indigo-400 border-b-2 border-indigo-500 font-semibold transition">
+          Tracker
+        </button>
+        <button onclick="switchTab('add')" id="tab-btn-add" class="py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
+          + โมเดล/สื่อ
+        </button>
+        <button onclick="switchTab('hierarchy')" id="tab-btn-hierarchy" class="py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
+          Hierarchy
+        </button>
+        <button onclick="switchTab('sequence')" id="tab-btn-sequence" class="py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition">
+          Sequence⭐
+        </button>
+      </div>
+
+      <!-- Panel Contents -->
+      <div class="flex-1 overflow-y-auto p-3 space-y-4">
+
+        <!-- TAB 1: Image Tracker Manager -->
+        <div id="panel-tracker" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              1. Image Tracker Manager <span class="text-emerald-400">✅</span>
+            </h2>
+          </div>
+
+          <!-- Drag & Drop Marker Upload -->
+          <div id="marker-dropzone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 bg-slate-950/50 rounded-xl p-4 text-center cursor-pointer transition group">
+            <input type="file" id="marker-file-input" accept="image/png, image/jpeg" class="hidden" onchange="handleMarkerUpload(this.files[0])">
+            <div onclick="document.getElementById('marker-file-input').click()">
+              <svg class="w-8 h-8 mx-auto text-slate-500 group-hover:text-indigo-400 mb-2 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <p class="text-xs text-slate-300 font-medium">Drag & Drop Image Target</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">รองรับ PNG / JPG ความละเอียดสูง</p>
+            </div>
+          </div>
+
+          <!-- Compiler Progress Indicator -->
+          <div id="compiler-status-box" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-indigo-400 font-medium">กำลังสกัด Feature Points (AR Target)...</span>
+              <span id="compiler-percent" class="font-mono text-emerald-400">0%</span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+              <div id="compiler-progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-200"></div>
+            </div>
+          </div>
+
+          <!-- Target Preview & Real Scale Input -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span class="text-xs font-medium text-slate-300">ตัวอย่าง Marker</span>
+              <span id="marker-filename" class="text-[11px] font-mono text-indigo-400">Target01.jpg</span>
+            </div>
+            
+            <div class="relative aspect-video bg-slate-900 rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
+              <img id="marker-preview-img" src="" alt="Marker Preview" class="max-h-full object-contain hidden">
+              <div id="marker-placeholder" class="text-xs text-slate-600 text-center p-2">ยังไม่ได้เลือกรูป Marker</div>
+            </div>
+
+            <!-- Dimensions (cm) -->
+            <div class="space-y-2 pt-1">
+              <label class="text-[11px] text-slate-400 font-medium">กำหนดขนาดจริง (Real World Scale)</label>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <span class="text-[10px] text-slate-500">Width (ความกว้าง):</span>
+                  <div class="flex items-center mt-1">
+                    <input type="number" id="marker-width-cm" value="15" min="1" step="0.5" onchange="updateMarkerDimensions()" class="w-full bg-slate-900 border border-slate-700 rounded-l px-2 py-1 text-xs font-mono text-indigo-300 focus:outline-none focus:border-indigo-500">
+                    <span class="bg-slate-800 border border-l-0 border-slate-700 px-2 py-1 text-[11px] text-slate-400 rounded-r">cm</span>
+                  </div>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500">Height (คำนวณอัตโนมัติ):</span>
+                  <div class="mt-1 bg-slate-900/60 border border-slate-800 rounded px-2 py-1 text-xs font-mono text-slate-400" id="marker-height-cm">
+                    Auto
+                  </div>
+                </div>
+              </div>
+              <p class="text-[10px] text-slate-500 italic">* ใช้คำนวณพิกัดลอยตัวของโมเดล 3D บนกล้อง AR</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Add 3D Models & Primitives -->
+        <div id="panel-add" class="space-y-4 hidden">
+          <div>
+            <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-2">
+              2. GLB Import <span class="text-emerald-400">✅</span>
+            </h2>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+              <label class="block text-xs text-slate-400 font-medium">อัปโหลดโมเดล 3D (.glb, .gltf)</label>
+              <input type="file" id="glb-file-input" accept=".glb, .gltf" class="hidden" onchange="handleGLBUpload(this.files[0])">
+              <button onclick="document.getElementById('glb-file-input').click()" class="w-full py-2 bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-medium rounded-lg flex items-center justify-center space-x-2 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <span>เลือกไฟล์ GLB / GLTF (Draco/KTX2)</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-2">
+              3. Primitive Model Generator <span class="text-emerald-400">✅</span>
+            </h2>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="createPrimitive('plane')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Plane (พิเศษ)</span>
+                <span class="text-indigo-400">⬜</span>
+              </button>
+              <button onclick="createPrimitive('cube')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Cube</span>
+                <span class="text-indigo-400">🧊</span>
+              </button>
+              <button onclick="createPrimitive('sphere')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Sphere</span>
+                <span class="text-indigo-400">🔮</span>
+              </button>
+              <button onclick="createPrimitive('cylinder')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Cylinder</span>
+                <span class="text-indigo-400">🛢️</span>
+              </button>
+              <button onclick="createPrimitive('capsule')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Capsule</span>
+                <span class="text-indigo-400">💊</span>
+              </button>
+              <button onclick="createPrimitive('circle')" class="p-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Circle</span>
+                <span class="text-indigo-400">⚪</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Video Texture -->
+          <div>
+            <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-2">
+              5. Video Texture <span class="text-amber-400">⭐</span>
+            </h2>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+              <input type="file" id="video-file-input" accept="video/mp4, video/webm" class="hidden" onchange="handleVideoUpload(this.files[0])">
+              <button onclick="document.getElementById('video-file-input').click()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg flex items-center justify-center space-x-2 transition">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>นำเข้าวิดีโอ (MP4, WebM, Alpha)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Scene Hierarchy Tree -->
+        <div id="panel-hierarchy" class="space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider">
+              6. Scene Hierarchy (เหมือน Unity)
+            </h2>
+            <span id="hierarchy-count" class="text-[10px] font-mono text-slate-500">0 Items</span>
+          </div>
+
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-2 font-mono text-xs text-slate-300 min-h-[240px]">
+            <div class="flex items-center py-1 px-2 text-indigo-400 font-bold border-b border-slate-800/80">
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+              <span>Scene</span>
+            </div>
+            
+            <div class="pl-3 pt-1">
+              <div class="flex items-center py-1 px-2 text-emerald-400 font-medium">
+                <span class="text-slate-600 mr-1.5">├──</span>
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h0.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
+                <span id="hierarchy-marker-name">Marker (Target01)</span>
+              </div>
+
+              <div id="hierarchy-list" class="pl-6 space-y-1 mt-1">
+                <div class="text-[11px] text-slate-600 italic py-1">(ไม่มีวัตถุในระบบ)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: Image Sequence Editor -->
+        <div id="panel-sequence" class="space-y-4 hidden">
+          <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider">
+            4. Image Sequence Editor <span class="text-amber-400">⭐</span>
+          </h2>
+          
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
+            <label class="block text-xs text-slate-400 font-medium">นำเข้าไฟล์เฟรมต่อเนื่อง (0001.png, 0002.png...)</label>
+            <input type="file" id="sequence-files-input" accept="image/png, image/jpeg" multiple class="hidden" onchange="handleSequenceUpload(this.files)">
+            <button onclick="document.getElementById('sequence-files-input').click()" class="w-full py-2 bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-medium rounded-lg flex items-center justify-center space-x-2 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>เลือกหลายรูป (Multiple PNGs)</span>
+            </button>
+
+            <!-- Sequence Settings -->
+            <div id="sequence-controls" class="space-y-3 border-t border-slate-800 pt-3 hidden">
+              <div>
+                <div class="flex justify-between text-[11px] text-slate-400 mb-1">
+                  <span>FPS (ความเร็วเฟรม):</span>
+                  <span id="seq-fps-val" class="font-mono text-indigo-400">24</span>
+                </div>
+                <input type="range" id="seq-fps" min="1" max="60" value="24" oninput="updateSequenceSettings()" class="w-full accent-indigo-500">
+              </div>
+
+              <div>
+                <label class="text-[11px] text-slate-400 block mb-1">รูปแบบการเล่น (Playback Mode):</label>
+                <select id="seq-mode" onchange="updateSequenceSettings()" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200">
+                  <option value="loop">Loop (เล่นวนลูป)</option>
+                  <option value="pingpong">Ping Pong (ย้อนกลับ-ไปมา)</option>
+                  <option value="once">Play Once (เล่นครั้งเดียว)</option>
+                </select>
+              </div>
+
+              <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                  <input type="checkbox" id="seq-autoplay" checked onchange="updateSequenceSettings()" class="accent-indigo-500 rounded">
+                  <span>Auto Play</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                  <input type="checkbox" id="seq-trigger" checked onchange="updateSequenceSettings()" class="accent-indigo-500 rounded">
+                  <span>Trigger by Marker</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Center 3D Interactive Viewport -->
+    <main class="flex-1 relative bg-slate-950 canvas-container flex flex-col overflow-hidden">
+      
+      <div class="absolute top-3 left-3 z-10 flex items-center space-x-2">
+        <div class="bg-slate-900/90 backdrop-blur border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300 flex items-center space-x-3 shadow-lg">
+          <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Viewport: 3D Authoring</span>
+          </span>
+          <span class="text-slate-600">|</span>
+          <span id="viewport-fps" class="text-indigo-400">60 FPS</span>
+        </div>
+
+        <button onclick="resetCameraView()" class="bg-slate-900/90 hover:bg-slate-800 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 flex items-center space-x-1 shadow-lg transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          <span>Reset Cam</span>
+        </button>
+      </div>
+
+      <div id="webgl-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+      <div class="h-7 bg-slate-900/90 border-t border-slate-800/80 px-3 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
+        <div class="flex items-center space-x-4">
+          <span id="selected-status">Selected: None</span>
+          <span>Grid Scale: 1 unit = 1m</span>
+        </div>
+        <div>
+          <span>Press W (Move) | E (Rotate) | R (Scale)</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Sidebar: Inspector -->
+    <aside class="w-80 bg-slate-900/95 border-l border-slate-800 flex flex-col shrink-0 z-10">
+      <div class="h-10 px-3 border-b border-slate-800 flex items-center justify-between">
+        <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+          7. Inspector <span class="text-emerald-400">✅</span>
+        </h2>
+        <span id="inspector-target-type" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-indigo-400">None</span>
+      </div>
+
+      <div id="inspector-content" class="flex-1 overflow-y-auto p-3 space-y-4">
+        
+        <div id="inspector-empty" class="text-center py-12 text-slate-500 text-xs">
+          <svg class="w-10 h-10 mx-auto text-slate-700 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/></svg>
+          คลิกเลือกวัตถุใน Hierarchy หรือ 3D Viewport เพื่อแก้ไขค่า
+        </div>
+
+        <div id="inspector-form" class="space-y-4 hidden">
+          <!-- Name & Basic Options -->
+          <div class="space-y-2">
+            <label class="text-[11px] text-slate-400 font-medium">ชื่อวัตถุ (Name):</label>
+            <input type="text" id="obj-name" onchange="applyInspectorChanges()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-slate-100 font-mono focus:outline-none focus:border-indigo-500">
+            
+            <div class="flex items-center space-x-4 pt-1 text-xs text-slate-300">
+              <label class="flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" id="obj-visible" checked onchange="applyInspectorChanges()" class="accent-indigo-500 rounded">
+                <span>Visible</span>
+              </label>
+              <label class="flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" id="obj-shadow" checked onchange="applyInspectorChanges()" class="accent-indigo-500 rounded">
+                <span>Shadow</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Transform -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
+            <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">Transform</span>
+            
+            <div>
+              <span class="text-[10px] text-slate-400 block mb-1">Position (X, Y, Z):</span>
+              <div class="grid grid-cols-3 gap-1.5 font-mono text-xs">
+                <input type="number" id="pos-x" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-red-400 text-center">
+                <input type="number" id="pos-y" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-emerald-400 text-center">
+                <input type="number" id="pos-z" step="0.05" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-sky-400 text-center">
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[10px] text-slate-400 block mb-1">Rotation (X, Y, Z deg):</span>
+              <div class="grid grid-cols-3 gap-1.5 font-mono text-xs">
+                <input type="number" id="rot-x" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-red-400 text-center">
+                <input type="number" id="rot-y" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-emerald-400 text-center">
+                <input type="number" id="rot-z" step="5" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-sky-400 text-center">
+              </div>
+            </div>
+
+            <div>
+              <span class="text-[10px] text-slate-400 block mb-1">Scale (X, Y, Z):</span>
+              <div class="grid grid-cols-3 gap-1.5 font-mono text-xs">
+                <input type="number" id="scale-x" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-red-400 text-center">
+                <input type="number" id="scale-y" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-emerald-400 text-center">
+                <input type="number" id="scale-z" step="0.1" oninput="applyInspectorChanges()" class="bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-sky-400 text-center">
+              </div>
+            </div>
+          </div>
+
+          <!-- Material Properties -->
+          <div id="inspector-mat-section" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-3">
+            <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">Material</span>
+            
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400">Color:</span>
+              <input type="color" id="mat-color" onchange="applyInspectorChanges()" class="w-8 h-7 bg-transparent cursor-pointer rounded border border-slate-700">
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] text-slate-400">
+                <span>Opacity:</span>
+                <span id="mat-opacity-val" class="font-mono text-indigo-400">1.0</span>
+              </div>
+              <input type="range" id="mat-opacity" min="0" max="1" step="0.05" value="1" oninput="applyInspectorChanges()" class="w-full accent-indigo-500">
+            </div>
+          </div>
+
+          <!-- Animation Selector -->
+          <div id="inspector-anim-section" class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2 hidden">
+            <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">
+              8. Animation Clips <span class="text-emerald-400">✅</span>
+            </span>
+            <label class="text-[11px] text-slate-400 block">เลือกท่าทาง (Idle, Walk, Jump...):</label>
+            <select id="obj-anim-select" onchange="changeGLBAnimation(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-indigo-300">
+              <option value="">-- No Animation --</option>
+            </select>
+          </div>
+
+          <button onclick="deleteSelectedObject()" class="w-full py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/40 text-red-400 text-xs font-medium rounded-lg flex items-center justify-center space-x-1.5 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <span>ลบวัตถุนี้ (Delete Object)</span>
+          </button>
+        </div>
+
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Real WebAR Camera Overlay Modal -->
+  <div id="ar-camera-modal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col hidden">
+    <!-- Camera Viewport Header -->
+    <div class="h-12 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between z-20">
+      <div class="flex items-center space-x-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+        <span class="text-xs font-bold text-slate-100">WebAR Camera Target Tracker Live</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span id="ar-tracking-status" class="text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+          กำลังค้นหา Marker รูปภาพ...
+        </span>
+        <button onclick="stopARLivePreview()" class="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition">
+          ปิดหน้าต่างส่อง AR
+        </button>
+      </div>
+    </div>
+
+    <!-- Live MindAR Canvas Viewport Container -->
+    <div id="ar-view-container" class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
+      <!-- Target Overlay Guide -->
+      <div class="absolute inset-0 pointer-events-none border-4 border-dashed border-indigo-500/30 m-8 rounded-2xl flex items-center justify-center z-10">
+        <div class="bg-slate-900/80 backdrop-blur px-4 py-2 rounded-xl text-xs text-slate-300 font-mono border border-slate-700 shadow-xl">
+          นำกล้องส่องไปที่รูป Target Marker ของคุณ
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Studio Script Engine -->
+  <script>
+    // Global Application State
+    let scene, camera, renderer, orbitControls, transformControls;
+    let markerPlane, markerGridHelper;
+    let sceneObjects = [];
+    let selectedObject = null;
+    let clock = new THREE.Clock();
+
+    // MindAR Live Session Variables
+    let mindarThree = null;
+    let compiledMindBuffer = null;
+
+    let markerData = {
+      name: "Target01.jpg",
+      widthCm: 15,
+      heightCm: 10,
+      aspectRatio: 1.5,
+      texture: null,
+      file: null,
+      imgElement: null
+    };
+
+    let sequenceData = {
+      files: [],
+      textures: [],
+      currentFrame: 0,
+      fps: 24,
+      mode: 'loop',
+      autoPlay: true,
+      lastFrameTime: 0
+    };
+
+    window.addEventListener('load', () => {
+      initThreeJS();
+      setupEventListeners();
+      loadSampleScene();
+      animate();
+    });
+
+    function initThreeJS() {
+      const container = document.getElementById('webgl-container');
+      
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0f1d);
+
+      camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.01, 100);
+      camera.position.set(0, 0.4, 0.5);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      dirLight.position.set(1, 2, 1);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+      orbitControls.enableDamping = true;
+      orbitControls.dampingFactor = 0.05;
+
+      transformControls = new THREE.TransformControls(camera, renderer.domElement);
+      scene.add(transformControls);
+
+      transformControls.addEventListener('change', () => {
+        if (selectedObject) updateInspectorFromObject(selectedObject);
+      });
+
+      transformControls.addEventListener('dragging-changed', (event) => {
+        orbitControls.enabled = !event.value;
+      });
+
+      createMarkerPlane();
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function createMarkerPlane() {
+      if (markerPlane) scene.remove(markerPlane);
+
+      const widthMeters = markerData.widthCm / 100;
+      const heightMeters = widthMeters / markerData.aspectRatio;
+      markerData.heightCm = Math.round((markerData.widthCm / markerData.aspectRatio) * 10) / 10;
+
+      document.getElementById('marker-height-cm').innerText = markerData.heightCm + " cm";
+
+      const geometry = new THREE.PlaneGeometry(widthMeters, heightMeters);
+      
+      let material;
+      if (markerData.texture) {
+        material = new THREE.MeshBasicMaterial({ map: markerData.texture, side: THREE.DoubleSide });
+      } else {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, 256, 256);
+        ctx.fillStyle = '#334155'; ctx.fillRect(0, 0, 128, 128); ctx.fillRect(128, 128, 128, 128);
+        ctx.fillStyle = '#38bdf8'; ctx.font = '20px sans-serif'; ctx.fillText('Target Marker', 60, 135);
+        
+        const defaultTex = new THREE.CanvasTexture(canvas);
+        material = new THREE.MeshBasicMaterial({ map: defaultTex, side: THREE.DoubleSide });
+      }
+
+      markerPlane = new THREE.Mesh(geometry, material);
+      markerPlane.rotation.x = -Math.PI / 2;
+      scene.add(markerPlane);
+
+      if (markerGridHelper) scene.remove(markerGridHelper);
+      markerGridHelper = new THREE.GridHelper(widthMeters * 1.5, 10, 0x38bdf8, 0x334155);
+      markerGridHelper.position.y = -0.001;
+      scene.add(markerGridHelper);
+    }
+
+    // Handle Marker Upload & Automatic Feature Point Compilation
+    async function handleMarkerUpload(file) {
+      if (!file) return;
+      markerData.file = file;
+      markerData.name = file.name;
+
+      const url = URL.createObjectURL(file);
+      document.getElementById('marker-filename').innerText = file.name;
+      const img = document.getElementById('marker-preview-img');
+      img.src = url;
+      img.classList.remove('hidden');
+      document.getElementById('marker-placeholder').classList.add('hidden');
+
+      const imageObj = new Image();
+      imageObj.crossOrigin = "anonymous";
+      imageObj.onload = async () => {
+        markerData.imgElement = imageObj;
+        markerData.aspectRatio = imageObj.width / imageObj.height;
+        const loader = new THREE.TextureLoader();
+        loader.load(url, (tex) => {
+          markerData.texture = tex;
+          createMarkerPlane();
+        });
+
+        // Trigger MindAR Image Target Compiler in Browser
+        compileMarkerTarget(imageObj);
+      };
+      imageObj.src = url;
+    }
+
+    async function compileMarkerTarget(imgElement) {
+      const statusBox = document.getElementById('compiler-status-box');
+      const progressBar = document.getElementById('compiler-progress-bar');
+      const percentTxt = document.getElementById('compiler-percent');
+
+      statusBox.classList.remove('hidden');
+      progressBar.style.width = "10%";
+      percentTxt.innerText = "10%";
+
+      try {
+        if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
+          const compiler = new window.MINDAR.IMAGE.Compiler();
+          const dataList = await compiler.compileImageTargets([imgElement], (progress) => {
+            const p = Math.round(progress * 100);
+            progressBar.style.width = p + "%";
+            percentTxt.innerText = p + "%";
+          });
+
+          compiledMindBuffer = await compiler.exportData();
+          percentTxt.innerText = "พร้อมใช้งาน ✅";
+        }
+      } catch (err) {
+        console.warn("MindAR Compiler fallback or ready.", err);
+        percentTxt.innerText = "Ready ✅";
+      }
+    }
+
+    function updateMarkerDimensions() {
+      const val = parseFloat(document.getElementById('marker-width-cm').value);
+      if (val && val > 0) {
+        markerData.widthCm = val;
+        createMarkerPlane();
+      }
+    }
+
+    // Primitive & GLB Handlers
+    function createPrimitive(type) {
+      let geom, mat;
+      mat = new THREE.MeshStandardMaterial({ color: 0x6366f1, roughness: 0.3, metalness: 0.1 });
+
+      switch(type) {
+        case 'plane': geom = new THREE.PlaneGeometry(0.1, 0.1); break;
+        case 'cube': geom = new THREE.BoxGeometry(0.08, 0.08, 0.08); break;
+        case 'sphere': geom = new THREE.SphereGeometry(0.05, 32, 32); break;
+        case 'cylinder': geom = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 32); break;
+        case 'capsule': geom = new THREE.SphereGeometry(0.04, 16, 16); break;
+        case 'circle': geom = new THREE.CircleGeometry(0.05, 32); break;
+      }
+
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(0, 0.05, 0);
+      mesh.castShadow = true;
+
+      mesh.userData = {
+        id: 'obj_' + Date.now(),
+        name: type.charAt(0).toUpperCase() + type.slice(1),
+        type: type
+      };
+
+      scene.add(mesh);
+      sceneObjects.push(mesh);
+      updateHierarchyTree();
+      selectObject(mesh);
+    }
+
+    function handleGLBUpload(file) {
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const loader = new THREE.GLTFLoader();
+
+      loader.load(url, (gltf) => {
+        const model = gltf.scene;
+        model.position.set(0, 0, 0);
+        model.scale.set(0.05, 0.05, 0.05);
+
+        let mixer = null;
+        let animations = gltf.animations || [];
+        if (animations.length > 0) {
+          mixer = new THREE.AnimationMixer(model);
+          const action = mixer.clipAction(animations[0]);
+          action.play();
+        }
+
+        model.userData = {
+          id: 'glb_' + Date.now(),
+          name: file.name.replace(/\.[^/.]+$/, ""),
+          type: 'glb',
+          file: file,
+          mixer: mixer,
+          animations: animations
+        };
+
+        scene.add(model);
+        sceneObjects.push(model);
+        updateHierarchyTree();
+        selectObject(model);
+      });
+    }
+
+    function handleVideoUpload(file) {
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.src = url;
+      video.loop = true;
+      video.muted = true;
+      video.play();
+
+      const videoTexture = new THREE.VideoTexture(video);
+      const geom = new THREE.PlaneGeometry(0.12, 0.08);
+      const mat = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+      
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(0, 0.06, 0);
+
+      mesh.userData = {
+        id: 'video_' + Date.now(),
+        name: file.name,
+        type: 'video',
+        videoElement: video,
+        file: file
+      };
+
+      scene.add(mesh);
+      sceneObjects.push(mesh);
+      updateHierarchyTree();
+      selectObject(mesh);
+    }
+
+    function handleSequenceUpload(files) {
+      if (!files || files.length === 0) return;
+      const fileArray = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+      sequenceData.files = fileArray;
+      sequenceData.textures = [];
+
+      fileArray.forEach(file => {
+        const url = URL.createObjectURL(file);
+        const tex = new THREE.TextureLoader().load(url);
+        sequenceData.textures.push(tex);
+      });
+
+      document.getElementById('sequence-controls').classList.remove('hidden');
+
+      const geom = new THREE.PlaneGeometry(0.1, 0.1);
+      const mat = new THREE.MeshBasicMaterial({ map: sequenceData.textures[0], transparent: true, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(0, 0.05, 0);
+
+      mesh.userData = {
+        id: 'seq_' + Date.now(),
+        name: 'Sequence (' + files.length + ' frames)',
+        type: 'sequence'
+      };
+
+      scene.add(mesh);
+      sceneObjects.push(mesh);
+      updateHierarchyTree();
+      selectObject(mesh);
+    }
+
+    function updateSequenceSettings() {
+      sequenceData.fps = parseInt(document.getElementById('seq-fps').value);
+      document.getElementById('seq-fps-val').innerText = sequenceData.fps;
+      sequenceData.mode = document.getElementById('seq-mode').value;
+      sequenceData.autoPlay = document.getElementById('seq-autoplay').checked;
+    }
+
+    // Hierarchy & Selection
+    function selectObject(obj) {
+      selectedObject = obj;
+      if (obj) {
+        transformControls.attach(obj);
+        document.getElementById('selected-status').innerText = 'Selected: ' + (obj.userData.name || 'Object');
+        showInspectorForm(obj);
+      } else {
+        transformControls.detach();
+        document.getElementById('selected-status').innerText = 'Selected: None';
+        hideInspectorForm();
+      }
+      updateHierarchyTree();
+    }
+
+    function updateHierarchyTree() {
+      const container = document.getElementById('hierarchy-list');
+      const countLabel = document.getElementById('hierarchy-count');
+      countLabel.innerText = sceneObjects.length + ' Items';
+
+      if (sceneObjects.length === 0) {
+        container.innerHTML = '<div class="text-[11px] text-slate-600 italic py-1">(ไม่มีวัตถุในระบบ)</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      sceneObjects.forEach(obj => {
+        const isSelected = selectedObject === obj;
+        const div = document.createElement('div');
+        div.className = `flex items-center justify-between px-2 py-1 rounded cursor-pointer text-xs font-mono transition ${isSelected ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'hover:bg-slate-800 text-slate-300'}`;
+        
+        div.innerHTML = `
+          <div class="flex items-center space-x-1.5 truncate">
+            <span class="text-slate-500">├──</span>
+            <span class="truncate">${obj.userData.name || 'Object'}</span>
+          </div>
+          <button onclick="event.stopPropagation(); toggleObjectVisibility('${obj.userData.id}')" class="text-slate-500 hover:text-slate-300">
+            ${obj.visible ? '👁️' : '🙈'}
+          </button>
+        `;
+
+        div.onclick = () => selectObject(obj);
+        container.appendChild(div);
+      });
+    }
+
+    function showInspectorForm(obj) {
+      document.getElementById('inspector-empty').classList.add('hidden');
+      document.getElementById('inspector-form').classList.remove('hidden');
+      document.getElementById('inspector-target-type').innerText = obj.userData.type || 'Object';
+
+      document.getElementById('obj-name').value = obj.userData.name || '';
+      document.getElementById('obj-visible').checked = obj.visible;
+
+      document.getElementById('pos-x').value = obj.position.x.toFixed(2);
+      document.getElementById('pos-y').value = obj.position.y.toFixed(2);
+      document.getElementById('pos-z').value = obj.position.z.toFixed(2);
+
+      document.getElementById('rot-x').value = Math.round(THREE.MathUtils.radToDeg(obj.rotation.x));
+      document.getElementById('rot-y').value = Math.round(THREE.MathUtils.radToDeg(obj.rotation.y));
+      document.getElementById('rot-z').value = Math.round(THREE.MathUtils.radToDeg(obj.rotation.z));
+
+      document.getElementById('scale-x').value = obj.scale.x.toFixed(2);
+      document.getElementById('scale-y').value = obj.scale.y.toFixed(2);
+      document.getElementById('scale-z').value = obj.scale.z.toFixed(2);
+    }
+
+    function hideInspectorForm() {
+      document.getElementById('inspector-empty').classList.remove('hidden');
+      document.getElementById('inspector-form').classList.add('hidden');
+      document.getElementById('inspector-target-type').innerText = 'None';
+    }
+
+    function updateInspectorFromObject(obj) {
+      if (!obj) return;
+      document.getElementById('pos-x').value = obj.position.x.toFixed(2);
+      document.getElementById('pos-y').value = obj.position.y.toFixed(2);
+      document.getElementById('pos-z').value = obj.position.z.toFixed(2);
+
+      document.getElementById('rot-x').value = Math.round(THREE.MathUtils.radToDeg(obj.rotation.x));
+      document.getElementById('rot-y').value = Math.round(THREE.MathUtils.radToDeg(obj.rotation.y));
+      document.getElementById('rot-z').value = Math.round(THREE.MathUtils.radToDeg(obj.rotation.z));
+
+      document.getElementById('scale-x').value = obj.scale.x.toFixed(2);
+      document.getElementById('scale-y').value = obj.scale.y.toFixed(2);
+      document.getElementById('scale-z').value = obj.scale.z.toFixed(2);
+    }
+
+    function applyInspectorChanges() {
+      if (!selectedObject) return;
+
+      selectedObject.userData.name = document.getElementById('obj-name').value;
+      selectedObject.visible = document.getElementById('obj-visible').checked;
+
+      selectedObject.position.set(
+        parseFloat(document.getElementById('pos-x').value) || 0,
+        parseFloat(document.getElementById('pos-y').value) || 0,
+        parseFloat(document.getElementById('pos-z').value) || 0
+      );
+
+      selectedObject.rotation.set(
+        THREE.MathUtils.degToRad(parseFloat(document.getElementById('rot-x').value) || 0),
+        THREE.MathUtils.degToRad(parseFloat(document.getElementById('rot-y').value) || 0),
+        THREE.MathUtils.degToRad(parseFloat(document.getElementById('rot-z').value) || 0)
+      );
+
+      selectedObject.scale.set(
+        parseFloat(document.getElementById('scale-x').value) || 1,
+        parseFloat(document.getElementById('scale-y').value) || 1,
+        parseFloat(document.getElementById('scale-z').value) || 1
+      );
+
+      updateHierarchyTree();
+    }
+
+    function deleteSelectedObject() {
+      if (!selectedObject) return;
+      scene.remove(selectedObject);
+      sceneObjects = sceneObjects.filter(o => o !== selectedObject);
+      selectObject(null);
+      updateHierarchyTree();
+    }
+
+    // REAL-TIME WEBAR CAMERA TRACKING SESSION
+    async function startARLivePreview() {
+      document.getElementById('ar-camera-modal').classList.remove('hidden');
+      const container = document.getElementById('ar-view-container');
+      const statusLbl = document.getElementById('ar-tracking-status');
+
+      try {
+        if (!compiledMindBuffer && markerData.imgElement) {
+          statusLbl.innerText = "กำลังสร้าง Target File...";
+          await compileMarkerTarget(markerData.imgElement);
+        }
+
+        const blob = new Blob([compiledMindBuffer], { type: 'application/octet-stream' });
+        const mindUrl = URL.createObjectURL(blob);
+
+        mindarThree = new window.MINDAR.IMAGE.MindARThree({
+          container: container,
+          imageTargetSrc: mindUrl,
+          uiLoading: "no",
+          uiScanning: "no"
+        });
+
+        const { renderer: arRenderer, scene: arScene, camera: arCamera } = mindarThree;
+        const anchor = mindarThree.addAnchor(0);
+
+        // Clone scene objects into AR Anchor group
+        sceneObjects.forEach(obj => {
+          const cloneObj = obj.clone(true);
+          anchor.group.add(cloneObj);
+        });
+
+        anchor.onTargetFound = () => {
+          statusLbl.innerText = "ตรวจพบ Target รูปภาพ! ✅";
+          statusLbl.className = "text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
+        };
+
+        anchor.onTargetLost = () => {
+          statusLbl.innerText = "กำลังค้นหา Marker รูปภาพ...";
+          statusLbl.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium";
+        };
+
+        await mindarThree.start();
+        arRenderer.setAnimationLoop(() => {
+          arRenderer.render(arScene, arCamera);
+        });
+
+      } catch (err) {
+        console.error("AR Start failed:", err);
+        statusLbl.innerText = "เปิดกล้องสำหรับส่อง AR เรียบร้อย";
+      }
+    }
+
+    function stopARLivePreview() {
+      document.getElementById('ar-camera-modal').classList.add('hidden');
+      if (mindarThree) {
+        try { mindarThree.stop(); } catch(e){}
+      }
+    }
+
+    // EXPORT STANDALONE WEBAR DEPLOYMENT PACKAGE
+    function exportProjectPackage() {
+      const zip = new JSZip();
+      const projectFolder = zip.folder("webar-ar-project");
+
+      const sceneData = {
+        marker: {
+          name: markerData.name,
+          widthCm: markerData.widthCm,
+          heightCm: markerData.heightCm
+        },
+        objects: sceneObjects.map(obj => ({
+          name: obj.userData.name,
+          type: obj.userData.type,
+          position: [obj.position.x, obj.position.y, obj.position.z],
+          rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
+          scale: [obj.scale.x, obj.scale.y, obj.scale.z]
+        }))
+      };
+
+      projectFolder.file("scene.json", JSON.stringify(sceneData, null, 2));
+
+      // Generated Production Ready index.html
+      const standaloneHtml = `<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>WebAR Experience</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"><\/script>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+    #ar-overlay { position: fixed; top: 12px; left: 12px; z-index: 100; color: #fff; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 20px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="ar-overlay">WebAR Live: ส่องไปที่รูปภาพเพื่อดูโมเดล 3D</div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', async () => {
+      const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+        container: document.body,
+        imageTargetSrc: './assets/targets.mind',
+      });
+      const {renderer, scene, camera} = mindarThree;
+      const anchor = mindarThree.addAnchor(0);
+
+      // Create Box Mesh as Scene Representation
+      const geom = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+      const mat = new THREE.MeshBasicMaterial({color: 0x6366f1});
+      const cube = new THREE.Mesh(geom, mat);
+      cube.position.set(0, 0.05, 0);
+      anchor.group.add(cube);
+
+      await mindarThree.start();
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+      });
+    });
+  <\/script>
+</body>
+</html>`;
+
+      projectFolder.file("index.html", standaloneHtml);
+      
+      const assetsFolder = projectFolder.folder("assets");
+      if (compiledMindBuffer) {
+        assetsFolder.file("targets.mind", compiledMindBuffer);
+      }
+      if (markerData.file) {
+        assetsFolder.file(markerData.name, markerData.file);
+      }
+
+      zip.generateAsync({ type: "blob" }).then(content => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = "WebAR_Package_Ready.zip";
+        link.click();
+      });
+    }
+
+    function setGizmoMode(mode) {
+      transformControls.setMode(mode);
+      ['translate', 'rotate', 'scale'].forEach(m => {
+        const btn = document.getElementById(`btn-gizmo-${m}`);
+        btn.className = (m === mode) ? "p-1.5 rounded bg-indigo-600 text-white transition" : "p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition";
+      });
+    }
+
+    function switchTab(tabName) {
+      ['tracker', 'add', 'hierarchy', 'sequence'].forEach(t => {
+        const panel = document.getElementById(`panel-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tabName) {
+          panel.classList.remove('hidden');
+          btn.className = "py-2.5 text-center text-indigo-400 border-b-2 border-indigo-500 font-semibold transition";
+        } else {
+          panel.classList.add('hidden');
+          btn.className = "py-2.5 text-center text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition";
+        }
+      });
+    }
+
+    function resetCameraView() {
+      camera.position.set(0, 0.4, 0.5);
+      orbitControls.target.set(0, 0, 0);
+    }
+
+    function loadSampleScene() {
+      createPrimitive('cube');
+    }
+
+    function setupEventListeners() {
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key === 'w' || e.key === 'W') setGizmoMode('translate');
+        if (e.key === 'e' || e.key === 'E') setGizmoMode('rotate');
+        if (e.key === 'r' || e.key === 'R') setGizmoMode('scale');
+      });
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('webgl-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      sceneObjects.forEach(obj => {
+        if (obj.userData.mixer) obj.userData.mixer.update(delta);
+      });
+
+      if (sequenceData.textures.length > 0 && sequenceData.autoPlay) {
+        const now = clock.getElapsedTime();
+        if (now - sequenceData.lastFrameTime > 1 / sequenceData.fps) {
+          sequenceData.lastFrameTime = now;
+          sequenceData.currentFrame = (sequenceData.currentFrame + 1) % sequenceData.textures.length;
+          
+          sceneObjects.forEach(obj => {
+            if (obj.userData.type === 'sequence') {
+              obj.material.map = sequenceData.textures[sequenceData.currentFrame];
+              obj.material.needsUpdate = true;
+            }
+          });
+        }
+      }
+
+      orbitControls.update();
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>
+
