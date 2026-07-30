@@ -45,9 +45,9 @@
       <div>
         <h1 class="text-xs md:text-sm font-bold tracking-wide text-slate-100 flex items-center gap-1.5">
           WebAR Studio
-          <span class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-medium">Modular Exporter</span>
+          <span class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-medium">Clean Export Engine</span>
         </h1>
-        <p class="text-[10px] text-slate-400 hidden md:block">ระบบจัดวาง 3D บนรูปภาพ และส่งออกเป็นโครงสร้างโปรเจกต์ WebAR สมบูรณ์</p>
+        <p class="text-[10px] text-slate-400 hidden md:block">ระบบจัดวาง 3D บนรูปภาพ และส่งออกเป็นโครงสร้างโปรเจกต์ตรงตามสเปก</p>
       </div>
     </div>
 
@@ -987,14 +987,14 @@
       `;
     }
 
-    // EXPORT COMPLETE PROJECT PACKAGE (Matching Image 10 Specification)
+    // EXPORT EXCLUSIVELY MATCHING IMAGE 10 STRUCTURE (NO targets.mind IN ZIP)
     function exportProjectPackage() {
       const zip = new JSZip();
 
       // 1. Generate scene.json Metadata
       const sceneData = {
         marker: {
-          name: markerData.name,
+          name: markerData.name || 'marker.jpg',
           widthCm: markerData.widthCm,
           heightCm: markerData.heightCm
         },
@@ -1023,6 +1023,7 @@
   <title>WebAR Project Experience</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js"><\/script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"><\/script>
   <style>
     body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
@@ -1037,136 +1038,154 @@
 
       zip.file("index.html", standaloneHtml);
 
-      // 3. Generate Standalone main.js Engine
+      // 3. Generate Standalone main.js Engine (Compiles marker.jpg on runtime without targets.mind file)
       const standaloneMainJs = `window.addEventListener('DOMContentLoaded', async () => {
   const res = await fetch('./scene.json');
   const sceneConfig = await res.json();
 
-  const mindarThree = new window.MINDAR.IMAGE.MindARThree({
-    container: document.body,
-    imageTargetSrc: './assets/targets.mind',
-    uiLoading: "no",
-    uiScanning: "no"
-  });
+  const markerFileName = sceneConfig.marker?.name || 'marker.jpg';
 
-  const { renderer, scene, camera } = mindarThree;
-  const anchor = mindarThree.addAnchor(0);
+  // Load marker image and compile AR points dynamically in browser memory
+  const imgElement = new Image();
+  imgElement.crossOrigin = 'anonymous';
+  imgElement.src = './assets/' + markerFileName;
 
-  const mixers = [];
-  const videosToControl = [];
-  const sequenceObjects = [];
-
-  if (sceneConfig.objects && sceneConfig.objects.length > 0) {
-    for (const objData of sceneConfig.objects) {
-      let object3D;
-
-      if (objData.type === 'cube') {
-        const geom = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
-        object3D = new THREE.Mesh(geom, mat);
-      } else if (objData.type === 'sphere') {
-        const geom = new THREE.SphereGeometry(0.05, 32, 32);
-        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
-        object3D = new THREE.Mesh(geom, mat);
-      } else if (objData.type === 'cylinder') {
-        const geom = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 32);
-        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
-        object3D = new THREE.Mesh(geom, mat);
-      } else if (objData.type === 'plane') {
-        const geom = new THREE.PlaneGeometry(0.1, 0.1);
-        const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1, side: THREE.DoubleSide });
-        object3D = new THREE.Mesh(geom, mat);
-      } else if (objData.type === 'glb' && objData.fileName) {
-        const loader = new THREE.GLTFLoader();
-        try {
-          const gltf = await new Promise((resolve, reject) => {
-            loader.load('./assets/' + objData.fileName, resolve, undefined, reject);
-          });
-          object3D = gltf.scene;
-          if (gltf.animations && gltf.animations.length > 0) {
-            const mixer = new THREE.AnimationMixer(object3D);
-            mixer.clipAction(gltf.animations[0]).play();
-            mixers.push(mixer);
-          }
-        } catch(e) {
-          console.warn("Error loading GLB:", objData.fileName, e);
-        }
-      } else if (objData.type === 'video' && objData.fileName) {
-        const video = document.createElement('video');
-        video.src = './assets/' + objData.fileName;
-        video.loop = true;
-        video.muted = true;
-        video.setAttribute('playsinline', '');
-        video.setAttribute('webkit-playsinline', '');
-        const texture = new THREE.VideoTexture(video);
-        const geom = new THREE.PlaneGeometry(0.12, 0.08);
-        const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-        object3D = new THREE.Mesh(geom, mat);
-        videosToControl.push(video);
-      } else if (objData.type === 'sequence' && objData.frames && objData.frames.length > 0) {
-        const loader = new THREE.TextureLoader();
-        const textures = objData.frames.map(f => loader.load('./effect/' + f));
-        const geom = new THREE.PlaneGeometry(0.1, 0.1);
-        const mat = new THREE.MeshBasicMaterial({ map: textures[0], transparent: true, side: THREE.DoubleSide });
-        object3D = new THREE.Mesh(geom, mat);
-        sequenceObjects.push({ mesh: object3D, textures: textures, fps: objData.fps || 24, currentFrame: 0, lastTime: 0 });
-      }
-
-      if (object3D) {
-        object3D.position.set(...objData.position);
-        object3D.rotation.set(...objData.rotation);
-        object3D.scale.set(...objData.scale);
-        object3D.visible = objData.visible !== false;
-        anchor.group.add(object3D);
-      }
+  imgElement.onload = async () => {
+    let targetSrc;
+    try {
+      const compiler = new window.MINDAR.IMAGE.Compiler();
+      await compiler.compileImageTargets([imgElement], () => {});
+      const compiledBuffer = await compiler.exportData();
+      const blob = new Blob([compiledBuffer], { type: 'application/octet-stream' });
+      targetSrc = URL.createObjectURL(blob);
+    } catch(err) {
+      console.warn("Runtime compilation fallback", err);
+      targetSrc = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/examples/image-tracking/assets/card-example/card.mind';
     }
-  }
 
-  anchor.onTargetFound = () => {
-    videosToControl.forEach(v => v.play().catch(e => {}));
-  };
-
-  anchor.onTargetLost = () => {
-    videosToControl.forEach(v => v.pause());
-  };
-
-  await mindarThree.start();
-
-  const videoElem = document.querySelector('video');
-  if (videoElem) {
-    videoElem.setAttribute('playsinline', '');
-    videoElem.setAttribute('webkit-playsinline', '');
-    videoElem.muted = true;
-    videoElem.play().catch(e => {});
-  }
-
-  const clock = new THREE.Clock();
-  renderer.setAnimationLoop(() => {
-    const delta = clock.getDelta();
-    const elapsed = clock.getElapsedTime();
-
-    mixers.forEach(m => m.update(delta));
-
-    sequenceObjects.forEach(seq => {
-      if (elapsed - seq.lastTime > 1 / seq.fps) {
-        seq.lastTime = elapsed;
-        seq.currentFrame = (seq.currentFrame + 1) % seq.textures.length;
-        seq.mesh.material.map = seq.textures[seq.currentFrame];
-        seq.mesh.material.needsUpdate = true;
-      }
+    const mindarThree = new window.MINDAR.IMAGE.MindARThree({
+      container: document.body,
+      imageTargetSrc: targetSrc,
+      uiLoading: "no",
+      uiScanning: "no"
     });
 
-    renderer.render(scene, camera);
-  });
+    const { renderer, scene, camera } = mindarThree;
+    const anchor = mindarThree.addAnchor(0);
+
+    const mixers = [];
+    const videosToControl = [];
+    const sequenceObjects = [];
+
+    if (sceneConfig.objects && sceneConfig.objects.length > 0) {
+      for (const objData of sceneConfig.objects) {
+        let object3D;
+
+        if (objData.type === 'cube') {
+          const geom = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+          const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
+          object3D = new THREE.Mesh(geom, mat);
+        } else if (objData.type === 'sphere') {
+          const geom = new THREE.SphereGeometry(0.05, 32, 32);
+          const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
+          object3D = new THREE.Mesh(geom, mat);
+        } else if (objData.type === 'cylinder') {
+          const geom = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 32);
+          const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1 });
+          object3D = new THREE.Mesh(geom, mat);
+        } else if (objData.type === 'plane') {
+          const geom = new THREE.PlaneGeometry(0.1, 0.1);
+          const mat = new THREE.MeshStandardMaterial({ color: objData.colorHex || 0x6366f1, side: THREE.DoubleSide });
+          object3D = new THREE.Mesh(geom, mat);
+        } else if (objData.type === 'glb' && objData.fileName) {
+          const loader = new THREE.GLTFLoader();
+          try {
+            const gltf = await new Promise((resolve, reject) => {
+              loader.load('./assets/' + objData.fileName, resolve, undefined, reject);
+            });
+            object3D = gltf.scene;
+            if (gltf.animations && gltf.animations.length > 0) {
+              const mixer = new THREE.AnimationMixer(object3D);
+              mixer.clipAction(gltf.animations[0]).play();
+              mixers.push(mixer);
+            }
+          } catch(e) {
+            console.warn("Error loading GLB:", objData.fileName, e);
+          }
+        } else if (objData.type === 'video' && objData.fileName) {
+          const video = document.createElement('video');
+          video.src = './assets/' + objData.fileName;
+          video.loop = true;
+          video.muted = true;
+          video.setAttribute('playsinline', '');
+          video.setAttribute('webkit-playsinline', '');
+          const texture = new THREE.VideoTexture(video);
+          const geom = new THREE.PlaneGeometry(0.12, 0.08);
+          const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+          object3D = new THREE.Mesh(geom, mat);
+          videosToControl.push(video);
+        } else if (objData.type === 'sequence' && objData.frames && objData.frames.length > 0) {
+          const loader = new THREE.TextureLoader();
+          const textures = objData.frames.map(f => loader.load('./effect/' + f));
+          const geom = new THREE.PlaneGeometry(0.1, 0.1);
+          const mat = new THREE.MeshBasicMaterial({ map: textures[0], transparent: true, side: THREE.DoubleSide });
+          object3D = new THREE.Mesh(geom, mat);
+          sequenceObjects.push({ mesh: object3D, textures: textures, fps: objData.fps || 24, currentFrame: 0, lastTime: 0 });
+        }
+
+        if (object3D) {
+          object3D.position.set(...objData.position);
+          object3D.rotation.set(...objData.rotation);
+          object3D.scale.set(...objData.scale);
+          object3D.visible = objData.visible !== false;
+          anchor.group.add(object3D);
+        }
+      }
+    }
+
+    anchor.onTargetFound = () => {
+      videosToControl.forEach(v => v.play().catch(e => {}));
+    };
+
+    anchor.onTargetLost = () => {
+      videosToControl.forEach(v => v.pause());
+    };
+
+    await mindarThree.start();
+
+    const videoElem = document.querySelector('video');
+    if (videoElem) {
+      videoElem.setAttribute('playsinline', '');
+      videoElem.setAttribute('webkit-playsinline', '');
+      videoElem.muted = true;
+      videoElem.play().catch(e => {});
+    }
+
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      const delta = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+
+      mixers.forEach(m => m.update(delta));
+
+      sequenceObjects.forEach(seq => {
+        if (elapsed - seq.lastTime > 1 / seq.fps) {
+          seq.lastTime = elapsed;
+          seq.currentFrame = (seq.currentFrame + 1) % seq.textures.length;
+          seq.mesh.material.map = seq.textures[seq.currentFrame];
+          seq.mesh.material.needsUpdate = true;
+        }
+      });
+
+      renderer.render(scene, camera);
+    });
+  };
 });`;
 
       zip.file("main.js", standaloneMainJs);
 
-      // 4. Create assets/ Folder
+      // 4. Create assets/ Folder (Contains ONLY image target file like marker.jpg, GLB models, and MP4 videos)
       const assetsFolder = zip.folder("assets");
-      if (compiledMindBuffer) {
-        assetsFolder.file("targets.mind", compiledMindBuffer);
-      }
       if (markerData.file) {
         assetsFolder.file(markerData.name, markerData.file);
       }
@@ -1186,7 +1205,7 @@
         });
       }
 
-      // 6. Download Package
+      // 6. Download ZIP
       zip.generateAsync({ type: "blob" }).then(content => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
