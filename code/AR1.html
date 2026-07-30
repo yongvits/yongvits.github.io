@@ -3,19 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WebAR Image Tracker Studio v4.5.0</title>
+  <title>WebAR Image Tracker Authoring Studio v5.0.0 PRO</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Three.js Libraries -->
+  <!-- Three.js Core & Addons -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/KTX2Loader.js"></script>
-  <!-- JSZip for project packaging & saving -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+  <!-- JSZip for project packaging & file save/load -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <!-- MindAR WebAR Tracking Engine & Compiler -->
+  <!-- MindAR WebAR Engine & Compiler -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
   <style>
@@ -24,7 +25,6 @@
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #475569; }
     .canvas-container canvas { outline: none; touch-action: none; }
-    /* MindAR Live Viewport Video Layers */
     #ar-view-container video {
       object-fit: cover !important;
       width: 100% !important;
@@ -44,7 +44,7 @@
 </head>
 <body class="h-full flex flex-col font-sans overflow-hidden select-none bg-slate-950">
 
-  <!-- Top Navigation Header -->
+  <!-- Navigation Bar -->
   <header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 md:px-4 z-20 shrink-0">
     <div class="flex items-center space-x-2 md:space-x-3">
       <div class="p-1.5 md:p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
@@ -54,14 +54,14 @@
       </div>
       <div>
         <h1 class="text-xs md:text-sm font-bold tracking-wide text-slate-100 flex items-center gap-1.5">
-          WebAR Studio
-          <span id="app-version-badge" class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">v4.5.0 AR-Tracker-Fixed</span>
+          WebAR Studio Pro
+          <span id="app-version-badge" class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">v5.0.0 PRO Engine</span>
         </h1>
-        <p class="text-[10px] text-slate-400 hidden md:block">ระบบจัดวาง 3D บนรูปภาพ และจำลองการส่อง AR Tracking บนมือถือ</p>
+        <p class="text-[10px] text-slate-400 hidden md:block">เครื่องมือสร้างและทดสอบ WebAR Image Tracking เต็มรูปแบบ</p>
       </div>
     </div>
 
-    <!-- Toolbar Actions -->
+    <!-- Actions Toolbar -->
     <div class="flex items-center space-x-1.5 md:space-x-2 overflow-x-auto py-1">
       <!-- Gizmo Controls -->
       <div class="bg-slate-800 p-1 rounded-lg border border-slate-700/80 flex space-x-1 mr-1">
@@ -76,19 +76,19 @@
         </button>
       </div>
 
-      <!-- Save & Load Project Buttons -->
-      <button onclick="saveProjectFile()" title="บันทึกไฟล์โปรเจกต์ .webar" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg flex items-center space-x-1 shadow transition shrink-0">
+      <!-- Save & Load Buttons -->
+      <button onclick="saveProjectFile()" title="บันทึกไฟล์โปรเจกต์ .webar (รวมโมเดลและรูป)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg flex items-center space-x-1 shadow transition shrink-0">
         <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
         <span>Save 💾</span>
       </button>
 
-      <input type="file" id="load-project-input" accept=".webar, .json" class="hidden" onchange="loadProjectFile(this.files[0])">
+      <input type="file" id="load-project-input" accept=".webar, .zip" class="hidden" onchange="loadProjectFile(this.files[0])">
       <button onclick="document.getElementById('load-project-input').click()" title="โหลดไฟล์โปรเจกต์ .webar" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg flex items-center space-x-1 shadow transition shrink-0">
         <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
         <span>Load 📂</span>
       </button>
 
-      <!-- Real Camera AR Preview Button -->
+      <!-- Camera Preview -->
       <button onclick="startARLivePreview()" class="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center space-x-1 shadow transition shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
         <span>Preview AR ⭐ (ส่องกล้องจริง)</span>
@@ -105,10 +105,10 @@
   <!-- Workspace Container -->
   <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
     
-    <!-- Sidebar Navigation -->
+    <!-- Left Sidebar -->
     <aside class="w-full md:w-80 bg-slate-900/95 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col shrink-0 z-10 max-h-56 md:max-h-none overflow-hidden">
       
-      <!-- Studio Tabs -->
+      <!-- Tabs -->
       <div class="grid grid-cols-4 border-b border-slate-800 text-[11px] font-medium bg-slate-950/50">
         <button onclick="switchTab('tracker')" id="tab-btn-tracker" class="py-2 text-center text-indigo-400 border-b-2 border-indigo-500 font-semibold transition">
           Tracker
@@ -145,11 +145,11 @@
             </div>
           </div>
 
-          <!-- Compiler Progress Indicator -->
+          <!-- Compiler Status -->
           <div id="compiler-status-box" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
             <div class="flex justify-between items-center text-xs">
               <span class="text-indigo-400 font-medium">AR Feature Points Status:</span>
-              <span id="compiler-percent" class="font-mono text-emerald-400">สกัดจุดเด่นสำเร็จ (100%) ✅</span>
+              <span id="compiler-percent" class="font-mono text-emerald-400">พร้อมใช้งาน (Default Target) ✅</span>
             </div>
             <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
               <div id="compiler-progress-bar" class="bg-emerald-500 h-full w-full transition-all duration-300"></div>
@@ -232,8 +232,12 @@
                 <span>Capsule</span>
                 <span class="text-indigo-400">💊</span>
               </button>
-              <button onclick="createPrimitive('light')" class="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
-                <span>Light</span>
+              <button onclick="createPrimitive('circle')" class="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition">
+                <span>Circle</span>
+                <span class="text-indigo-400">⚪</span>
+              </button>
+              <button onclick="createPrimitive('light')" class="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-xs font-medium text-slate-300 flex items-center justify-between transition col-span-2">
+                <span>Point Light (หลอดไฟ)</span>
                 <span class="text-amber-400">💡</span>
               </button>
             </div>
@@ -248,7 +252,7 @@
               <input type="file" id="video-file-input" accept="video/mp4, video/webm" class="hidden" onchange="handleVideoUpload(this.files[0])">
               <button onclick="document.getElementById('video-file-input').click()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg flex items-center justify-center space-x-2 transition">
                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                <span>นำเข้าวิดีโอ (MP4, WebM, Alpha)</span>
+                <span>นำเข้าวิดีโอ (MP4, WebM)</span>
               </button>
             </div>
           </div>
@@ -276,7 +280,7 @@
                 <span id="hierarchy-marker-name">Marker (Target01)</span>
               </div>
 
-              <!-- Hierarchy List with Trash Buttons -->
+              <!-- Hierarchy List -->
               <div id="hierarchy-list" class="pl-4 space-y-1 mt-1">
                 <div class="text-[11px] text-slate-600 italic py-1">(ไม่มีวัตถุในระบบ)</div>
               </div>
@@ -322,7 +326,7 @@
       </div>
     </aside>
 
-    <!-- Center 3D Interactive Viewport -->
+    <!-- Center Viewport -->
     <main class="flex-1 relative bg-slate-950 canvas-container flex flex-col overflow-hidden">
       
       <div class="absolute top-2 left-2 z-10 flex items-center space-x-2">
@@ -346,7 +350,7 @@
       </div>
     </main>
 
-    <!-- Right Sidebar: Inspector Panel -->
+    <!-- Right Sidebar: Inspector -->
     <aside class="w-full md:w-80 bg-slate-900/95 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 z-10 max-h-52 md:max-h-none overflow-y-auto">
       <div class="h-9 px-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 sticky top-0 z-10">
         <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
@@ -411,9 +415,9 @@
             </div>
           </div>
 
-          <!-- Material -->
+          <!-- Material Properties -->
           <div id="inspector-mat-section" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-2">
-            <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">Material</span>
+            <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">Material Settings</span>
             
             <div class="flex items-center justify-between">
               <span class="text-xs text-slate-400">Color:</span>
@@ -426,6 +430,26 @@
                 <span id="mat-opacity-val" class="font-mono text-indigo-400">1.0</span>
               </div>
               <input type="range" id="mat-opacity" min="0" max="1" step="0.05" value="1" oninput="applyInspectorChanges()" class="w-full accent-indigo-500">
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] text-slate-400">
+                <span>Roughness:</span>
+                <span id="mat-roughness-val" class="font-mono text-indigo-400">0.3</span>
+              </div>
+              <input type="range" id="mat-roughness" min="0" max="1" step="0.05" value="0.3" oninput="applyInspectorChanges()" class="w-full accent-indigo-500">
+            </div>
+          </div>
+
+          <!-- Light Properties Inspector (When Light is selected) -->
+          <div id="inspector-light-section" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-2 hidden">
+            <span class="text-xs font-bold text-slate-300 block border-b border-slate-800 pb-1">Light Properties 💡</span>
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] text-slate-400">
+                <span>Intensity (ความสว่าง):</span>
+                <span id="light-intensity-val" class="font-mono text-amber-400">2.0</span>
+              </div>
+              <input type="range" id="light-intensity" min="0" max="10" step="0.1" value="2.0" oninput="applyInspectorChanges()" class="w-full accent-amber-500">
             </div>
           </div>
 
@@ -449,19 +473,19 @@
 
   </div>
 
-  <!-- Real WebAR Camera Tracking View Modal -->
+  <!-- Real WebAR Camera View Overlay Modal -->
   <div id="ar-camera-modal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col hidden">
     <!-- Camera Header -->
     <div class="h-12 bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between z-30">
       <div class="flex items-center space-x-2">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-        <span class="text-xs font-bold text-slate-100">Live MindAR Target Scanner</span>
+        <span class="text-xs font-bold text-slate-100">Live MindAR Session Engine</span>
       </div>
       <div class="flex items-center space-x-1.5">
         <button id="btn-request-cam" onclick="requestCameraAccess()" class="hidden px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg">
-          📷 อนุญาตกล้อง
+          📷 อนุญาตใช้งานกล้อง
         </button>
-        <button onclick="switchCameraFacing()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700">
+        <button onclick="switchCameraFacing()" title="สลับกล้องหน้า/กล้องหลัง" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700">
           🔄 สลับกล้อง
         </button>
         <span id="ar-tracking-status" class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium truncate max-w-[170px] md:max-w-none">
@@ -475,7 +499,6 @@
 
     <!-- Live MindAR View Container -->
     <div id="ar-view-container" class="flex-1 relative overflow-hidden bg-black">
-      <!-- Target Overlay Guide -->
       <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-400/50 m-6 rounded-2xl flex items-center justify-center z-10">
         <div class="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl text-xs text-slate-200 font-mono border border-slate-700 shadow-xl text-center max-w-[280px]">
           นำกล้องส่องไปที่รูป Marker เพื่อให้วัตถุ 3D ปรากฏและลอยแกะติดบนภาพ
@@ -497,6 +520,7 @@
     let compiledMindBuffer = null;
     let arMixers = [], arVideos = [];
     let currentFacingMode = "environment";
+    let activeObjectUrls = []; // Track URLs to prevent memory leak
 
     let markerData = {
       name: "Target01.jpg",
@@ -637,6 +661,7 @@
       document.getElementById('marker-name-input').value = file.name;
 
       const url = URL.createObjectURL(file);
+      activeObjectUrls.push(url);
       const img = document.getElementById('marker-preview-img');
       img.src = url;
       img.classList.remove('hidden');
@@ -700,6 +725,7 @@
       }
     }
 
+    // Primitive Generator with True Capsule Implementation
     function createPrimitive(type) {
       let geom, mat, mesh;
       mat = new THREE.MeshStandardMaterial({ color: 0x6366f1, roughness: 0.3, metalness: 0.1 });
@@ -709,7 +735,16 @@
         case 'cube': geom = new THREE.BoxGeometry(0.08, 0.08, 0.08); mesh = new THREE.Mesh(geom, mat); break;
         case 'sphere': geom = new THREE.SphereGeometry(0.05, 32, 32); mesh = new THREE.Mesh(geom, mat); break;
         case 'cylinder': geom = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 32); mesh = new THREE.Mesh(geom, mat); break;
-        case 'capsule': geom = new THREE.SphereGeometry(0.04, 16, 16); mesh = new THREE.Mesh(geom, mat); break;
+        case 'capsule': 
+          // True Capsule Composite (Cylinder + 2 Spheres)
+          mesh = new THREE.Group();
+          const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.08, 32), mat);
+          const topSp = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16), mat);
+          topSp.position.y = 0.04;
+          const botSp = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16), mat);
+          botSp.position.y = -0.04;
+          mesh.add(cyl, topSp, botSp);
+          break;
         case 'circle': geom = new THREE.CircleGeometry(0.05, 32); mesh = new THREE.Mesh(geom, mat); break;
         case 'light':
           mesh = new THREE.PointLight(0xffaa00, 2, 2);
@@ -724,7 +759,8 @@
         id: 'obj_' + Date.now() + '_' + Math.floor(Math.random()*1000),
         name: type.charAt(0).toUpperCase() + type.slice(1),
         type: type,
-        colorHex: '#6366f1'
+        colorHex: '#6366f1',
+        material: mat
       };
 
       scene.add(mesh);
@@ -733,10 +769,16 @@
       selectObject(mesh);
     }
 
+    // GLB Upload with Draco Support
     function handleGLBUpload(file) {
       if (!file) return;
       const url = URL.createObjectURL(file);
+      activeObjectUrls.push(url);
+
       const loader = new THREE.GLTFLoader();
+      const dracoLoader = new THREE.DRACOLoader();
+      dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.3/');
+      loader.setDRACOLoader(dracoLoader);
 
       loader.load(url, (gltf) => {
         const model = gltf.scene;
@@ -757,6 +799,7 @@
           type: 'glb',
           fileName: file.name,
           file: file,
+          rawGltf: gltf,
           mixer: mixer,
           animations: animations,
           activeAnimIndex: 0
@@ -766,6 +809,8 @@
         sceneObjects.push(model);
         updateHierarchyTree();
         selectObject(model);
+      }, undefined, (err) => {
+        alert("ข้อผิดพลาดในการเปิดไฟล์ GLB โปรดตรวจสอบว่าไฟล์ไม่เสียหาย");
       });
     }
 
@@ -785,6 +830,8 @@
     function handleVideoUpload(file) {
       if (!file) return;
       const url = URL.createObjectURL(file);
+      activeObjectUrls.push(url);
+
       const video = document.createElement('video');
       video.src = url;
       video.loop = true;
@@ -806,6 +853,7 @@
         type: 'video',
         fileName: file.name,
         videoElement: video,
+        texture: videoTexture,
         file: file
       };
 
@@ -823,6 +871,7 @@
 
       fileArray.forEach(file => {
         const url = URL.createObjectURL(file);
+        activeObjectUrls.push(url);
         const tex = new THREE.TextureLoader().load(url);
         sequenceData.textures.push(tex);
       });
@@ -852,10 +901,43 @@
       sequenceData.mode = document.getElementById('seq-mode').value;
     }
 
+    // Memory Disposal Helper (Disposes Geometries, Materials, Textures, Videos, ObjectURLs)
+    function disposeObjectDeep(obj) {
+      if (!obj) return;
+
+      if (obj.userData) {
+        if (obj.userData.videoElement) {
+          obj.userData.videoElement.pause();
+          obj.userData.videoElement.src = '';
+          obj.userData.videoElement.load();
+        }
+        if (obj.userData.texture) {
+          obj.userData.texture.dispose();
+        }
+      }
+
+      obj.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => {
+              if (m.map) m.map.dispose();
+              m.dispose();
+            });
+          } else {
+            if (child.material.map) child.material.map.dispose();
+            child.material.dispose();
+          }
+        }
+      });
+    }
+
     function deleteObjectById(id) {
       const obj = sceneObjects.find(o => o.userData.id === id);
       if (!obj) return;
+
       scene.remove(obj);
+      disposeObjectDeep(obj);
       sceneObjects = sceneObjects.filter(o => o.userData.id !== id);
       
       if (selectedObject === obj) {
@@ -943,6 +1025,17 @@
       document.getElementById('scale-y').value = obj.scale.y.toFixed(2);
       document.getElementById('scale-z').value = obj.scale.z.toFixed(2);
 
+      // Light Section Inspector
+      const lightSection = document.getElementById('inspector-light-section');
+      if (obj.isLight || obj.userData.type === 'light') {
+        lightSection.classList.remove('hidden');
+        document.getElementById('light-intensity').value = obj.intensity || 2.0;
+        document.getElementById('light-intensity-val').innerText = (obj.intensity || 2.0).toFixed(1);
+      } else {
+        lightSection.classList.add('hidden');
+      }
+
+      // Animation Clips Dropdown Inspector
       const animSection = document.getElementById('inspector-anim-section');
       if (obj.userData.type === 'glb' && obj.userData.animations && obj.userData.animations.length > 0) {
         animSection.classList.remove('hidden');
@@ -1005,9 +1098,27 @@
         parseFloat(document.getElementById('scale-z').value) || 1
       );
 
-      if (selectedObject.material && selectedObject.material.color) {
+      // Light Intensity Update
+      if (selectedObject.isLight || selectedObject.userData.type === 'light') {
+        const val = parseFloat(document.getElementById('light-intensity').value) || 2.0;
+        selectedObject.intensity = val;
+        document.getElementById('light-intensity-val').innerText = val.toFixed(1);
+      }
+
+      // Material Options Update
+      if (selectedObject.material) {
         const hex = document.getElementById('mat-color').value;
-        selectedObject.material.color.setStyle(hex);
+        const opacity = parseFloat(document.getElementById('mat-opacity').value) || 1.0;
+        const roughness = parseFloat(document.getElementById('mat-roughness').value) || 0.3;
+
+        document.getElementById('mat-opacity-val').innerText = opacity.toFixed(2);
+        document.getElementById('mat-roughness-val').innerText = roughness.toFixed(2);
+
+        if (selectedObject.material.color) selectedObject.material.color.setStyle(hex);
+        selectedObject.material.opacity = opacity;
+        selectedObject.material.transparent = opacity < 1;
+        if (selectedObject.material.roughness !== undefined) selectedObject.material.roughness = roughness;
+
         selectedObject.userData.colorHex = hex;
       }
 
@@ -1019,14 +1130,14 @@
       deleteObjectById(selectedObject.userData.id);
     }
 
-    // REAL MINDAR IMAGE TRACKER SESSION WITH STRICT TARGET DETECTION LOCKING
+    // REAL MINDAR IMAGE TRACKER SESSION WITH SKELETONUTILS & SWITCH CAMERA
     async function startARLivePreview() {
       document.getElementById('ar-camera-modal').classList.remove('hidden');
       const container = document.getElementById('ar-view-container');
       const statusLbl = document.getElementById('ar-tracking-status');
       const reqCamBtn = document.getElementById('btn-request-cam');
 
-      statusLbl.innerText = "กำลังส่องหา Target... (วัตถุซ่อนอยู่)";
+      statusLbl.innerText = "เริ่มระบบ MindAR Tracker...";
       statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium truncate max-w-[180px] md:max-w-none";
 
       stopARLivePreview(false);
@@ -1041,6 +1152,7 @@
         if (compiledMindBuffer) {
           const blob = new Blob([compiledMindBuffer], { type: 'application/octet-stream' });
           targetSrc = URL.createObjectURL(blob);
+          activeObjectUrls.push(targetSrc);
         } else {
           targetSrc = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/examples/image-tracking/assets/card-example/card.mind';
         }
@@ -1050,6 +1162,7 @@
         mindarThree = new window.MINDAR.IMAGE.MindARThree({
           container: container,
           imageTargetSrc: targetSrc,
+          facingMode: currentFacingMode,
           uiLoading: "no",
           uiScanning: "no",
           filterMinCF: 0.0001,
@@ -1058,7 +1171,6 @@
 
         const { renderer: arRenderer, scene: arScene, camera: arCamera } = mindarThree;
 
-        // Add Lighting to AR Scene
         const ambLight = new THREE.AmbientLight(0xffffff, 1.2);
         arScene.add(ambLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -1066,9 +1178,6 @@
         arScene.add(dirLight);
 
         // MindAR Anchor 0 (The image target)
-        // MindAR automatically controls anchor.group.visible:
-        // anchor.group.visible is FALSE when target is NOT found
-        // anchor.group.visible is TRUE when target IS found!
         const anchor = mindarThree.addAnchor(0);
 
         arMixers = [];
@@ -1076,7 +1185,14 @@
 
         sceneObjects.forEach(obj => {
           if (obj.visible) {
-            const cloneObj = obj.clone(true);
+            let cloneObj;
+            
+            // SKELETONUTILS FIX: Use SkeletonUtils.clone for GLB Models to preserve SkinnedMesh bones & animations
+            if (obj.userData.type === 'glb' && window.THREE.SkeletonUtils) {
+              cloneObj = THREE.SkeletonUtils.clone(obj);
+            } else {
+              cloneObj = obj.clone(true);
+            }
 
             if (obj.userData.type === 'glb' && obj.userData.animations && obj.userData.animations.length > 0) {
               const mixer = new THREE.AnimationMixer(cloneObj);
@@ -1153,10 +1269,13 @@
       if (mindarThree) {
         try { 
           mindarThree.stop(); 
-          mindarThree.renderer.dispose();
+          if (mindarThree.renderer) mindarThree.renderer.dispose();
         } catch(e){}
         mindarThree = null;
       }
+
+      arVideos.forEach(v => v.pause());
+
       const container = document.getElementById('ar-view-container');
       container.innerHTML = `
         <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-400/50 m-6 rounded-2xl flex items-center justify-center z-10">
@@ -1167,10 +1286,12 @@
       `;
     }
 
-    // SAVE PROJECT FILE (.webar / .json)
-    function saveProjectFile() {
+    // COMPLETE ZIP PROJECT SAVE FILE (.webar / .zip Bundle with actual Binary Assets)
+    async function saveProjectFile() {
+      const zip = new JSZip();
+
       const projectData = {
-        version: "4.5.0",
+        version: "5.0.0",
         timestamp: new Date().toISOString(),
         marker: {
           name: markerData.name,
@@ -1185,78 +1306,123 @@
           position: [obj.position.x, obj.position.y, obj.position.z],
           rotation: [obj.rotation.x, obj.rotation.y, obj.rotation.z],
           scale: [obj.scale.x, obj.scale.y, obj.scale.z],
-          visible: obj.visible
+          visible: obj.visible,
+          intensity: obj.intensity || 2.0
         }))
       };
 
-      const jsonStr = JSON.stringify(projectData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
+      zip.file("project.json", JSON.stringify(projectData, null, 2));
+
+      if (compiledMindBuffer) {
+        zip.file("targets.mind", compiledMindBuffer);
+      }
+      if (markerData.file) {
+        zip.file(markerData.name, markerData.file);
+      }
+
+      // Add uploaded GLB, Video, Sequence files
+      sceneObjects.forEach(obj => {
+        if ((obj.userData.type === 'glb' || obj.userData.type === 'video') && obj.userData.file) {
+          zip.file(obj.userData.fileName, obj.userData.file);
+        }
+      });
+
+      if (sequenceData.files.length > 0) {
+        const seqFolder = zip.folder("effect");
+        sequenceData.files.forEach(f => seqFolder.file(f.name, f));
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
+      link.href = URL.createObjectURL(content);
+      activeObjectUrls.push(link.href);
       link.download = `project_${markerData.name.replace(/\.[^/.]+$/, "")}.webar`;
       link.click();
     }
 
-    // LOAD PROJECT FILE (.webar / .json)
-    function loadProjectFile(file) {
+    // COMPLETE ZIP PROJECT LOAD FILE (.webar Restore)
+    async function loadProjectFile(file) {
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const projectData = JSON.parse(e.target.result);
-          
-          // Clear current objects
-          sceneObjects.forEach(obj => scene.remove(obj));
-          sceneObjects = [];
-          selectObject(null);
-
-          // Restore Marker Data
-          if (projectData.marker) {
-            markerData.name = projectData.marker.name || "Target01.jpg";
-            markerData.widthCm = projectData.marker.widthCm || 15;
-            document.getElementById('marker-width-cm').value = markerData.widthCm;
-            document.getElementById('marker-name-input').value = markerData.name;
-            createMarkerPlane();
-          }
-
-          // Restore Objects
-          if (projectData.objects && projectData.objects.length > 0) {
-            projectData.objects.forEach(item => {
-              let geom, mesh;
-              if (item.type === 'cube') geom = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-              else if (item.type === 'sphere') geom = new THREE.SphereGeometry(0.05, 32, 32);
-              else if (item.type === 'cylinder') geom = new THREE.CylinderGeometry(0.04, 0.04, 0.1, 32);
-              else geom = new THREE.PlaneGeometry(0.1, 0.1);
-
-              const mat = new THREE.MeshStandardMaterial({ color: item.colorHex || 0x6366f1 });
-              mesh = new THREE.Mesh(geom, mat);
-              mesh.position.set(...item.position);
-              mesh.rotation.set(...item.rotation);
-              mesh.scale.set(...item.scale);
-              mesh.visible = item.visible !== false;
-
-              mesh.userData = {
-                id: 'obj_' + Date.now() + '_' + Math.floor(Math.random()*1000),
-                name: item.name,
-                type: item.type,
-                colorHex: item.colorHex
-              };
-
-              scene.add(mesh);
-              sceneObjects.push(mesh);
-            });
-          }
-
-          updateHierarchyTree();
-          alert("โหลดไฟล์โปรเจกต์สำเร็จ! ✅");
-        } catch(err) {
-          alert("ไฟล์โปรเจกต์ไม่ถูกต้อง");
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const jsonFile = zip.file("project.json");
+        if (!jsonFile) {
+          alert("ไฟล์โปรเจกต์ไม่ถูกต้อง หรือไม่มี project.json");
+          return;
         }
-      };
-      reader.readAsText(file);
+
+        const projectText = await jsonFile.async("string");
+        const projectData = JSON.parse(projectText);
+
+        // Clean current scene objects
+        sceneObjects.forEach(obj => {
+          scene.remove(obj);
+          disposeObjectDeep(obj);
+        });
+        sceneObjects = [];
+        selectObject(null);
+
+        // Restore Marker Data
+        if (projectData.marker) {
+          markerData.name = projectData.marker.name || "Target01.jpg";
+          markerData.widthCm = projectData.marker.widthCm || 15;
+          document.getElementById('marker-width-cm').value = markerData.widthCm;
+          document.getElementById('marker-name-input').value = markerData.name;
+
+          const markerImgFile = zip.file(markerData.name);
+          if (markerImgFile) {
+            const blob = await markerImgFile.async("blob");
+            const fileObj = new File([blob], markerData.name, { type: blob.type });
+            await handleMarkerUpload(fileObj);
+          }
+        }
+
+        // Restore Targets.mind Buffer
+        const mindFile = zip.file("targets.mind");
+        if (mindFile) {
+          compiledMindBuffer = await mindFile.async("arraybuffer");
+        }
+
+        // Restore Objects
+        if (projectData.objects && projectData.objects.length > 0) {
+          for (const item of projectData.objects) {
+            if (item.type === 'glb' && item.fileName) {
+              const glbZipFile = zip.file(item.fileName);
+              if (glbZipFile) {
+                const glbBlob = await glbZipFile.async("blob");
+                const glbFile = new File([glbBlob], item.fileName, { type: 'model/gltf-binary' });
+                handleGLBUpload(glbFile);
+              }
+            } else if (item.type === 'video' && item.fileName) {
+              const videoZipFile = zip.file(item.fileName);
+              if (videoZipFile) {
+                const videoBlob = await videoZipFile.async("blob");
+                const videoFile = new File([videoBlob], item.fileName, { type: 'video/mp4' });
+                handleVideoUpload(videoFile);
+              }
+            } else {
+              createPrimitive(item.type || 'cube');
+              const createdObj = sceneObjects[sceneObjects.length - 1];
+              if (createdObj) {
+                createdObj.position.set(...item.position);
+                createdObj.rotation.set(...item.rotation);
+                createdObj.scale.set(...item.scale);
+                createdObj.visible = item.visible !== false;
+                if (item.intensity) createdObj.intensity = item.intensity;
+              }
+            }
+          }
+        }
+
+        updateHierarchyTree();
+        alert("โหลดไฟล์โปรเจกต์ .webar สำเร็จสมบูรณ์! ✅");
+      } catch(err) {
+        console.error("Load project error:", err);
+        alert("ข้อผิดพลาดในการโหลดไฟล์โปรเจกต์ โปรดตรวจสอบว่าไฟล์เป็น ZIP / .webar ที่ถูกต้อง");
+      }
     }
 
-    // EXPORT COMPLETE STRUCTURE MATCHING SPEC 10 (index.html, main.js, scene.json, assets/, effect/)
+    // EXPORT COMPLETE DEPLOYABLE ZIP PACKAGE (MATCHING SPEC 10 EXACTLY)
     function exportProjectPackage() {
       const zip = new JSZip();
 
@@ -1314,7 +1480,6 @@
 
   let targetSrc = './assets/targets.mind';
 
-  // Check if targets.mind exists, else compile marker image on runtime
   try {
     const testRes = await fetch(targetSrc);
     if (!testRes.ok) throw new Error("File not found");
@@ -1486,6 +1651,7 @@
       zip.generateAsync({ type: "blob" }).then(content => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
+        activeObjectUrls.push(link.href);
         link.download = "webar-ar-project.zip";
         link.click();
       });
