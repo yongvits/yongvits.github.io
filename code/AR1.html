@@ -48,6 +48,7 @@
     #ar-view-container canvas {
       z-index: 2 !important;
       pointer-events: none !important;
+      background: transparent !important;
     }
   </style>
 </head>
@@ -64,9 +65,9 @@
       <div>
         <h1 class="text-xs md:text-sm font-bold tracking-wide text-slate-100 flex items-center gap-1.5">
           WebAR Studio Pro
-          <span class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">v5.5.0 Camera-Fix</span>
+          <span class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">v5.5.1 Fixed</span>
         </h1>
-        <p class="text-[10px] text-slate-400 hidden md:block">เครื่องมือสร้าง WebAR Image Tracking (แก้จอดำแล้ว)</p>
+        <p class="text-[10px] text-slate-400 hidden md:block">เครื่องมือสร้าง WebAR Image Tracking</p>
       </div>
     </div>
 
@@ -501,6 +502,7 @@
     // MindAR Tracker Live State
     let mindarThree = null;
     let compiledMindBuffer = null;
+    let compiledFromImageName = null; // FIX: tracks which marker file the buffer belongs to
     let arMixers = [], arVideos = [];
     let currentFacingMode = "environment";
     let activeObjectUrls = []; // Track URLs to prevent memory leak
@@ -612,10 +614,10 @@
     }
 
     function getOptimizedImageElement(img) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const maxDim = 800;
-        let w = img.width || 800;
-        let h = img.height || 600;
+        let w = img.naturalWidth || img.width || 800;
+        let h = img.naturalHeight || img.height || 600;
         if (w > maxDim || h > maxDim) {
           if (w > h) {
             h = Math.round((h * maxDim) / w);
@@ -634,7 +636,8 @@
         const optImg = new Image();
         optImg.crossOrigin = "anonymous";
         optImg.onload = () => resolve(optImg);
-        optImg.src = canvas.toDataURL('image/jpeg', 0.9);
+        optImg.onerror = (e) => reject(new Error("ไม่สามารถประมวลผลภาพ Marker ได้"));
+        optImg.src = canvas.toDataURL('image/jpeg', 0.92);
       });
     }
 
@@ -643,6 +646,12 @@
       markerData.file = file;
       markerData.name = file.name;
       document.getElementById('marker-name-input').value = file.name;
+
+      // FIX #1: a new marker image was chosen -> any previously compiled .mind
+      // buffer belongs to the OLD image and must be invalidated, otherwise
+      // Preview AR / Export would silently keep tracking the wrong picture.
+      compiledMindBuffer = null;
+      compiledFromImageName = null;
 
       const url = URL.createObjectURL(file);
       activeObjectUrls.push(url);
@@ -672,29 +681,48 @@
       const percentTxt = document.getElementById('compiler-percent');
 
       percentTxt.innerText = "กำลังสกัดจุดเด่น 10%...";
+      percentTxt.classList.remove('text-red-400');
+      percentTxt.classList.add('text-emerald-400');
       progressBar.style.width = "10%";
+      progressBar.classList.remove('bg-red-500');
+      progressBar.classList.add('bg-emerald-500');
+
+      // FIX #2: reset before attempting so a failed compile never leaves a
+      // stale/incorrect buffer silently marked as "success".
+      compiledMindBuffer = null;
+      compiledFromImageName = null;
 
       try {
+        if (!(window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler)) {
+          throw new Error("ไม่พบ MindAR Compiler (สคริปต์โหลดไม่สำเร็จ หรือถูกบล็อกโดยเครือข่าย)");
+        }
+
         const optImg = await getOptimizedImageElement(imgElement);
         percentTxt.innerText = "กำลังสกัดจุดเด่น 30%...";
         progressBar.style.width = "30%";
 
-        if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
-          const compiler = new window.MINDAR.IMAGE.Compiler();
-          await compiler.compileImageTargets([optImg], (progress) => {
-            const p = Math.round(30 + progress * 70);
-            progressBar.style.width = p + "%";
-            percentTxt.innerText = `สกัดจุดเด่น ${p}%...`;
-          });
+        const compiler = new window.MINDAR.IMAGE.Compiler();
+        await compiler.compileImageTargets([optImg], (progress) => {
+          const p = Math.round(30 + progress * 70);
+          progressBar.style.width = p + "%";
+          percentTxt.innerText = `สกัดจุดเด่น ${p}%...`;
+        });
 
-          compiledMindBuffer = await compiler.exportData();
-          progressBar.style.width = "100%";
-          percentTxt.innerText = "สกัดสำเร็จ (100%) ✅";
-        }
-      } catch (err) {
-        console.warn("MindAR Compiler fallback ready", err);
+        compiledMindBuffer = await compiler.exportData();
+        compiledFromImageName = markerData.name;
         progressBar.style.width = "100%";
         percentTxt.innerText = "สกัดสำเร็จ (100%) ✅";
+      } catch (err) {
+        // FIX #2 (cont.): surface the real failure instead of pretending it worked.
+        console.error("MindAR Compiler error:", err);
+        compiledMindBuffer = null;
+        compiledFromImageName = null;
+        progressBar.style.width = "100%";
+        progressBar.classList.remove('bg-emerald-500');
+        progressBar.classList.add('bg-red-500');
+        percentTxt.classList.remove('text-emerald-400');
+        percentTxt.classList.add('text-red-400');
+        percentTxt.innerText = "สกัดจุดเด่นล้มเหลว ❌ (ดู Console)";
       }
     }
 
@@ -1126,6 +1154,25 @@
       reqCamBtn.classList.add('hidden');
       scanOverlay.style.opacity = '1';
 
+      // FIX #3: fail fast with a clear message instead of a silent black
+      // screen when the page isn't running in a secure context (camera
+      // access requires HTTPS or localhost) or the browser has no camera API.
+      const isSecure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if (!isSecure) {
+        statusLbl.innerText = "ต้องเปิดผ่าน HTTPS หรือ localhost เท่านั้น";
+        statusLbl.className = "text-[10px] md:text-[11px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-bold truncate";
+        reqCamBtn.classList.remove('hidden');
+        isARSessionRunning = false;
+        return;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        statusLbl.innerText = "เบราว์เซอร์นี้ไม่รองรับกล้อง (getUserMedia)";
+        statusLbl.className = "text-[10px] md:text-[11px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-bold truncate";
+        reqCamBtn.classList.remove('hidden');
+        isARSessionRunning = false;
+        return;
+      }
+
       // 1. Ensure clean container
       container.innerHTML = '';
       container.appendChild(scanOverlay);
@@ -1134,17 +1181,25 @@
       await new Promise(resolve => setTimeout(resolve, 200));
 
       try {
-        if (!compiledMindBuffer && markerData.imgElement) {
+        // FIX #1/#2 (cont.): if the compiled buffer doesn't match the marker
+        // currently loaded (e.g. user re-uploaded a new image, or the last
+        // compile failed), recompile now instead of quietly using stale/demo data.
+        if ((!compiledMindBuffer || compiledFromImageName !== markerData.name) && markerData.imgElement) {
           statusLbl.innerText = "สกัดจุดเด่นภาพสด...";
           await compileMarkerTarget(markerData.imgElement);
         }
 
         let targetSrc;
+        let usingUserMarker = false;
         if (compiledMindBuffer) {
           const blob = new Blob([compiledMindBuffer], { type: 'application/octet-stream' });
           targetSrc = URL.createObjectURL(blob);
           activeObjectUrls.push(targetSrc);
+          usingUserMarker = true;
         } else {
+          // No usable compiled target: fall back to the MindAR demo card,
+          // but tell the user clearly so they know it will NOT track their
+          // own uploaded image.
           targetSrc = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/examples/image-tracking/assets/card-example/card.mind';
         }
 
@@ -1155,8 +1210,8 @@
           facingMode: currentFacingMode,
           uiLoading: "no",
           uiScanning: "no",
-          filterMinCF: 0.0001,
-          filterBeta: 0.001
+          filterMinCF: 0.001,
+          filterBeta: 0.01
         });
 
         const { renderer: arRenderer, scene: arScene, camera: arCamera } = mindarThree;
@@ -1213,6 +1268,23 @@
         // 4. Start Engine
         await mindarThree.start();
 
+        // 4b. FIX: make sure the video/canvas that MindAR just inserted
+        // actually obey our full-bleed CSS (some MindAR builds set inline
+        // width/height in pixels which can otherwise clip to 0 and look
+        // like a black screen on some mobile browsers).
+        requestAnimationFrame(() => {
+          const v = container.querySelector('video');
+          const c = container.querySelector('canvas');
+          [v, c].forEach(el => {
+            if (!el) return;
+            el.style.setProperty('width', '100%', 'important');
+            el.style.setProperty('height', '100%', 'important');
+            el.style.setProperty('position', 'absolute', 'important');
+            el.style.setProperty('top', '0', 'important');
+            el.style.setProperty('left', '0', 'important');
+          });
+        });
+
         // 5. iOS Safari / Chrome Mobile Video Fix (Force inline playback directly after start)
         const fixVideoInterval = setInterval(() => {
           const videoElem = container.querySelector('video');
@@ -1229,8 +1301,10 @@
         // Clear interval after 3 seconds
         setTimeout(() => clearInterval(fixVideoInterval), 3000);
 
-        statusLbl.innerText = "ส่องกล้องไปที่รูปภาพ...";
-        statusLbl.className = "text-[10px] md:text-[11px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-medium truncate";
+        statusLbl.innerText = usingUserMarker ? "ส่องกล้องไปที่รูปภาพของคุณ..." : "⚠️ ใช้ภาพตัวอย่าง (อัปโหลด Marker ก่อน)";
+        statusLbl.className = usingUserMarker
+          ? "text-[10px] md:text-[11px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-medium truncate"
+          : "text-[10px] md:text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold truncate max-w-[200px]";
 
         const arClock = new THREE.Clock();
         arRenderer.setAnimationLoop(() => {
@@ -1242,10 +1316,18 @@
       } catch (err) {
         console.error("AR Start Failed:", err);
         isARSessionRunning = false;
-        
-        // Show error specifically if blocked or if inside In-App Browser (Line/FB)
-        statusLbl.innerText = "กล้องถูกบล็อก โปรดเปิดใน Safari/Chrome";
-        statusLbl.className = "text-[10px] md:text-[11px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-bold truncate";
+
+        // FIX #3 (cont.): show the ACTUAL error reason (permission denied,
+        // no camera found, in-app browser restriction, etc.) instead of a
+        // single generic message, so the black screen can be diagnosed.
+        let reason = "ไม่ทราบสาเหตุ";
+        if (err && err.name === 'NotAllowedError') reason = "ผู้ใช้ปฏิเสธสิทธิ์กล้อง / ถูกบล็อกโดยเบราว์เซอร์";
+        else if (err && err.name === 'NotFoundError') reason = "ไม่พบกล้องในอุปกรณ์นี้";
+        else if (err && err.name === 'NotReadableError') reason = "กล้องถูกใช้งานโดยแอปอื่นอยู่";
+        else if (err && err.message) reason = err.message;
+
+        statusLbl.innerText = "ข้อผิดพลาด: " + reason;
+        statusLbl.className = "text-[10px] md:text-[11px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 font-bold truncate max-w-[220px]";
         reqCamBtn.classList.remove('hidden');
       }
     }
@@ -1286,7 +1368,7 @@
       const zip = new JSZip();
 
       const projectData = {
-        version: "5.5.0",
+        version: "5.5.1",
         timestamp: new Date().toISOString(),
         marker: {
           name: markerData.name,
@@ -1354,6 +1436,11 @@
         sceneObjects = [];
         selectObject(null);
 
+        // FIX: loading a project must also invalidate any old compiled buffer
+        // before we potentially load a NEW one from the zip below.
+        compiledMindBuffer = null;
+        compiledFromImageName = null;
+
         if (projectData.marker) {
           markerData.name = projectData.marker.name || "Target01.jpg";
           markerData.widthCm = projectData.marker.widthCm || 15;
@@ -1371,6 +1458,7 @@
         const mindFile = zip.file("targets.mind");
         if (mindFile) {
           compiledMindBuffer = await mindFile.async("arraybuffer");
+          compiledFromImageName = markerData.name;
         }
 
         if (projectData.objects && projectData.objects.length > 0) {
@@ -1457,7 +1545,7 @@
     #ar-overlay { position: fixed; top: 12px; left: 12px; z-index: 100; color: #fff; background: rgba(0,0,0,0.65); padding: 8px 16px; border-radius: 20px; font-size: 12px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.1); }
     /* iOS Safari Fix */
     video { object-fit: cover !important; position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; z-index: 1 !important; }
-    canvas { position: absolute !important; top: 0 !important; left: 0 !important; z-index: 2 !important; pointer-events: none !important; }
+    canvas { position: absolute !important; top: 0 !important; left: 0 !important; z-index: 2 !important; pointer-events: none !important; background: transparent !important; }
   </style>
 </head>
 <body>
@@ -1481,7 +1569,10 @@
     const imgElement = new Image();
     imgElement.crossOrigin = 'anonymous';
     imgElement.src = './assets/' + markerFileName;
-    await new Promise(r => imgElement.onload = r);
+    await new Promise((resolve, reject) => {
+      imgElement.onload = resolve;
+      imgElement.onerror = reject;
+    });
 
     const compiler = new window.MINDAR.IMAGE.Compiler();
     await compiler.compileImageTargets([imgElement], () => {});
@@ -1509,7 +1600,6 @@
 
   const mixers = [];
   const videosToControl = [];
-  const sequenceObjects = [];
 
   if (sceneConfig.objects && sceneConfig.objects.length > 0) {
     for (const objData of sceneConfig.objects) {
@@ -1712,5 +1802,3 @@
   </script>
 </body>
 </html>
-
-
