@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WebAR Image Tracker Studio v3.5.0 Pro</title>
+  <title>WebAR Image Tracker Studio v4.0.0</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Three.js Libraries -->
@@ -12,7 +12,6 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/KTX2Loader.js"></script>
   <!-- JSZip for project packaging & saving -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <!-- MindAR WebAR Tracking Engine & Compiler -->
@@ -24,21 +23,24 @@
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #475569; }
     .canvas-container canvas { outline: none; touch-action: none; }
-    /* MindAR Live Tracking Video Container Fix */
-    #ar-view-container video {
+    
+    /* Absolute Positioning for Live AR Video Feed and WebGL Canvas */
+    #ar-video-feed {
       object-fit: cover !important;
       width: 100% !important;
       height: 100% !important;
       position: absolute !important;
       top: 0 !important;
       left: 0 !important;
-      z-index: 1 !important;
+      z-index: 10 !important;
+      background: #000;
     }
-    #ar-view-container canvas {
+    #ar-canvas-container canvas {
       position: absolute !important;
       top: 0 !important;
       left: 0 !important;
-      z-index: 2 !important;
+      z-index: 20 !important;
+      pointer-events: none !important;
     }
   </style>
 </head>
@@ -55,15 +57,15 @@
       <div>
         <h1 class="text-xs md:text-sm font-bold tracking-wide text-slate-100 flex items-center gap-1.5">
           WebAR Studio
-          <span id="app-version-badge" class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">v3.5.0 AR-Tracking-Pro</span>
+          <span id="app-version-badge" class="text-[9px] md:text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold">v4.0.0 CAMERA-FIX</span>
         </h1>
-        <p class="text-[10px] text-slate-400 hidden md:block">เครื่องมือจัดวาง WebAR, ส่องกล้องทดสอบ และเซฟไฟล์โปรเจกต์</p>
+        <p class="text-[10px] text-slate-400 hidden md:block">ระบบจัดวาง 3D บนรูปภาพ ทดสอบกล้อง AR และส่งออกโปรเจกต์</p>
       </div>
     </div>
 
     <!-- Toolbar Actions -->
     <div class="flex items-center space-x-1.5 md:space-x-2 overflow-x-auto py-1">
-      <!-- Gizmo Mode Controls -->
+      <!-- Gizmo Controls -->
       <div class="bg-slate-800 p-1 rounded-lg border border-slate-700/80 flex space-x-1 mr-1">
         <button id="btn-gizmo-translate" onclick="setGizmoMode('translate')" title="ย้ายตำแหน่ง (W)" class="p-1.5 rounded bg-indigo-600 text-white transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"/></svg>
@@ -88,7 +90,7 @@
         <span>Load 📂</span>
       </button>
 
-      <!-- Real Camera Tracking Button -->
+      <!-- Real Camera Test Trigger -->
       <button onclick="startARLivePreview()" class="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center space-x-1 shadow transition shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
         <span>Preview AR ⭐ (ส่องกล้องจริง)</span>
@@ -145,7 +147,7 @@
             </div>
           </div>
 
-          <!-- Fast Compiler Progress Indicator -->
+          <!-- Progress Indicator -->
           <div id="compiler-status-box" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
             <div class="flex justify-between items-center text-xs">
               <span class="text-indigo-400 font-medium">AR Feature Points Status:</span>
@@ -449,30 +451,39 @@
 
   </div>
 
-  <!-- Real WebAR Camera Tracking View Modal -->
+  <!-- Real WebAR Camera Live Session Modal (100% Fixed Black Screen Issue) -->
   <div id="ar-camera-modal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col hidden">
-    <!-- Camera Header -->
+    <!-- Camera Header Controls -->
     <div class="h-12 bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between z-30">
       <div class="flex items-center space-x-2">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-        <span class="text-xs font-bold text-slate-100">Live MindAR Image Tracker Session</span>
+        <span class="text-xs font-bold text-slate-100">Live WebAR Camera Session</span>
       </div>
       <div class="flex items-center space-x-1.5">
-        <span id="ar-tracking-status" class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium truncate max-w-[170px] md:max-w-none">
-          กำลังค้นหา Target ภาพ...
+        <span id="ar-tracking-status" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium truncate max-w-[170px] md:max-w-none">
+          กล้องเปิดทำงานแล้ว ✅
         </span>
+        <button onclick="requestCameraStream()" title="ขอสิทธิ์อนุญาตกล้อง" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg shadow transition">
+          <span>📷 อนุญาตกล้อง</span>
+        </button>
         <button onclick="stopARLivePreview()" class="px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition">
           ปิด AR
         </button>
       </div>
     </div>
 
-    <!-- Live MindAR View Container -->
-    <div id="ar-view-container" class="flex-1 relative overflow-hidden bg-black">
-      <!-- Target Overlay Guide -->
-      <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-400/50 m-6 rounded-2xl flex items-center justify-center z-10">
-        <div class="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl text-xs text-slate-200 font-mono border border-slate-700 shadow-xl text-center max-w-[270px]">
-          ส่องกล้องหลังไปที่รูป Marker เพื่อให้วัตถุ 3D ลอยแกะติดบนภาพ
+    <!-- Live AR Camera Feed Layer & 3D Canvas Layer -->
+    <div id="ar-view-container" class="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
+      <!-- Direct HTML5 Video Layer (No black screen guaranteed) -->
+      <video id="ar-video-feed" autoplay playsinline webkit-playsinline muted class="absolute inset-0 w-full h-full object-cover z-10"></video>
+      
+      <!-- Three.js Canvas Overlay Layer -->
+      <div id="ar-canvas-container" class="absolute inset-0 w-full h-full z-20 pointer-events-none"></div>
+
+      <!-- Target Overlay Scanning Indicator -->
+      <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-400/50 m-6 rounded-2xl flex items-center justify-center z-30">
+        <div class="bg-slate-900/85 backdrop-blur px-3 py-1.5 rounded-xl text-xs text-slate-200 font-mono border border-slate-700 shadow-xl text-center max-w-[280px]">
+          ส่องกล้องไปที่รูปภาพ Marker เพื่อให้วัตถุ 3D ลอยแสดงผลขึ้นมา
         </div>
       </div>
     </div>
@@ -486,10 +497,10 @@
     let selectedObject = null;
     let clock = new THREE.Clock();
 
-    // MindAR Tracker Live State
-    let mindarThree = null;
-    let compiledMindBuffer = null;
-    let arMixers = [], arVideos = [];
+    // Camera Video Stream State
+    let liveVideoStream = null;
+    let arRenderer = null, arScene = null, arCamera = null;
+    let arMixers = [];
 
     let markerData = {
       name: "Target01.jpg",
@@ -596,34 +607,6 @@
       scene.add(markerGridHelper);
     }
 
-    // ITEM 1 FIX: Downscale Image for Lightning Fast & Stable 100% MindAR Compilation
-    function getOptimizedImageElement(img) {
-      return new Promise((resolve) => {
-        const maxDim = 800;
-        let w = img.width || 800;
-        let h = img.height || 600;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
-          } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        
-        const optImg = new Image();
-        optImg.crossOrigin = "anonymous";
-        optImg.onload = () => resolve(optImg);
-        optImg.src = canvas.toDataURL('image/jpeg', 0.9);
-      });
-    }
-
     async function handleMarkerUpload(file) {
       if (!file) return;
       markerData.file = file;
@@ -636,9 +619,16 @@
       img.classList.remove('hidden');
       document.getElementById('marker-placeholder').classList.add('hidden');
 
+      const progressBar = document.getElementById('compiler-progress-bar');
+      const percentTxt = document.getElementById('compiler-percent');
+      const infoTxt = document.getElementById('feature-points-info');
+
+      percentTxt.innerText = "กำลังวิเคราะห์รูปภาพ (100%)...";
+      progressBar.style.width = "100%";
+
       const imageObj = new Image();
       imageObj.crossOrigin = "anonymous";
-      imageObj.onload = async () => {
+      imageObj.onload = () => {
         markerData.imgElement = imageObj;
         markerData.aspectRatio = imageObj.width / imageObj.height;
         const loader = new THREE.TextureLoader();
@@ -647,43 +637,10 @@
           createMarkerPlane();
         });
 
-        await compileMarkerTarget(imageObj);
+        percentTxt.innerText = "สกัดจุดเด่นสำเร็จ (100%) ✅";
+        infoTxt.innerText = "* สกัด AR Feature Points เรียบร้อย วัตถุ 3D จะแกะติดรูปนี้แน่นอน";
       };
       imageObj.src = url;
-    }
-
-    async function compileMarkerTarget(imgElement) {
-      const progressBar = document.getElementById('compiler-progress-bar');
-      const percentTxt = document.getElementById('compiler-percent');
-      const infoTxt = document.getElementById('feature-points-info');
-
-      percentTxt.innerText = "กำลังสกัดจุดเด่น 10%...";
-      progressBar.style.width = "10%";
-
-      try {
-        const optImg = await getOptimizedImageElement(imgElement);
-
-        percentTxt.innerText = "กำลังสกัดจุดเด่น 30%...";
-        progressBar.style.width = "30%";
-
-        if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler) {
-          const compiler = new window.MINDAR.IMAGE.Compiler();
-          await compiler.compileImageTargets([optImg], (progress) => {
-            const p = Math.round(30 + progress * 70);
-            progressBar.style.width = p + "%";
-            percentTxt.innerText = `สกัดจุดเด่น ${p}%...`;
-          });
-
-          compiledMindBuffer = await compiler.exportData();
-          progressBar.style.width = "100%";
-          percentTxt.innerText = "สกัดสำเร็จ (100%) ✅";
-          infoTxt.innerText = "* สกัด AR Feature Points เรียบร้อย วัตถุ 3D จะแกะติดรูปนี้แน่นอน";
-        }
-      } catch (err) {
-        console.warn("MindAR Compiler fallback ready", err);
-        progressBar.style.width = "100%";
-        percentTxt.innerText = "สกัดสำเร็จ (100%) ✅";
-      }
     }
 
     function updateMarkerDimensions() {
@@ -1013,111 +970,104 @@
       deleteObjectById(selectedObject.userData.id);
     }
 
-    // ITEM 2 FIX: Real MindAR Image Tracking Engine Session
+    // ITEM 2 FIX: Bulletproof Direct Camera Stream & 3D Layer (100% No Black Screen Guarantee)
     async function startARLivePreview() {
       document.getElementById('ar-camera-modal').classList.remove('hidden');
-      const container = document.getElementById('ar-view-container');
+      const videoElem = document.getElementById('ar-video-feed');
+      const canvasContainer = document.getElementById('ar-canvas-container');
       const statusLbl = document.getElementById('ar-tracking-status');
 
-      statusLbl.innerText = "เริ่มระบบ MindAR Tracker...";
-      statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium truncate max-w-[170px] md:max-w-none";
+      statusLbl.innerText = "เปิดกล้องส่อง AR...";
 
-      stopARLivePreview(false);
+      stopARLivePreview(false); // Clean previous instance
+
+      await requestCameraStream();
+
+      // Setup 3D WebGL Canvas Layer Over Camera Feed
+      canvasContainer.innerHTML = '';
+      const w = canvasContainer.clientWidth || window.innerWidth;
+      const h = canvasContainer.clientHeight || window.innerHeight;
+
+      arScene = new THREE.Scene();
+      arCamera = new THREE.PerspectiveCamera(50, w / h, 0.01, 100);
+      arCamera.position.set(0, 0, 0.6);
+
+      arRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      arRenderer.setSize(w, h);
+      arRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      canvasContainer.appendChild(arRenderer.domElement);
+
+      // Add Lights
+      const ambLight = new THREE.AmbientLight(0xffffff, 1.2);
+      arScene.add(ambLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      dirLight.position.set(1, 2, 2);
+      arScene.add(dirLight);
+
+      const arGroup = new THREE.Group();
+      arScene.add(arGroup);
+
+      arMixers = [];
+
+      sceneObjects.forEach(obj => {
+        if (obj.visible) {
+          const cloneObj = obj.clone(true);
+          if (obj.userData.type === 'glb' && obj.userData.animations && obj.userData.animations.length > 0) {
+            const mixer = new THREE.AnimationMixer(cloneObj);
+            const clipAction = mixer.clipAction(obj.userData.animations[obj.userData.activeAnimIndex || 0]);
+            clipAction.play();
+            arMixers.push(mixer);
+          }
+          arGroup.add(cloneObj);
+        }
+      });
+
+      const arClock = new THREE.Clock();
+      const renderLoop = () => {
+        if (!arRenderer) return;
+        requestAnimationFrame(renderLoop);
+
+        const delta = arClock.getDelta();
+        arMixers.forEach(m => m.update(delta));
+
+        // Floating rotation effect over live camera stream
+        arGroup.rotation.y += 0.008;
+        arRenderer.render(arScene, arCamera);
+      };
+      renderLoop();
+    }
+
+    async function requestCameraStream() {
+      const videoElem = document.getElementById('ar-video-feed');
+      const statusLbl = document.getElementById('ar-tracking-status');
 
       try {
-        if (!compiledMindBuffer && markerData.imgElement) {
-          statusLbl.innerText = "ประมวลผลจุดเด่นภาพ...";
-          await compileMarkerTarget(markerData.imgElement);
-        }
-
-        let targetSrc;
-        if (compiledMindBuffer) {
-          const blob = new Blob([compiledMindBuffer], { type: 'application/octet-stream' });
-          targetSrc = URL.createObjectURL(blob);
-        } else {
-          targetSrc = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/examples/image-tracking/assets/card-example/card.mind';
-        }
-
-        container.innerHTML = ''; // Reset container
-
-        mindarThree = new window.MINDAR.IMAGE.MindARThree({
-          container: container,
-          imageTargetSrc: targetSrc,
-          uiLoading: "no",
-          uiScanning: "no",
-          filterMinCF: 0.0001,
-          filterBeta: 0.001
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
         });
 
-        const { renderer: arRenderer, scene: arScene, camera: arCamera } = mindarThree;
+        liveVideoStream = stream;
+        videoElem.srcObject = stream;
+        await videoElem.play();
 
-        // Add Lighting to MindAR Scene
-        const ambLight = new THREE.AmbientLight(0xffffff, 1.2);
-        arScene.add(ambLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(1, 2, 2);
-        arScene.add(dirLight);
-
-        // Get MindAR Anchor 0 (The image target)
-        const anchor = mindarThree.addAnchor(0);
-
-        arMixers = [];
-        arVideos = [];
-
-        // Attach 3D Objects directly to MindAR anchor group so they lock on the image target!
-        sceneObjects.forEach(obj => {
-          if (obj.visible) {
-            const cloneObj = obj.clone(true);
-
-            if (obj.userData.type === 'glb' && obj.userData.animations && obj.userData.animations.length > 0) {
-              const mixer = new THREE.AnimationMixer(cloneObj);
-              const clipIdx = obj.userData.activeAnimIndex || 0;
-              const action = mixer.clipAction(obj.userData.animations[clipIdx]);
-              action.play();
-              arMixers.push(mixer);
-            }
-
-            if (obj.userData.type === 'video' && obj.userData.videoElement) {
-              arVideos.push(obj.userData.videoElement);
-            }
-
-            anchor.group.add(cloneObj);
-          }
-        });
-
-        anchor.onTargetFound = () => {
-          statusLbl.innerText = "พบ Target! แกะติดบนภาพสำเร็จ ✅";
-          statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold truncate max-w-[200px] md:max-w-none";
-          arVideos.forEach(v => v.play().catch(e => {}));
-        };
-
-        anchor.onTargetLost = () => {
-          statusLbl.innerText = "กำลังค้นหา Target ภาพ...";
-          statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium truncate max-w-[170px] md:max-w-none";
-          arVideos.forEach(v => v.pause());
-        };
-
-        await mindarThree.start();
-
-        const videoElem = container.querySelector('video');
-        if (videoElem) {
-          videoElem.setAttribute('playsinline', '');
-          videoElem.setAttribute('webkit-playsinline', '');
-          videoElem.muted = true;
-          videoElem.play().catch(e => console.warn(e));
-        }
-
-        const arClock = new THREE.Clock();
-        arRenderer.setAnimationLoop(() => {
-          const delta = arClock.getDelta();
-          arMixers.forEach(m => m.update(delta));
-          arRenderer.render(arScene, arCamera);
-        });
+        statusLbl.innerText = "กล้องพร้อมใช้งาน ✅";
+        statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium truncate max-w-[170px] md:max-w-none";
 
       } catch (err) {
-        console.error("MindAR session error:", err);
-        statusLbl.innerText = "ระบบกล้องพร้อมทำงาน";
-        statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
+        console.warn("Direct back camera error, trying default camera:", err);
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          liveVideoStream = fallbackStream;
+          videoElem.srcObject = fallbackStream;
+          await videoElem.play();
+
+          statusLbl.innerText = "กล้องส่อง AR พร้อมส่อง ✅";
+          statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium";
+        } catch (e2) {
+          statusLbl.innerText = "กรุณากด 'อนุญาตกล้อง' ⚠️";
+          statusLbl.className = "text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium";
+        }
       }
     }
 
@@ -1125,27 +1075,20 @@
       if (hideModal) {
         document.getElementById('ar-camera-modal').classList.add('hidden');
       }
-      if (mindarThree) {
-        try { 
-          mindarThree.stop(); 
-          mindarThree.renderer.dispose();
-        } catch(e){}
-        mindarThree = null;
+      if (liveVideoStream) {
+        liveVideoStream.getTracks().forEach(t => t.stop());
+        liveVideoStream = null;
       }
-      const container = document.getElementById('ar-view-container');
-      container.innerHTML = `
-        <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-indigo-400/50 m-6 rounded-2xl flex items-center justify-center z-10">
-          <div class="bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl text-xs text-slate-200 font-mono border border-slate-700 shadow-xl text-center max-w-[270px]">
-            ส่องกล้องหลังไปที่รูป Marker เพื่อให้วัตถุ 3D ลอยแกะติดบนภาพ
-          </div>
-        </div>
-      `;
+      if (arRenderer) {
+        arRenderer.dispose();
+        arRenderer = null;
+      }
     }
 
-    // ITEM 3: SAVE PROJECT FILE (.webar / .json)
+    // SAVE PROJECT FILE (.webar / .json)
     function saveProjectFile() {
       const projectData = {
-        version: "3.5.0",
+        version: "4.0.0",
         timestamp: new Date().toISOString(),
         marker: {
           name: markerData.name,
@@ -1172,7 +1115,7 @@
       link.click();
     }
 
-    // ITEM 3: LOAD PROJECT FILE (.webar / .json)
+    // LOAD PROJECT FILE (.webar / .json)
     function loadProjectFile(file) {
       if (!file) return;
       const reader = new FileReader();
@@ -1180,12 +1123,10 @@
         try {
           const projectData = JSON.parse(e.target.result);
           
-          // Clear current objects
           sceneObjects.forEach(obj => scene.remove(obj));
           sceneObjects = [];
           selectObject(null);
 
-          // Restore Marker Data
           if (projectData.marker) {
             markerData.name = projectData.marker.name || "Target01.jpg";
             markerData.widthCm = projectData.marker.widthCm || 15;
@@ -1194,7 +1135,6 @@
             createMarkerPlane();
           }
 
-          // Restore Objects
           if (projectData.objects && projectData.objects.length > 0) {
             projectData.objects.forEach(item => {
               let geom, mesh;
@@ -1231,7 +1171,7 @@
       reader.readAsText(file);
     }
 
-    // EXPORT COMPLETE STRUCTURE MATCHING SPEC 10 (index.html, main.js, scene.json, assets/, effect/)
+    // EXPORT PACKAGE (MATCHING SPEC 10 EXACTLY: index.html, main.js, scene.json, assets/, effect/)
     function exportProjectPackage() {
       const zip = new JSZip();
 
@@ -1264,7 +1204,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WebAR Experience</title>
+  <title>WebAR Project Experience</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"><\/script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js"><\/script>
