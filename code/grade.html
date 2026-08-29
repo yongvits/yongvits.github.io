@@ -1,201 +1,206 @@
-import React, { useState, useEffect } from 'react';
-
-const App = () => {
-  // สร้าง State สำหรับเก็บคะแนนแต่ละช่อง
-  const [scopeScore, setScopeScore] = useState('');
-  const [presentationScore, setPresentationScore] = useState('');
-  const [qaScore, setQaScore] = useState('');
-  
-  // State สำหรับผลรวมและเกรด
-  const [totalScore, setTotalScore] = useState(0);
-  const [grade, setGrade] = useState('F');
-
-  // เกณฑ์คะแนนขั้นต่ำของแต่ละเกรด (ตามที่คุณต้องการให้ F = 49)
-  const gradeThresholds = {
-    'A': 80,
-    'B+': 75,
-    'B': 70,
-    'C+': 65,
-    'C': 60,
-    'D+': 55,
-    'D': 50,
-    'F': 49
-  };
-
-  // ฟังก์ชันคำนวณเกรดจากคะแนนรวม
-  const calculateGrade = (score) => {
-    if (score >= 80) return 'A';
-    if (score >= 75) return 'B+';
-    if (score >= 70) return 'B';
-    if (score >= 65) return 'C+';
-    if (score >= 60) return 'C';
-    if (score >= 55) return 'D+';
-    if (score >= 50) return 'D';
-    return 'F';
-  };
-
-  // Effect ทำงานเมื่อมีการเปลี่ยนคะแนนในช่องต่างๆ
-  useEffect(() => {
-    const score1 = parseFloat(scopeScore) || 0;
-    const score2 = parseFloat(presentationScore) || 0;
-    const score3 = parseFloat(qaScore) || 0;
-
-    const total = score1 + score2 + score3;
-    setTotalScore(total);
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบประเมินคะแนนโครงงาน</title>
     
-    // อัปเดตเกรดให้ตรงกับคะแนนรวม
-    // เช็คเพื่อไม่ให้เซ็ต State ซ้ำซ้อนถ้าผู้ใช้กำลังพิมพ์เกรดเองอยู่
-    const currentCalculatedGrade = calculateGrade(total);
-    if (grade !== currentCalculatedGrade && total > 0) {
-      setGrade(currentCalculatedGrade);
-    }
-  }, [scopeScore, presentationScore, qaScore]);
-
-  // ฟังก์ชันจัดการการพิมพ์คะแนน
-  const handleScoreChange = (setter, max) => (e) => {
-    let val = e.target.value;
-    if (val === '') {
-      setter('');
-      return;
-    }
+    <!-- โหลด Tailwind CSS สำหรับตกแต่งความสวยงาม -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    let num = parseFloat(val);
-    if (num < 0) num = 0;
-    if (num > max) num = max;
+    <!-- โหลด React และ ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     
-    if (val.includes('.') && val.split('.')[1].length > 2) {
-       return;
-    }
-    setter(val);
-  };
+    <!-- โหลด Babel สำหรับแปลงโค้ด JSX ในเบราว์เซอร์ -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 font-sans">
 
-  // ฟังก์ชันจัดการเมื่อผู้ใช้พิมพ์ "เกรด" ลงไปตรงๆ
-  const handleGradeChange = (e) => {
-    const inputGrade = e.target.value.toUpperCase();
-    setGrade(inputGrade);
+    <!-- จุดที่ React จะนำแอปมาแสดง -->
+    <div id="root" class="w-full max-w-2xl"></div>
 
-    // ถ้าเกรดที่พิมพ์มาตรงกับที่มีในระบบ (A, B+, B, C+, C, D+, D, F)
-    if (gradeThresholds[inputGrade] !== undefined) {
-      const targetScore = gradeThresholds[inputGrade];
-      
-      // แบ่งสัดส่วนคะแนนตามเปอร์เซ็นต์ (ขอบเขต 30%, นำเสนอ 60%, ตอบคำถาม 10%)
-      const calculatedScope = parseFloat((targetScore * 0.30).toFixed(2));
-      const calculatedPresentation = parseFloat((targetScore * 0.60).toFixed(2));
-      const calculatedQA = parseFloat((targetScore * 0.10).toFixed(2));
+    <!-- โค้ดแอปพลิเคชัน React -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-      // นำตัวเลขไปหยอดลงแต่ละช่อง
-      setScopeScore(calculatedScope.toString());
-      setPresentationScore(calculatedPresentation.toString());
-      setQaScore(calculatedQA.toString());
-    }
-  };
+        const App = () => {
+            const [scopeScore, setScopeScore] = useState('');
+            const [presentationScore, setPresentationScore] = useState('');
+            const [qaScore, setQaScore] = useState('');
+            
+            const [totalScore, setTotalScore] = useState(0);
+            const [grade, setGrade] = useState('F');
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
-      <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-2xl">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-4">
-          ระบบประเมินคะแนนโครงงาน
-        </h2>
+            const gradeThresholds = {
+                'A': 80,
+                'B+': 75,
+                'B': 70,
+                'C+': 65,
+                'C': 60,
+                'D+': 55,
+                'D': 50,
+                'F': 49
+            };
 
-        <div className="space-y-6">
-          
-          {/* Row 1: ขอบเขตโครงการ */}
-          <div className="flex justify-between items-center">
-            <div className="flex-1">
-              <div className="text-lg font-medium text-gray-900">ขอบเขตโครงการ ความคิดสร้างสรรค์</div>
-              <div className="text-gray-600">(30 คะแนน)</div>
-            </div>
-            <div className="relative w-28 h-16 ml-4 shadow-sm group">
-              <div className="absolute top-0 left-0 w-0 h-0 border-t-[12px] border-r-[12px] border-t-black border-r-transparent pointer-events-none z-10"></div>
-              <input 
-                type="number" 
-                value={scopeScore}
-                onChange={handleScoreChange(setScopeScore, 30)}
-                className="w-full h-full bg-[#FDF5DA] border border-gray-500 text-center text-xl font-semibold outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all absolute top-0 left-0"
-                placeholder="0"
-                max="30"
-                min="0"
-              />
-            </div>
-          </div>
+            const calculateGrade = (score) => {
+                if (score >= 80) return 'A';
+                if (score >= 75) return 'B+';
+                if (score >= 70) return 'B';
+                if (score >= 65) return 'C+';
+                if (score >= 60) return 'C';
+                if (score >= 55) return 'D+';
+                if (score >= 50) return 'D';
+                return 'F';
+            };
 
-          {/* Row 2: การนำเสนอ */}
-          <div className="flex justify-between items-center">
-            <div className="flex-1">
-              <div className="text-lg font-medium text-gray-900">การนำเสนอ การออกแบบโครงการ</div>
-              <div className="text-gray-600">(60 คะแนน)</div>
-            </div>
-            <div className="relative w-28 h-16 ml-4 shadow-sm group">
-              <div className="absolute top-0 left-0 w-0 h-0 border-t-[12px] border-r-[12px] border-t-black border-r-transparent pointer-events-none z-10"></div>
-              <input 
-                type="number" 
-                value={presentationScore}
-                onChange={handleScoreChange(setPresentationScore, 60)}
-                className="w-full h-full bg-[#FDF5DA] border border-gray-500 text-center text-xl font-semibold outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all absolute top-0 left-0"
-                placeholder="0"
-                max="60"
-                min="0"
-              />
-            </div>
-          </div>
+            useEffect(() => {
+                const score1 = parseFloat(scopeScore) || 0;
+                const score2 = parseFloat(presentationScore) || 0;
+                const score3 = parseFloat(qaScore) || 0;
 
-          {/* Row 3: การตอบคำถาม */}
-          <div className="flex justify-between items-center">
-            <div className="flex-1">
-              <div className="text-lg font-medium text-gray-900">การตอบคำถาม</div>
-              <div className="text-gray-600">(10 คะแนน)</div>
-            </div>
-            <div className="relative w-28 h-16 ml-4 shadow-sm group">
-              <div className="absolute top-0 left-0 w-0 h-0 border-t-[12px] border-r-[12px] border-t-black border-r-transparent pointer-events-none z-10"></div>
-              <input 
-                type="number" 
-                value={qaScore}
-                onChange={handleScoreChange(setQaScore, 10)}
-                className="w-full h-full bg-[#FDF5DA] border border-gray-500 text-center text-xl font-semibold outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all absolute top-0 left-0"
-                placeholder="0"
-                max="10"
-                min="0"
-              />
-            </div>
-          </div>
+                const total = score1 + score2 + score3;
+                setTotalScore(total);
+                
+                const currentCalculatedGrade = calculateGrade(total);
+                if (grade !== currentCalculatedGrade && total > 0) {
+                    setGrade(currentCalculatedGrade);
+                }
+            }, [scopeScore, presentationScore, qaScore]);
 
-          {/* Summary Row */}
-          <div className="flex justify-between items-center bg-[#E1EED3] p-4 mt-8 border-t-2 border-gray-300 rounded-b-md">
-            <div className="text-xl font-bold text-gray-900">
-              คะแนนรวม (100)
-            </div>
-            <div className="flex items-center space-x-8">
-              
-              {/* ช่องกรอกเกรด (ทำ Reverse Calculation) */}
-              <input 
-                type="text"
-                value={grade}
-                onChange={handleGradeChange}
-                maxLength="2"
-                title="พิมพ์เกรด (เช่น A, B+, F) เพื่อแบ่งคะแนนอัตโนมัติ"
-                className={`w-16 bg-transparent text-center text-2xl font-bold outline-none border-b-2 border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white transition-all cursor-text ${
-                  grade === 'F' ? 'text-red-600' : 
-                  grade.includes('A') ? 'text-green-600' : 
-                  'text-gray-900'
-                }`}
-              />
+            const handleScoreChange = (setter, max) => (e) => {
+                let val = e.target.value;
+                if (val === '') {
+                    setter('');
+                    return;
+                }
+                
+                let num = parseFloat(val);
+                if (num < 0) num = 0;
+                if (num > max) num = max;
+                
+                if (val.includes('.') && val.split('.')[1].length > 2) {
+                   return;
+                }
+                setter(val);
+            };
 
-              {/* คะแนนรวม */}
-              <div className="text-2xl font-bold text-gray-900 min-w-[80px] text-right">
-                {totalScore.toFixed(2)}
-              </div>
-            </div>
-          </div>
+            const handleGradeChange = (e) => {
+                const inputGrade = e.target.value.toUpperCase();
+                setGrade(inputGrade);
 
-        </div>
-        
-        {/* Helper Note */}
-        <div className="mt-6 text-sm text-gray-500 text-center space-y-1">
-          <p>💡 <strong>ฟีเจอร์พิเศษ:</strong> คุณสามารถคลิกที่เกรด (เช่น F) แล้วพิมพ์เปลี่ยนเป็น A, B+, C ฯลฯ ระบบจะดึงคะแนนขั้นต่ำของเกรดนั้น (เช่น F=49) มาหารสัดส่วนลงทั้ง 3 ช่องให้อัตโนมัติ</p>
-        </div>
-      </div>
-    </div>
-  );
-};
+                if (gradeThresholds[inputGrade] !== undefined) {
+                    const targetScore = gradeThresholds[inputGrade];
+                    
+                    const calculatedScope = parseFloat((targetScore * 0.30).toFixed(2));
+                    const calculatedPresentation = parseFloat((targetScore * 0.60).toFixed(2));
+                    const calculatedQA = parseFloat((targetScore * 0.10).toFixed(2));
 
-export default App;
+                    setScopeScore(calculatedScope.toString());
+                    setPresentationScore(calculatedPresentation.toString());
+                    setQaScore(calculatedQA.toString());
+                }
+            };
+
+            return (
+                <div className="bg-white p-6 md:p-8 rounded-xl shadow-xl w-full">
+                    <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-800 text-center border-b pb-4">
+                        ระบบประเมินคะแนนโครงงาน
+                    </h2>
+
+                    <div className="space-y-6">
+                        
+                        {/* ขอบเขตโครงการ */}
+                        <div className="flex justify-between items-center">
+                            <div className="flex-1 pr-4">
+                                <div className="text-base md:text-lg font-medium text-gray-900">ขอบเขตโครงการ ความคิดสร้างสรรค์</div>
+                                <div className="text-sm md:text-base text-gray-600">(30 คะแนน)</div>
+                            </div>
+                            <div className="relative w-24 h-14 md:w-28 md:h-16 shadow-sm group shrink-0">
+                                <div className="absolute top-0 left-0 w-0 h-0 border-t-[12px] border-r-[12px] border-t-black border-r-transparent pointer-events-none z-10"></div>
+                                <input 
+                                    type="number" 
+                                    value={scopeScore}
+                                    onChange={handleScoreChange(setScopeScore, 30)}
+                                    className="w-full h-full bg-[#FDF5DA] border border-gray-500 text-center text-lg md:text-xl font-semibold outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all absolute top-0 left-0"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+
+                        {/* การนำเสนอ */}
+                        <div className="flex justify-between items-center">
+                            <div className="flex-1 pr-4">
+                                <div className="text-base md:text-lg font-medium text-gray-900">การนำเสนอ การออกแบบโครงการ</div>
+                                <div className="text-sm md:text-base text-gray-600">(60 คะแนน)</div>
+                            </div>
+                            <div className="relative w-24 h-14 md:w-28 md:h-16 shadow-sm group shrink-0">
+                                <div className="absolute top-0 left-0 w-0 h-0 border-t-[12px] border-r-[12px] border-t-black border-r-transparent pointer-events-none z-10"></div>
+                                <input 
+                                    type="number" 
+                                    value={presentationScore}
+                                    onChange={handleScoreChange(setPresentationScore, 60)}
+                                    className="w-full h-full bg-[#FDF5DA] border border-gray-500 text-center text-lg md:text-xl font-semibold outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all absolute top-0 left-0"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+
+                        {/* การตอบคำถาม */}
+                        <div className="flex justify-between items-center">
+                            <div className="flex-1 pr-4">
+                                <div className="text-base md:text-lg font-medium text-gray-900">การตอบคำถาม</div>
+                                <div className="text-sm md:text-base text-gray-600">(10 คะแนน)</div>
+                            </div>
+                            <div className="relative w-24 h-14 md:w-28 md:h-16 shadow-sm group shrink-0">
+                                <div className="absolute top-0 left-0 w-0 h-0 border-t-[12px] border-r-[12px] border-t-black border-r-transparent pointer-events-none z-10"></div>
+                                <input 
+                                    type="number" 
+                                    value={qaScore}
+                                    onChange={handleScoreChange(setQaScore, 10)}
+                                    className="w-full h-full bg-[#FDF5DA] border border-gray-500 text-center text-lg md:text-xl font-semibold outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all absolute top-0 left-0"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+
+                        {/* สรุปผล */}
+                        <div className="flex justify-between items-center bg-[#E1EED3] p-4 mt-8 border-t-2 border-gray-300 rounded-b-md">
+                            <div className="text-lg md:text-xl font-bold text-gray-900">
+                                คะแนนรวม (100)
+                            </div>
+                            <div className="flex items-center space-x-4 md:space-x-8">
+                                
+                                <input 
+                                    type="text"
+                                    value={grade}
+                                    onChange={handleGradeChange}
+                                    maxLength="2"
+                                    title="พิมพ์เกรด (เช่น A, B+, F) เพื่อแบ่งคะแนนอัตโนมัติ"
+                                    className={`w-12 md:w-16 bg-transparent text-center text-xl md:text-2xl font-bold outline-none border-b-2 border-transparent hover:border-gray-400 focus:border-blue-500 focus:bg-white transition-all cursor-text ${
+                                        grade === 'F' ? 'text-red-600' : 
+                                        grade.includes('A') ? 'text-green-600' : 
+                                        'text-gray-900'
+                                    }`}
+                                />
+
+                                <div className="text-xl md:text-2xl font-bold text-gray-900 min-w-[60px] md:min-w-[80px] text-right">
+                                    {totalScore.toFixed(2)}
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <div className="mt-6 text-xs md:text-sm text-gray-500 text-center space-y-1">
+                        <p>💡 <strong>ฟีเจอร์พิเศษ:</strong> สามารถคลิกที่เกรด (เช่น F) แล้วพิมพ์เปลี่ยนเป็น A, B+, C ฯลฯ ระบบจะแบ่งคะแนนลง 3 ช่องให้อัตโนมัติ</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
