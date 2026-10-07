@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#392414">
+<title>เกมจับมอด</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: #392414;
+    font-family: system-ui, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  .hud {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: auto;
+  }
+
+  .status {
+    padding: 8px 14px;
+    border-radius: 24px;
+    background: #29190ee8;
+    color: #ffe6b8;
+    font-size: 14px;
+  }
+
+  .status strong {
+    color: #ffd46f;
+    font-size: 20px;
+  }
+
+  #time {
+    display: block;
+    font-size: 11px;
+    opacity: .7;
+  }
+
+  button, select {
+    min-width: 44px;
+    height: 44px;
+    border: 1px solid #ffffff30;
+    border-radius: 22px;
+    background: #29190ee8;
+    color: #ffe6b8;
+    font: inherit;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  button { font-size: 19px; }
+  select { padding: 0 10px; }
+  button:active { transform: scale(.92); }
+
+  .hint {
+    position: fixed;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    border-radius: 20px;
+    background: #29190ec9;
+    color: #fff0d5;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: #29190edb;
+  }
+
+  .card {
+    width: min(100%, 360px);
+    padding: 30px;
+    border: 1px solid #ffd46f55;
+    border-radius: 28px;
+    background: linear-gradient(#68401f, #322012);
+    text-align: center;
+    color: #ffe6b8;
+    box-shadow: 0 20px 60px #0005;
+  }
+
+  .card h1 { font-size: 26px; }
+  .card p { line-height: 1.8; }
+
+  .primary {
+    width: 100%;
+    height: 52px;
+    background: #ffd46f;
+    color: #392414;
+    font-size: 17px;
+    font-weight: bold;
+    border-radius: 16px;
+  }
+
+  [hidden] { display: none !important; }
+
+  @media (max-width: 420px) {
+    .hud { gap: 6px; }
+    .group { gap: 4px; }
+    .status { padding: 6px 10px; }
+    select { padding: 0 6px; font-size: 12px; }
+  }
+</style>
+</head>
+
+<body>
+<canvas id="game" aria-label="แตะตัวมอดในกองข้าว"></canvas>
+
+<div class="hud">
+  <div class="group">
+    <div class="status">
+      🌾 เหลือ <strong id="remaining">30</strong> ตัว
+      <span id="time">0.0 วินาที</span>
+    </div>
+    <button id="restart" aria-label="เริ่มใหม่">↻</button>
+  </div>
+
+  <div class="group">
+    <select id="amount" aria-label="จำนวนมอด">
+      <option value="15">15 ตัว</option>
+      <option value="30" selected>30 ตัว</option>
+      <option value="45">45 ตัว</option>
+    </select>
+    <button id="pause" aria-label="พักหรือเล่นต่อ">Ⅱ</button>
+    <button id="sound" aria-label="เปิดหรือปิดเสียง">🔊</button>
+    <button id="fullscreen" aria-label="เต็มจอ">⛶</button>
+  </div>
+</div>
+
+<div class="hint" id="hint">แตะตัวมอดให้ครบ • แตะได้หลายนิ้ว</div>
+
+<div class="overlay" id="intro">
+  <div class="card">
+    <div style="font-size:60px">🌾</div>
+    <h1>เกมจับมอด</h1>
+    <p>แตะตัวมอดที่เดินอยู่ในกองข้าว<br>
+       จับให้ครบทุกตัวให้เร็วที่สุด!</p>
+    <button class="primary" id="start">เริ่มเล่น</button>
+  </div>
+</div>
+
+<div class="overlay" id="finish" hidden>
+  <div class="card">
+    <div style="font-size:60px">🏆</div>
+    <h1>จับมอดครบแล้ว!</h1>
+    <p id="result"></p>
+    <button class="primary" id="again">เล่นอีกครั้ง</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = id => document.getElementById(id);
+  const canvas = $("game");
+  const ctx = canvas.getContext("2d");
+  const rice = document.createElement("canvas");
+  const riceCtx = rice.getContext("2d");
+
+  let width = 0, height = 0;
+  let bugs = [], ghosts = [], rings = [];
+  let running = false, paused = false, muted = false;
+  let elapsed = 0, lastFrame = 0, remaining = 0;
+  let audio = null;
+
+  const random = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  function bounds() {
+    const hudBottom = document.querySelector(".hud")
+      .getBoundingClientRect().bottom;
+
+    return {
+      left: 26,
+      right: Math.max(26, width - 26),
+      top: Math.min(height - 35, hudBottom + 30),
+      bottom: Math.max(35, height - 55)
+    };
+  }
+
+  function makeRice() {
+    rice.width = Math.round(width);
+    rice.height = Math.round(height);
+
+    riceCtx.fillStyle = "#c2aa7b";
+    riceCtx.fillRect(0, 0, width, height);
+
+    const colors = ["#fffdf2", "#f3ebd2", "#e6d9b7", "#faf4e3"];
+    const count = Math.min(18000, width * height / 42);
+
+    for (let i = 0; i < count; i++) {
+      riceCtx.save();
+      riceCtx.translate(random(0, width), random(0, height));
+      riceCtx.rotate(random(0, Math.PI));
+
+      riceCtx.fillStyle = "#92764755";
+      riceCtx.beginPath();
+      riceCtx.ellipse(1, 2, 9, 3, 0, 0, Math.PI * 2);
+      riceCtx.fill();
+
+      riceCtx.fillStyle = colors[i % colors.length];
+      riceCtx.beginPath();
+      riceCtx.ellipse(0, 0, random(7, 11), random(2.2, 3.4),
+                      0, 0, Math.PI * 2);
+      riceCtx.fill();
+
+      riceCtx.restore();
+    }
+  }
+
+  function resize() {
+    const oldWidth = width || innerWidth;
+    const oldHeight = height || innerHeight;
+    width = innerWidth;
+    height = innerHeight;
+
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    makeRice();
+
+    const b = bounds();
+    for (const bug of bugs) {
+      bug.x = clamp(bug.x * width / oldWidth, b.left, b.right);
+      bug.y = clamp(bug.y * height / oldHeight, b.top, b.bottom);
+    }
+  }
+
+  function unlockAudio() {
+    try {
+      if (!audio) {
+        const Audio = window.AudioContext || window.webkitAudioContext;
+        if (!Audio) return;
+        audio = new Audio();
+      }
+      if (audio.state === "suspended") audio.resume().catch(() => {});
+    } catch (_) {}
+  }
+
+  function tone(frequency, endFrequency, duration, delay = 0) {
+    if (muted || !audio) return;
+
+    const start = audio.currentTime + delay;
+    const oscillator = audio.createOscillator();
+    const gain = audio.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      endFrequency, start + duration
+    );
+
+    gain.gain.setValueAtTime(.13, start);
+    gain.gain.exponentialRampToValueAtTime(.001, start + duration);
+
+    oscillator.connect(gain);
+    gain.connect(audio.destination);
+    oscillator.start(start);
+    oscillator.stop(start + duration + .02);
+  }
+
+  function startGame() {
+    unlockAudio();
+    $("intro").hidden = true;
+    $("finish").hidden = true;
+
+    bugs = [];
+    ghosts = [];
+    rings = [];
+    elapsed = 0;
+    paused = false;
+    running = true;
+    lastFrame = 0;
+
+    $("pause").textContent = "Ⅱ";
+    const count = Number($("amount").value);
+    remaining = count;
+    $("remaining").textContent = count;
+
+    const b = bounds();
+    const columns = Math.ceil(Math.sqrt(
+      count * (b.right - b.left) / Math.max(1, b.bottom - b.top)
+    ));
+    const rows = Math.ceil(count / columns);
+    const cellWidth = (b.right - b.left) / columns;
+    const cellHeight = (b.bottom - b.top) / rows;
+
+    for (let i = 0; i < count; i++) {
+      const angle = random(0, Math.PI * 2);
+      const speed = random(18, 35);
+
+      bugs.push({
+        x: b.left + (i % columns + random(.2, .8)) * cellWidth,
+        y: b.top + (Math.floor(i / columns) + random(.2, .8)) * cellHeight,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: random(14, 18),
+        phase: random(0, Math.PI * 2),
+        turn: random(.5, 2),
+        alive: true
+      });
+    }
+  }
+
+  function drawBug(bug) {
+    const size = bug.size;
+    const wiggle = Math.sin(bug.phase) * size * .2;
+
+    ctx.save();
+    ctx.translate(bug.x, bug.y);
+    ctx.rotate(Math.atan2(bug.vy, bug.vx) + Math.PI / 2);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#281309";
+
+    // ขาหกข้าง
+    for (const side of [-1, 1]) {
+      for (let leg = -1; leg <= 1; leg++) {
+        ctx.beginPath();
+        ctx.moveTo(side * size * .2, leg * size * .35);
+        ctx.lineTo(side * size * .7,
+                   leg * size * .55 + wiggle * side);
+        ctx.lineTo(side * size,
+                   leg * size * .65 + wiggle * side);
+        ctx.stroke();
+      }
+    }
+
+    // ลำตัว
+    ctx.fillStyle = "#653518";
+    ctx.beginPath();
+    ctx.ellipse(0, size * .15, size * .48, size * .7,
+                0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // ร่องปีก
+    ctx.beginPath();
+    ctx.moveTo(0, -size * .4);
+    ctx.lineTo(0, size * .8);
+    ctx.stroke();
+
+    ctx.fillStyle = "#3a2010";
+    ctx.beginPath();
+    ctx.ellipse(0, -size * .5, size * .32, size * .3,
+                0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // งวงและหนวด
+    ctx.beginPath();
+    ctx.moveTo(0, -size * .7);
+    ctx.lineTo(0, -size * 1.35);
+    ctx.moveTo(0, -size);
+    ctx.lineTo(-size * .4, -size * 1.2);
+    ctx.moveTo(0, -size);
+    ctx.lineTo(size * .4, -size * 1.2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#b88a4c";
+    ctx.beginPath();
+    ctx.ellipse(-size * .18, 0, size * .1, size * .35,
+                -.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawGhost(ghost) {
+    ctx.save();
+    ctx.translate(ghost.x, ghost.y);
+    ctx.scale(1 + ghost.age * 1.2, 1 + ghost.age * 1.2);
+    ctx.globalAlpha = Math.max(0, 1 - ghost.age / 1.2);
+    ctx.shadowColor = "#00eaff";
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = "#c8f8ff";
+    ctx.strokeStyle = "#00bdd6";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(-12, 12);
+    ctx.lineTo(-12, -3);
+    ctx.quadraticCurveTo(-12, -20, 0, -20);
+    ctx.quadraticCurveTo(12, -20, 12, -3);
+    ctx.lineTo(12, 12);
+    ctx.lineTo(6, 7);
+    ctx.lineTo(0, 12);
+    ctx.lineTo(-6, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#175366";
+    ctx.beginPath();
+    ctx.arc(-4, -6, 2, 0, Math.PI * 2);
+    ctx.arc(4, -6, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function tap(event) {
+    event.preventDefault();
+    if (!running || paused) return;
+    unlockAudio();
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) * width / rect.width;
+    const y = (event.clientY - rect.top) * height / rect.height;
+
+    // เลือกตัวที่ใกล้ตำแหน่งแตะที่สุด
+    let target = null;
+    let nearest = Infinity;
+
+    for (const bug of bugs) {
+      if (!bug.alive) continue;
+      const distance = Math.hypot(bug.x - x, bug.y - y);
+      if (distance < Math.max(30, bug.size * 2) && distance < nearest) {
+        target = bug;
+        nearest = distance;
+      }
+    }
+
+    rings.push({ x, y, age: 0, hit: !!target });
+
+    if (target) {
+      target.alive = false;
+      ghosts.push({ x: target.x, y: target.y, age: 0 });
+      remaining--;
+      $("remaining").textContent = remaining;
+
+      tone(180, 50, .1);
+      tone(350, 1000, .4, .05);
+
+      if (remaining === 0) {
+        running = false;
+        $("result").textContent =
+          `จับได้ ${bugs.length} ตัว ใช้เวลา ${elapsed.toFixed(1)} วินาที`;
+
+        [262, 330, 392, 523].forEach((f, i) => tone(f, f, .25, i * .1));
+
+        // แสดงผลหลังเอฟเฟกต์สุดท้าย หากยังไม่ได้เริ่มรอบใหม่
+        const finishedBugs = bugs;
+        setTimeout(() => {
+          if (!running && bugs === finishedBugs) $("finish").hidden = false;
+        }, 700);
+      }
+    } else {
+      // แตะพลาด มอดใกล้ ๆ วิ่งหนี
+      for (const bug of bugs) {
+        if (!bug.alive) continue;
+        const distance = Math.hypot(bug.x - x, bug.y - y);
+        if (distance < 100) {
+          const angle = Math.atan2(bug.y - y, bug.x - x);
+          bug.vx = Math.cos(angle) * 85;
+          bug.vy = Math.sin(angle) * 85;
+          bug.turn = .5;
+        }
+      }
+    }
+  }
+
+  function frame(now) {
+    const dt = Math.min((now - (lastFrame || now)) / 1000, .04);
+    lastFrame = now;
+
+    if (running && !paused) {
+      elapsed += dt;
+      $("time").textContent = elapsed.toFixed(1) + " วินาที";
+      const b = bounds();
+
+      for (const bug of bugs) {
+        if (!bug.alive) continue;
+
+        bug.turn -= dt;
+        if (bug.turn <= 0) {
+          const angle = random(0, Math.PI * 2);
+          const speed = random(18, 35);
+          bug.vx = Math.cos(angle) * speed;
+          bug.vy = Math.sin(angle) * speed;
+          bug.turn = random(.8, 2.5);
+        }
+
+        bug.x += bug.vx * dt;
+        bug.y += bug.vy * dt;
+        bug.phase += dt * 18;
+
+        if (bug.x < b.left || bug.x > b.right) bug.vx *= -1;
+        if (bug.y < b.top || bug.y > b.bottom) bug.vy *= -1;
+
+        bug.x = clamp(bug.x, b.left, b.right);
+        bug.y = clamp(bug.y, b.top, b.bottom);
+      }
+    }
+
+    if (!paused) {
+      for (const ghost of ghosts) {
+        ghost.age += dt;
+        ghost.y -= dt * 90;
+        ghost.x += Math.sin(ghost.age * 8) * dt * 25;
+      }
+      for (const ring of rings) ring.age += dt;
+      ghosts = ghosts.filter(g => g.age < 1.2);
+      rings = rings.filter(r => r.age < .4);
+    }
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(rice, 0, 0, width, height);
+
+    for (const bug of bugs) if (bug.alive) drawBug(bug);
+
+    for (const ring of rings) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - ring.age / .4);
+      ctx.strokeStyle = ring.hit ? "#00bad5" : "#a77a36";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, 12 + ring.age * 100, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    for (const ghost of ghosts) drawGhost(ghost);
+
+    requestAnimationFrame(frame);
+  }
+
+  canvas.addEventListener("pointerdown", tap, { passive: false });
+
+  $("start").onclick = startGame;
+  $("restart").onclick = startGame;
+  $("again").onclick = startGame;
+  $("amount").onchange = () => {
+    if ($("intro").hidden) startGame();
+  };
+
+  $("pause").onclick = () => {
+    if (!running) return;
+    paused = !paused;
+    $("pause").textContent = paused ? "▶" : "Ⅱ";
+  };
+
+  $("sound").onclick = () => {
+    muted = !muted;
+    $("sound").textContent = muted ? "🔇" : "🔊";
+    if (!muted) unlockAudio();
+  };
+
+  $("fullscreen").onclick = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        $("hint").textContent = "Safari: แชร์ → เพิ่มไปยังหน้าจอโฮม";
+      }
+    } catch (_) {
+      $("hint").textContent = "ใช้แนวนอน หรือเพิ่มไปยังหน้าจอโฮม";
+    }
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && running) {
+      paused = true;
+      $("pause").textContent = "▶";
+    }
+    lastFrame = 0;
+  });
+
+  window.addEventListener("resize", resize);
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
